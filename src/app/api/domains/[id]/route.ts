@@ -13,14 +13,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   await connectDB()
   const body = await req.json()
-  const { name, description } = body
+  const { name, description, members } = body
 
-  const updateData: Record<string, string> = {}
+  const updateData: Record<string, unknown> = {}
   if (name) {
     updateData.name = name
     updateData.slug = slugify(name)
   }
   if (description !== undefined) updateData.description = description
+  if (members !== undefined) updateData.members = Array.isArray(members) ? members : []
 
   const domain = await Domain.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!domain) return NextResponse.json({ error: 'Not found' }, { status: 404 })

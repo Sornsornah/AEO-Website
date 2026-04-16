@@ -12,6 +12,7 @@ interface Product {
   name: string
   color: string
   slug: string
+  domainName?: string
 }
 
 interface UpdateCardProps {
@@ -45,6 +46,9 @@ export function UpdateCard({ update, isNew = false, showStatus = false, isSaved 
       {/* Content column */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2">
+          {product?.domainName && (
+            <span className="text-xs text-slate-400">{product.domainName}</span>
+          )}
           {product && <ProductBadge name={product.name} color={product.color} />}
           {isNew && (
             <Badge className="bg-blue-50 text-blue-700 border-blue-100 text-xs font-medium hover:bg-blue-50">

@@ -12,9 +12,9 @@ export default async function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">U</span>
+            <span className="text-white font-bold text-lg">A</span>
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">UpdateCentral</h1>
+          <h1 className="text-xl font-semibold text-slate-900">AEO Happenings</h1>
           <p className="text-sm text-slate-500 mt-1">Sign in to view product updates</p>
         </div>
 

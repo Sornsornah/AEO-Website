@@ -9,7 +9,7 @@ import { slugify } from '@/lib/utils'
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
   const body = await req.json()
@@ -23,6 +23,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (description !== undefined) updateData.description = description
   if (color) updateData.color = color
   if (body.domainId !== undefined) updateData.domainId = body.domainId || null
+  if (body.websiteUrl !== undefined) updateData.websiteUrl = body.websiteUrl || null
+  if (body.deckUrl !== undefined) updateData.deckUrl = body.deckUrl || null
+  if (body.logoUrl !== undefined) updateData.logoUrl = body.logoUrl || null
+  if (body.members !== undefined) updateData.members = Array.isArray(body.members) ? body.members : []
 
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -33,7 +37,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
 

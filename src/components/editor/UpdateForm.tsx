@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { MarkdownEditor } from './MarkdownEditor'
 import { HighlightsInput } from './HighlightsInput'
@@ -32,6 +32,7 @@ interface UpdateFormProps {
     title?: string
     summary?: string
     content?: string
+    domainId?: string
     productId?: string
     date?: string
     highlights?: string[]
@@ -59,11 +60,17 @@ export function UpdateForm({ mode, domainGroups, defaultValues = {} }: UpdateFor
   const allProducts = domainGroups.flatMap((g) => g.products)
   const selectedProduct = allProducts.find((p) => p._id === productId)
 
+  const [domainId, setDomainId] = useState(defaultValues.domainId || '')
+
+  const filteredProducts = domainId
+    ? (domainGroups.find((g) => g._id === domainId)?.products || [])
+    : allProducts
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (!title || !summary || !content || !productId || !date) {
+    if (!title || !summary || !content || !domainId || !date) {
       setError('Please fill in all required fields.')
       return
     }
@@ -77,7 +84,7 @@ export function UpdateForm({ mode, domainGroups, defaultValues = {} }: UpdateFor
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, summary, content, productId, date, highlights, isPublished }),
+        body: JSON.stringify({ title, summary, content, domainId, productId: productId || undefined, date, highlights, isPublished }),
       })
 
       if (!res.ok) {
@@ -151,34 +158,28 @@ export function UpdateForm({ mode, domainGroups, defaultValues = {} }: UpdateFor
         />
       </div>
 
-      {/* Product + Date row */}
+      {/* Domain + Date row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-sm font-medium text-slate-700">
-            Product <span className="text-red-500">*</span>
+            Domain <span className="text-red-500">*</span>
           </Label>
-          <Select value={productId} onValueChange={setProductId} required>
+          <Select
+            value={domainId || ''}
+            onValueChange={(val) => {
+              setDomainId(val)
+              // Clear product if it doesn't belong to the new domain
+              if (!domainGroups.find((g) => g._id === val)?.products.some((p) => p._id === productId)) {
+                setProductId('')
+              }
+            }}
+          >
             <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select product" />
+              <SelectValue placeholder="Select domain" />
             </SelectTrigger>
             <SelectContent>
-              {domainGroups.map((group) => (
-                <SelectGroup key={group._id}>
-                  <SelectLabel className="text-xs text-slate-400 font-medium py-1 pl-3 pr-2">
-                    {group.name}
-                  </SelectLabel>
-                  {group.products.map((p) => (
-                    <SelectItem key={p._id} value={p._id}>
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: p.color }}
-                        />
-                        {p.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+              {domainGroups.map((g) => (
+                <SelectItem key={g._id} value={g._id}>{g.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -197,6 +198,30 @@ export function UpdateForm({ mode, domainGroups, defaultValues = {} }: UpdateFor
             required
           />
         </div>
+      </div>
+
+      {/* Product */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-slate-700">Product</Label>
+        <Select value={productId || 'none'} onValueChange={(val) => setProductId(val === 'none' ? '' : val)}>
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="No specific product" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No specific product</SelectItem>
+            {filteredProducts.map((p) => (
+              <SelectItem key={p._id} value={p._id}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: p.color }}
+                  />
+                  {p.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Summary */}

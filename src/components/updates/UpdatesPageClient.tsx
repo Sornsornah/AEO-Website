@@ -39,6 +39,12 @@ export function UpdatesPageClient({ updates, selectedUpdate, savedIds, hasFilter
 
   const savedSet = new Set(savedIds)
 
+  const clearFiltersInView = useCallback(() => {
+    const params = new URLSearchParams()
+    if (currentView !== 'all') params.set('view', currentView)
+    router.push(`${pathname}${params.toString() ? '?' + params.toString() : ''}`)
+  }, [router, pathname, currentView])
+
   const switchView = useCallback(
     (view: string) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -58,7 +64,7 @@ export function UpdatesPageClient({ updates, selectedUpdate, savedIds, hasFilter
     (id: string) => {
       const params = new URLSearchParams(searchParams.toString())
       params.set('id', id)
-      router.push(`${pathname}?${params.toString()}`)
+      router.push(`${pathname}?${params.toString()}`, { scroll: false })
     },
     [router, pathname, searchParams]
   )
@@ -66,7 +72,7 @@ export function UpdatesPageClient({ updates, selectedUpdate, savedIds, hasFilter
   const handleClose = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete('id')
-    router.push(`${pathname}?${params.toString()}`)
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }, [router, pathname, searchParams])
 
   const changePage = useCallback((page: number) => {
@@ -145,26 +151,50 @@ export function UpdatesPageClient({ updates, selectedUpdate, savedIds, hasFilter
         {updates.length === 0 ? (
           <div className="text-center py-16">
             {currentView === 'new' ? (
-              <>
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-slate-400">
-                    <path d="M10 2a8 8 0 100 16A8 8 0 0010 2z" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <p className="text-slate-700 font-medium mb-1">You&apos;re all caught up</p>
-                <p className="text-slate-400 text-sm">You&apos;ve seen all the latest updates.</p>
-              </>
+              hasFilters ? (
+                <>
+                  <p className="text-slate-400 text-sm">No unseen updates match your filters.</p>
+                  <button
+                    onClick={clearFiltersInView}
+                    className="text-blue-600 text-sm mt-2 inline-block hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-slate-400">
+                      <path d="M10 2a8 8 0 100 16A8 8 0 0010 2z" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <p className="text-slate-700 font-medium mb-1">You&apos;re all caught up</p>
+                  <p className="text-slate-400 text-sm">You&apos;ve seen all the latest updates.</p>
+                </>
+              )
             ) : currentView === 'saved' ? (
-              <>
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-slate-400">
-                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <p className="text-slate-700 font-medium mb-1">No saved updates</p>
-                <p className="text-slate-400 text-sm">Bookmark updates to find them here.</p>
-              </>
+              hasFilters ? (
+                <>
+                  <p className="text-slate-400 text-sm">No saved updates match your filters.</p>
+                  <button
+                    onClick={clearFiltersInView}
+                    className="text-blue-600 text-sm mt-2 inline-block hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-slate-400">
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <p className="text-slate-700 font-medium mb-1">No saved updates</p>
+                  <p className="text-slate-400 text-sm">Bookmark updates to find them here.</p>
+                </>
+              )
             ) : (
               <>
                 <p className="text-slate-400 text-sm">
@@ -189,8 +219,8 @@ export function UpdatesPageClient({ updates, selectedUpdate, savedIds, hasFilter
           ))
         )}
 
-        {/* Pagination — only for non-saved views */}
-        {currentView !== 'saved' && totalCount > pageSize && (
+        {/* Pagination */}
+        {currentView !== 'new' && totalCount > pageSize && (
           <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-2">
             <button
               onClick={() => changePage(currentPage - 1)}

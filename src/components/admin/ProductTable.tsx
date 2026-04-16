@@ -11,6 +11,12 @@ interface Domain {
   name: string
 }
 
+interface UserOption {
+  _id: string
+  name: string
+  email: string
+}
+
 interface ProductRow {
   _id: string
   name: string
@@ -19,9 +25,13 @@ interface ProductRow {
   domainId?: string
   domainName?: string
   updateCount: number
+  websiteUrl?: string
+  deckUrl?: string
+  logoUrl?: string
+  members: UserOption[]
 }
 
-export function ProductTable({ products, domains }: { products: ProductRow[]; domains: Domain[] }) {
+export function ProductTable({ products, domains, users }: { products: ProductRow[]; domains: Domain[]; users: UserOption[] }) {
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null)
@@ -120,6 +130,7 @@ export function ProductTable({ products, domains }: { products: ProductRow[]; do
         <EditProductModal
           product={editingProduct}
           domains={domains}
+          users={users}
           onClose={() => setEditingProduct(null)}
         />
       )}

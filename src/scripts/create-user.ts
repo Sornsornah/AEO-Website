@@ -9,7 +9,7 @@ const MONGODB_URI = process.env.MONGODB_URI!
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['viewer', 'editor', 'admin'], default: 'viewer' },
+  role: { type: String, enum: ['viewer', 'admin'], default: 'viewer' },
   isWhitelisted: { type: Boolean, default: false },
 }, { timestamps: true })
 
@@ -24,12 +24,12 @@ async function createUser() {
   const role = getArg('role') ?? 'viewer'
 
   if (!email || !name) {
-    console.error('Usage: npm run create-user -- --email=<email> --name=<name> [--role=viewer|editor|admin]')
+    console.error('Usage: npm run create-user -- --email=<email> --name=<name> [--role=viewer|admin]')
     process.exit(1)
   }
 
-  if (!['viewer', 'editor', 'admin'].includes(role)) {
-    console.error('Role must be "viewer", "editor", or "admin"')
+  if (!['viewer', 'admin'].includes(role)) {
+    console.error('Role must be "viewer" or "admin"')
     process.exit(1)
   }
 

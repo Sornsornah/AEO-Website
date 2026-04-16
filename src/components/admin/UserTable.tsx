@@ -13,14 +13,13 @@ interface UserRow {
   _id: string
   email: string
   name: string
-  role: 'viewer' | 'editor' | 'admin'
+  role: 'viewer' | 'admin'
   isWhitelisted: boolean
   createdAt: string
 }
 
 const roleColors: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700 border-purple-100',
-  editor: 'bg-blue-50 text-blue-700 border-blue-100',
   viewer: 'bg-slate-50 text-slate-600 border-slate-200',
 }
 
@@ -122,7 +121,6 @@ export function UserTable({ users, currentUserId }: { users: UserRow[]; currentU
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="editor">Editor</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>

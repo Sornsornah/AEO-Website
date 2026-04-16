@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const page = parseInt(searchParams.get('page') || '1', 10)
-  const includeUnpublished = searchParams.get('includeUnpublished') === 'true' && session.user.role === 'editor'
+  const includeUnpublished = searchParams.get('includeUnpublished') === 'true' && session.user.role === 'admin'
 
   const query: Record<string, unknown> = {}
 
@@ -62,21 +62,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
   const body = await req.json()
-  const { title, summary, content, productId, date, highlights, isPublished } = body
+  const { title, summary, content, domainId, productId, date, highlights, isPublished } = body
 
-  if (!title || !summary || !content || !productId || !date) {
+  if (!title || !summary || !content || !domainId || !date) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // Editors can only post to products they're a member of (when a product is selected)
+  if (session.user.role === 'editor' && productId) {
+    const product = await Product.findById(productId).lean()
+    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    const isMember = (product.members as unknown[]).some((m) => m?.toString() === session.user.id)
+    if (!isMember) return NextResponse.json({ error: 'You are not a member of this product' }, { status: 403 })
   }
 
   const update = await Update.create({
     title,
     summary,
     content,
-    productId,
+    domainId,
+    productId: productId || undefined,
     date: new Date(date),
     highlights: highlights || [],
     isPublished: isPublished || false,

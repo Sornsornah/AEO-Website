@@ -32,6 +32,7 @@ interface FilterBarProps {
   allDomains: DomainOption[]
   availableYears: number[]
   currentSearch?: string
+  showStatus?: boolean
 }
 
 const MONTHS = [
@@ -49,7 +50,7 @@ const MONTHS = [
   { value: '12', label: 'December' },
 ]
 
-export function FilterBar({ domains, allDomains, availableYears, currentSearch = '' }: FilterBarProps) {
+export function FilterBar({ domains, allDomains, availableYears, currentSearch = '', showStatus = false }: FilterBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -59,6 +60,7 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
   const currentYear = searchParams.get('year') || ''
   const currentMonth = searchParams.get('month') || ''
   const currentSort = searchParams.get('sort') || 'desc'
+  const currentStatus = searchParams.get('status') || ''
   const currentId = searchParams.get('id') || ''
 
   const [searchInput, setSearchInput] = useState(currentSearch)
@@ -92,7 +94,7 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
     router.push(`${pathname}${params.toString() ? '?' + params.toString() : ''}`)
   }
 
-  const hasFilters = currentProduct || currentDomain || currentYear || currentMonth || currentSearch
+  const hasFilters = currentProduct || currentDomain || currentYear || currentMonth || currentSearch || (showStatus && currentStatus)
 
   return (
     <div className="flex flex-wrap items-end gap-4 pb-6 border-b border-slate-100">
@@ -205,6 +207,26 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
           </SelectContent>
         </Select>
       </div>
+
+      {/* Status */}
+      {showStatus && (
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Status</Label>
+          <Select
+            value={currentStatus || 'all'}
+            onValueChange={(val) => updateParams({ status: val === 'all' ? '' : val })}
+          >
+            <SelectTrigger className="w-32 h-9 text-sm">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Sort */}
       <div className="flex flex-col gap-1.5">

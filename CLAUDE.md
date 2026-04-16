@@ -10,8 +10,9 @@ npm run build        # Production build
 npm run lint         # ESLint
 
 npm run seed         # Seed DB with test products, updates, and two whitelisted users
-npm run create-user  # Create a whitelisted user: --email= --name= [--role=viewer|editor|admin]
+npm run create-user  # Create a whitelisted user: --email= --name= [--role=viewer|admin]
 npm run whitelist-user  # Toggle whitelist: --email= [--revoke]
+npm run migrate-roles  # One-time: migrate all editor users to admin
 ```
 
 No test suite is configured.
@@ -45,10 +46,9 @@ In development, if `EMAIL_USER` is empty, the OTP is logged to the server consol
 
 ### Roles
 
-Three roles: `viewer`, `editor`, `admin`.
+Two roles: `viewer`, `admin`.
 - **viewer** — read-only access to `/updates` and `/whats-new`
-- **editor** — can create/edit/publish updates at `/editor`
-- **admin** — full editor access + `/admin` page (user whitelisting, role management, project creation)
+- **admin** — can create/edit/publish updates at `/editor` + manage users/products at `/admin`
 
 Access is also gated by `isWhitelisted: true` on the User document — a user with a valid role but `isWhitelisted: false` cannot sign in.
 
@@ -74,4 +74,4 @@ Access is also gated by `isWhitelisted: true` on the User document — a user wi
 
 Admin-only routes live under `src/app/api/admin/users/` — GET all users, POST create user, PATCH update role/whitelist, DELETE user. All check `session.user.role === 'admin'`.
 
-All other API routes (`/api/products`, `/api/updates`) allow `editor` or `admin` roles for write operations.
+All other API routes (`/api/products`, `/api/updates`) require `admin` role for write operations.

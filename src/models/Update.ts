@@ -4,7 +4,8 @@ export interface IUpdate extends Document {
   title: string
   summary: string
   content: string
-  productId: Types.ObjectId
+  domainId: Types.ObjectId
+  productId?: Types.ObjectId
   date: Date
   highlights: string[]
   isPublished: boolean
@@ -18,7 +19,8 @@ const UpdateSchema = new Schema<IUpdate>(
     title: { type: String, required: true, trim: true },
     summary: { type: String, required: true, trim: true },
     content: { type: String, required: true },
-    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: true },
+    productId: { type: Schema.Types.ObjectId, ref: 'Product', required: false },
     date: { type: Date, required: true },
     highlights: [{ type: String, trim: true }],
     isPublished: { type: Boolean, default: false },

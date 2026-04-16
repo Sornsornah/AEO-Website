@@ -17,11 +17,11 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
   const body = await req.json()
-  const { name, description, color, domainId } = body
+  const { name, description, color, domainId, websiteUrl, deckUrl, logoUrl, members } = body
 
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
@@ -29,6 +29,14 @@ export async function POST(req: NextRequest) {
   const existing = await Product.findOne({ slug })
   if (existing) return NextResponse.json({ error: 'A product with this name already exists' }, { status: 409 })
 
-  const product = await Product.create({ name, slug, description, color: color || '#6366f1', domainId: domainId || undefined })
+  const product = await Product.create({
+    name, slug, description,
+    color: color || '#6366f1',
+    domainId: domainId || undefined,
+    websiteUrl: websiteUrl || undefined,
+    deckUrl: deckUrl || undefined,
+    logoUrl: logoUrl || undefined,
+    members: Array.isArray(members) ? members : [],
+  })
   return NextResponse.json(product, { status: 201 })
 }

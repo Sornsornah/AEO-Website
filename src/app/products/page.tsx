@@ -38,6 +38,7 @@ export default async function ProductsPage() {
     color: string
     updateCount: number
     latestUpdateTitle?: string
+    logoUrl?: string
   }
 
   const byDomain = new Map<string, { domainName: string; products: ProductWithDomain[] }>()
@@ -53,6 +54,7 @@ export default async function ProductsPage() {
       color: p.color,
       updateCount: updateCountByProduct[pid] ?? 0,
       latestUpdateTitle: latestTitleByProduct[pid],
+      logoUrl: p.logoUrl,
     }
 
     const domainDoc = p.domainId as { _id: { toString(): string } } | null

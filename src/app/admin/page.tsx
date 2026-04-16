@@ -7,12 +7,7 @@ import { Product } from '@/models/Product'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
 import { Navbar } from '@/components/layout/Navbar'
-import { UserTable } from '@/components/admin/UserTable'
-import { AddUserForm } from '@/components/admin/AddUserForm'
-import { ProductTable } from '@/components/admin/ProductTable'
-import { AddProductForm } from '@/components/admin/AddProductForm'
-import { DomainTable } from '@/components/admin/DomainTable'
-import { AddDomainForm } from '@/components/admin/AddDomainForm'
+import { AdminTabs } from '@/components/admin/AdminTabs'
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions)
@@ -22,9 +17,9 @@ export default async function AdminPage() {
 
   const [users, products, updates, domains] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
-    Product.find().populate('domainId').sort({ name: 1 }).lean(),
+    Product.find().populate('domainId').populate('members', 'name email').sort({ name: 1 }).lean(),
     Update.find({}, { productId: 1 }).lean(),
-    Domain.find().sort({ name: 1 }).lean(),
+    Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
   ])
 
   const updateCountByProduct: Record<string, number> = {}
@@ -43,7 +38,7 @@ export default async function AdminPage() {
     _id: u._id.toString(),
     email: u.email,
     name: u.name,
-    role: u.role as 'viewer' | 'editor' | 'admin',
+    role: u.role as 'viewer' | 'admin',
     isWhitelisted: u.isWhitelisted,
     createdAt: u.createdAt.toISOString(),
   }))
@@ -54,6 +49,11 @@ export default async function AdminPage() {
     slug: d.slug,
     description: d.description,
     productCount: productCountByDomain[d._id.toString()] ?? 0,
+    members: ((d.members as unknown) as { _id: { toString(): string }; name: string; email: string }[] || []).map((m) => ({
+      _id: m._id.toString(),
+      name: m.name,
+      email: m.email,
+    })),
   }))
 
   const serializedProducts = products.map((p) => {
@@ -67,6 +67,14 @@ export default async function AdminPage() {
       domainId: domainDoc?._id?.toString(),
       domainName: domainDoc?.name,
       updateCount: updateCountByProduct[p._id.toString()] ?? 0,
+      websiteUrl: p.websiteUrl,
+      deckUrl: p.deckUrl,
+      logoUrl: p.logoUrl,
+      members: ((p.members as unknown) as { _id: { toString(): string }; name: string; email: string }[] || []).map((m) => ({
+        _id: m._id.toString(),
+        name: m.name,
+        email: m.email,
+      })),
     }
   })
 
@@ -76,7 +84,7 @@ export default async function AdminPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-5xl mx-auto px-6 py-10 space-y-12">
+      <main className="max-w-5xl mx-auto px-6 py-10">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Admin</h1>
           <p className="text-slate-500 text-sm">
@@ -90,41 +98,12 @@ export default async function AdminPage() {
           </p>
         </div>
 
-        {/* Users section */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Users</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Manage access and roles</p>
-            </div>
-            <AddUserForm />
-          </div>
-          <UserTable users={serializedUsers} currentUserId={session.user.id} />
-        </section>
-
-        {/* Domains section */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Domains</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Top-level groupings (e.g. Team 1)</p>
-            </div>
-            <AddDomainForm />
-          </div>
-          <DomainTable domains={serializedDomains} />
-        </section>
-
-        {/* Products section */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Products</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Products that updates are grouped under (e.g. API)</p>
-            </div>
-            <AddProductForm domains={serializedDomains} />
-          </div>
-          <ProductTable products={serializedProducts} domains={serializedDomains} />
-        </section>
+        <AdminTabs
+          users={serializedUsers}
+          domains={serializedDomains}
+          products={serializedProducts}
+          currentUserId={session.user.id}
+        />
       </main>
     </div>
   )

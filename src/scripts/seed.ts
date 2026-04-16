@@ -10,7 +10,7 @@ const MONGODB_URI = process.env.MONGODB_URI!
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['viewer', 'editor', 'admin'], default: 'viewer' },
+  role: { type: String, enum: ['viewer', 'admin'], default: 'viewer' },
   isWhitelisted: { type: Boolean, default: false },
 }, { timestamps: true })
 
@@ -41,15 +41,15 @@ async function seed() {
   const Update = mongoose.model('Update', UpdateSchema)
 
   // Clear existing seed data
-  await User.deleteMany({ email: { $in: ['editor@updatecentral.com', 'viewer@updatecentral.com'] } })
+  await User.deleteMany({ email: { $in: ['admin@updatecentral.com', 'viewer@updatecentral.com'] } })
   await Product.deleteMany({ slug: { $in: ['mobile-app', 'web-platform', 'api'] } })
   await Update.deleteMany({})
 
   console.log('Seeding users...')
   const editor = await User.create({
-    email: 'editor@updatecentral.com',
-    name: 'Alex Editor',
-    role: 'editor',
+    email: 'admin@updatecentral.com',
+    name: 'Alex Admin',
+    role: 'admin',
     isWhitelisted: true,
   })
 
@@ -307,7 +307,7 @@ All screens have been audited and updated to meet WCAG 2.1 AA standards:
   console.log('✓ Seed complete!')
   console.log('')
   console.log('Test accounts (sign in via OTP at /login):')
-  console.log('  Editor:  editor@updatecentral.com')
+  console.log('  Admin:   admin@updatecentral.com')
   console.log('  Viewer:  viewer@updatecentral.com')
 
   await mongoose.disconnect()

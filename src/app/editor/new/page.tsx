@@ -10,32 +10,29 @@ import { UpdateForm } from '@/components/editor/UpdateForm'
 
 export default async function NewUpdatePage() {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'editor' && session.user.role !== 'admin') redirect('/updates')
+  if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
+  const productQuery = {}
   const [products, domains] = await Promise.all([
-    Product.find().populate('domainId').sort({ name: 1 }).lean(),
+    Product.find(productQuery).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
   ])
 
-  const domainMap = new Map(domains.map((d) => [d._id.toString(), d.name]))
-  const groupMap = new Map<string, { _id: string; name: string; products: { _id: string; name: string; color: string }[] }>()
-  const ungrouped: { _id: string; name: string; color: string }[] = []
+  // Pre-populate all domains (even those with no products) so every domain is selectable
+  const groupMap = new Map<string, { _id: string; name: string; products: { _id: string; name: string; color: string }[] }>(
+    domains.map((d) => [d._id.toString(), { _id: d._id.toString(), name: d.name, products: [] }])
+  )
 
   for (const p of products) {
     const domainDoc = p.domainId as { _id: { toString(): string } } | null
     const domainId = domainDoc?._id?.toString()
-    const sp = { _id: p._id.toString(), name: p.name, color: p.color }
-    if (domainId && domainMap.has(domainId)) {
-      if (!groupMap.has(domainId)) groupMap.set(domainId, { _id: domainId, name: domainMap.get(domainId)!, products: [] })
-      groupMap.get(domainId)!.products.push(sp)
-    } else {
-      ungrouped.push(sp)
+    if (domainId && groupMap.has(domainId)) {
+      groupMap.get(domainId)!.products.push({ _id: p._id.toString(), name: p.name, color: p.color })
     }
   }
 
   const domainGroups = Array.from(groupMap.values())
-  if (ungrouped.length > 0) domainGroups.push({ _id: 'other', name: 'Other', products: ungrouped })
 
   return (
     <div className="min-h-screen bg-white">

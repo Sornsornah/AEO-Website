@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,28 +18,70 @@ interface Domain {
   name: string
 }
 
+interface UserOption {
+  _id: string
+  name: string
+  email: string
+}
+
 interface ProductRow {
   _id: string
   name: string
   description?: string
   color: string
   domainId?: string
+  websiteUrl?: string
+  deckUrl?: string
+  logoUrl?: string
+  members: UserOption[]
 }
 
 interface EditProductModalProps {
   product: ProductRow
   domains: Domain[]
+  users: UserOption[]
   onClose: () => void
 }
 
-export function EditProductModal({ product, domains, onClose }: EditProductModalProps) {
+export function EditProductModal({ product, domains, users, onClose }: EditProductModalProps) {
   const router = useRouter()
   const [name, setName] = useState(product.name)
   const [description, setDescription] = useState(product.description || '')
   const [color, setColor] = useState(product.color)
   const [domainId, setDomainId] = useState(product.domainId || 'none')
+  const [websiteUrl, setWebsiteUrl] = useState(product.websiteUrl || '')
+  const [deckUrl, setDeckUrl] = useState(product.deckUrl || '')
+  const [logoUrl, setLogoUrl] = useState(product.logoUrl || '')
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [members, setMembers] = useState<UserOption[]>(product.members || [])
+  const [addingUserId, setAddingUserId] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  const memberIds = new Set(members.map((m) => m._id))
+  const availableUsers = users.filter((u) => !memberIds.has(u._id))
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Failed to upload logo')
+        return
+      }
+      setLogoUrl(data.url)
+    } catch {
+      setError('Logo upload failed.')
+    } finally {
+      setLogoUploading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -53,6 +96,10 @@ export function EditProductModal({ product, domains, onClose }: EditProductModal
           description,
           color,
           domainId: domainId === 'none' ? null : domainId,
+          websiteUrl: websiteUrl || null,
+          deckUrl: deckUrl || null,
+          logoUrl: logoUrl || null,
+          members: members.map((m) => m._id),
         }),
       })
       const data = await res.json()
@@ -72,7 +119,7 @@ export function EditProductModal({ product, domains, onClose }: EditProductModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
+        className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-sm font-semibold text-slate-900 mb-4">Edit Product</h3>
@@ -109,6 +156,141 @@ export function EditProductModal({ product, domains, onClose }: EditProductModal
               </SelectContent>
             </Select>
           </div>
+
+          {/* Members */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">Members</Label>
+            <p className="text-xs text-slate-400">Only these users can post updates for this product.</p>
+            {members.length > 0 && (
+              <div className="space-y-1 mt-1">
+                {members.map((m) => (
+                  <div key={m._id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                    <div>
+                      <span className="text-xs font-medium text-slate-700">{m.name}</span>
+                      <span className="text-xs text-slate-400 ml-1.5">{m.email}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMembers(members.filter((x) => x._id !== m._id))}
+                      className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-3 flex-shrink-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {availableUsers.length > 0 && (
+              <div className="flex gap-2 mt-1">
+                <Select value={addingUserId} onValueChange={setAddingUserId}>
+                  <SelectTrigger className="h-8 text-xs flex-1">
+                    <SelectValue placeholder="Add a user…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map((u) => (
+                      <SelectItem key={u._id} value={u._id}>
+                        {u.name} <span className="text-slate-400">({u.email})</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!addingUserId}
+                  onClick={() => {
+                    const user = users.find((u) => u._id === addingUserId)
+                    if (user) {
+                      setMembers([...members, user])
+                      setAddingUserId('')
+                    }
+                  }}
+                  className="h-8 px-3 text-xs border border-slate-200 text-slate-600"
+                >
+                  Add
+                </Button>
+              </div>
+            )}
+            {availableUsers.length === 0 && members.length === 0 && (
+              <p className="text-xs text-slate-300 italic">No users available to add.</p>
+            )}
+          </div>
+
+          {/* Logo upload */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">Logo (optional)</Label>
+            <div className="flex items-center gap-3">
+              {logoUrl ? (
+                <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden flex-shrink-0">
+                  <Image src={logoUrl} alt="Logo" fill className="object-contain p-0.5" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-lg border border-dashed border-slate-200 flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-slate-300">
+                    <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                    <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                  className="h-8 px-3 text-xs text-slate-600 border border-slate-200"
+                >
+                  {logoUploading ? 'Uploading...' : logoUrl ? 'Replace' : 'Upload'}
+                </Button>
+                {logoUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLogoUrl('')}
+                    className="h-8 px-3 text-xs text-slate-400 hover:text-red-500"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+            </div>
+          </div>
+
+          {/* Website URL */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">Website URL (optional)</Label>
+            <Input
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://example.com"
+              type="url"
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* Deck URL */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">Product Deck URL (optional)</Label>
+            <Input
+              value={deckUrl}
+              onChange={(e) => setDeckUrl(e.target.value)}
+              placeholder="https://docs.google.com/..."
+              type="url"
+              className="h-9 text-sm"
+            />
+          </div>
+
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-slate-600">Color</Label>
             <div className="flex items-center gap-2">

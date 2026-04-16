@@ -23,17 +23,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+
   const body = await req.json()
-  const { title, summary, content, productId, date, highlights, isPublished } = body
+  const { title, summary, content, domainId, productId, date, highlights, isPublished } = body
 
   const updateData: Record<string, unknown> = {}
   if (title !== undefined) updateData.title = title
   if (summary !== undefined) updateData.summary = summary
   if (content !== undefined) updateData.content = content
-  if (productId !== undefined) updateData.productId = productId
+  if (domainId !== undefined) updateData.domainId = domainId
+  if (productId !== undefined) updateData.productId = productId || null
   if (date !== undefined) updateData.date = new Date(date)
   if (highlights !== undefined) updateData.highlights = highlights
   if (isPublished !== undefined) updateData.isPublished = isPublished
@@ -49,9 +51,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'editor' && session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+
   const update = await Update.findByIdAndDelete(params.id)
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 

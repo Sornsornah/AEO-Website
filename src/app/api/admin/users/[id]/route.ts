@@ -14,7 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const update: Record<string, unknown> = {}
 
   if (typeof body.isWhitelisted === 'boolean') update.isWhitelisted = body.isWhitelisted
-  if (body.role && ['viewer', 'editor', 'admin'].includes(body.role)) update.role = body.role
+  if (body.role && ['viewer', 'admin'].includes(body.role)) update.role = body.role
 
   const user = await User.findByIdAndUpdate(params.id, update, { new: true })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })

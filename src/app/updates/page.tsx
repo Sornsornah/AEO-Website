@@ -56,43 +56,43 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
 
   if (isWhatsNewView) {
     query._id = { $nin: seenIds }
+  } else if (isSavedView) {
+    query._id = { $in: Array.from(savedIds) }
   }
 
-  if (!isSavedView) {
-    if (searchParams.product) {
-      const product = await Product.findOne({ slug: searchParams.product })
-      if (product) query.productId = product._id
-    } else if (searchParams.domain) {
-      const domain = await Domain.findOne({ slug: searchParams.domain })
-      if (domain) {
-        const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
-        query.productId = { $in: domainProducts.map((p) => p._id) }
+  if (searchParams.product) {
+    const product = await Product.findOne({ slug: searchParams.product })
+    if (product) query.productId = product._id
+  } else if (searchParams.domain) {
+    const domain = await Domain.findOne({ slug: searchParams.domain })
+    if (domain) {
+      const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
+      query.productId = { $in: domainProducts.map((p) => p._id) }
+    }
+  }
+
+  if (searchParams.year) {
+    const year = parseInt(searchParams.year)
+    if (searchParams.month) {
+      const month = parseInt(searchParams.month) - 1
+      query.date = {
+        $gte: new Date(year, month, 1),
+        $lt: new Date(year, month + 1, 1),
+      }
+    } else {
+      query.date = {
+        $gte: new Date(year, 0, 1),
+        $lt: new Date(year + 1, 0, 1),
       }
     }
+  }
 
-    if (searchParams.year) {
-      const year = parseInt(searchParams.year)
-      if (searchParams.month) {
-        const month = parseInt(searchParams.month) - 1
-        query.date = {
-          $gte: new Date(year, month, 1),
-          $lt: new Date(year, month + 1, 1),
-        }
-      } else {
-        query.date = {
-          $gte: new Date(year, 0, 1),
-          $lt: new Date(year + 1, 0, 1),
-        }
-      }
-    }
-
-    if (searchParams.search) {
-      const escaped = searchParams.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      query.$or = [
-        { title: { $regex: escaped, $options: 'i' } },
-        { summary: { $regex: escaped, $options: 'i' } },
-      ]
-    }
+  if (searchParams.search) {
+    const escaped = searchParams.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    query.$or = [
+      { title: { $regex: escaped, $options: 'i' } },
+      { summary: { $regex: escaped, $options: 'i' } },
+    ]
   }
 
   const sortDir = searchParams.sort === 'asc' ? 1 : -1
@@ -108,27 +108,8 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
   const [allProducts, allDomains, updates, totalCount] = await Promise.all([
     Product.find().populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
-    isSavedView
-      ? SavedUpdate.find(session ? { userId: session.user.id } : { userId: null })
-          .populate({ path: 'updateId', populate: { path: 'productId' } })
-          .sort({ savedAt: -1 })
-          .lean()
-          .then((records) =>
-            records
-              .map((r) => r.updateId)
-              .filter(Boolean) as Array<{
-                _id: { toString(): string }
-                title: string
-                summary: string
-                content: string
-                date: Date
-                highlights: string[]
-                isPublished: boolean
-                productId: { _id: { toString(): string }; name: string; color: string; slug: string }
-              }>
-          )
-      : Update.find(query).populate('productId').sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
-    isSavedView ? Promise.resolve(0) : Update.countDocuments(query),
+    Update.find(query).populate({ path: 'productId', populate: { path: 'domainId' } }).sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
+    Update.countDocuments(query),
   ])
 
   // Build domain-grouped product list for FilterBar
@@ -198,7 +179,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     }
   }
 
-  const hasFilters = !isSavedView && (searchParams.product || searchParams.domain || searchParams.year || searchParams.month || searchParams.search)
+  const hasFilters = !!(searchParams.product || searchParams.domain || searchParams.year || searchParams.month || searchParams.search)
 
   const serializedUpdates = (updates as Array<{
     _id: { toString(): string }
@@ -220,6 +201,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
       name: (update.productId as { name: string })?.name || '',
       color: (update.productId as { color: string })?.color || '#6366f1',
       slug: (update.productId as { slug: string })?.slug || '',
+      domainName: (update.productId as { domainId?: { name?: string } })?.domainId?.name || '',
     },
   }))
 
@@ -233,16 +215,14 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
           <p className="text-slate-500 text-sm">Latest product updates and improvements</p>
         </div>
 
-        {!isSavedView && (
-          <Suspense>
-            <FilterBar
+        <Suspense>
+          <FilterBar
               domains={domainGroups}
               allDomains={allDomainOptions}
               availableYears={availableYears}
               currentSearch={searchParams.search || ''}
             />
           </Suspense>
-        )}
 
         <UpdatesPageClient
           updates={serializedUpdates}

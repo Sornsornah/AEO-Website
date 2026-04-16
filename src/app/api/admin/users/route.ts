@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
   }
 
-  const validRole = ['viewer', 'editor', 'admin'].includes(role) ? role : 'viewer'
+  const validRole = ['viewer', 'admin'].includes(role) ? role : 'viewer'
 
   const existing = await User.findOne({ email: email.toLowerCase() })
   if (existing) {

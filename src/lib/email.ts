@@ -17,17 +17,17 @@ export async function sendOTPEmail(email: string, code: string) {
   }
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM ?? `"UpdateCentral" <noreply@updatecentral.com>`,
+    from: process.env.EMAIL_FROM ?? `"AEO Happenings" <noreply@aeohappenings.com>`,
     to: email,
     subject: `Your sign-in code: ${code}`,
-    text: `Your UpdateCentral sign-in code is: ${code}\n\nThis code expires in 10 minutes.`,
+    text: `Your AEO Happenings sign-in code is: ${code}\n\nThis code expires in 10 minutes.`,
     html: `
       <div style="font-family: -apple-system, sans-serif; max-width: 420px; margin: 0 auto; padding: 32px 24px;">
         <div style="margin-bottom: 28px;">
           <div style="width: 40px; height: 40px; background: #2563eb; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
             <span style="color: white; font-weight: bold; font-size: 18px;">U</span>
           </div>
-          <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #0f172a;">Sign in to UpdateCentral</h1>
+          <h1 style="margin: 0; font-size: 18px; font-weight: 600; color: #0f172a;">Sign in to AEO Happenings</h1>
           <p style="margin: 6px 0 0; font-size: 14px; color: #64748b;">Use the code below to complete your sign-in.</p>
         </div>
 

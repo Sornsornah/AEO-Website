@@ -22,9 +22,9 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           <Link href="/updates" className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">U</span>
+              <span className="text-white text-xs font-bold">A</span>
             </div>
-            <span className="font-semibold text-slate-900 text-sm">UpdateCentral</span>
+            <span className="font-semibold text-slate-900 text-sm">AEO Happenings</span>
           </Link>
 
           <nav className="flex items-center gap-1">
@@ -42,7 +42,7 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
-            {(session?.user?.role === 'editor' || session?.user?.role === 'admin') && (
+            {session?.user?.role === 'admin' && (
               <Link
                 href="/editor"
                 className={cn(

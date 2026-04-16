@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
   const body = await req.json()
-  const { name, description } = body
+  const { name, description, members } = body
 
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
@@ -29,6 +29,6 @@ export async function POST(req: NextRequest) {
   const existing = await Domain.findOne({ slug })
   if (existing) return NextResponse.json({ error: 'A domain with this name already exists' }, { status: 409 })
 
-  const domain = await Domain.create({ name, slug, description })
+  const domain = await Domain.create({ name, slug, description, members: Array.isArray(members) ? members : [] })
   return NextResponse.json(domain, { status: 201 })
 }

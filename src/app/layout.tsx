@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'UpdateCentral',
+  title: 'AEO Happenings',
   description: 'Product updates for your organization',
 }
 
