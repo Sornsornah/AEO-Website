@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { NotificationBell } from './NotificationBell'
 
 const navLinks = [
   { href: '/updates', label: 'Pipeline Updates' },
@@ -83,6 +84,7 @@ export function Navbar() {
                   {session.user.role}
                 </Badge>
               </div>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="sm"

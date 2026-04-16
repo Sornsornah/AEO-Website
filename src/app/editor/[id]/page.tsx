@@ -6,6 +6,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
+import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/Navbar'
 import { UpdateForm } from '@/components/editor/UpdateForm'
 import { format } from 'date-fns'
@@ -20,11 +21,11 @@ export default async function EditUpdatePage({ params }: PageProps) {
 
   await connectDB()
 
-  const productQuery = {}
-  const [update, products, domains] = await Promise.all([
+  const [update, products, domains, tags] = await Promise.all([
     Update.findById(params.id).lean(),
-    Product.find(productQuery).populate('domainId').sort({ name: 1 }).lean(),
+    Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
+    Tag.find().sort({ name: 1 }).lean(),
   ])
 
   if (!update) notFound()
@@ -43,17 +44,30 @@ export default async function EditUpdatePage({ params }: PageProps) {
   }
 
   const domainGroups = Array.from(groupMap.values())
+  const allDomains = domains.map((d) => ({ _id: d._id.toString(), name: d.name }))
+  const allTags = tags.map((t) => ({ _id: t._id.toString(), name: t.name }))
+
+  // Support both new domainIds array and legacy single domainId
+  const existingDomainIds: string[] =
+    (update.domainIds as unknown[] | undefined)?.length
+      ? (update.domainIds as unknown[]).map(String)
+      : update.domainId
+      ? [update.domainId.toString()]
+      : []
 
   const defaultValues = {
     _id: update._id.toString(),
     title: update.title,
     summary: update.summary,
-    content: update.content,
-    domainId: update.domainId?.toString() || '',
+    domainIds: existingDomainIds,
     productId: update.productId?.toString() || '',
-    date: format(update.date, 'yyyy-MM-dd'),
-    highlights: update.highlights,
+    tagIds: (update.tagIds as unknown[] | undefined)?.map(String) || [],
+    date: format(update.date, 'yyyy-MM'),
     isPublished: update.isPublished,
+    progressUpdates: (update.progressUpdates as string[] | undefined) || [],
+    nextSteps: (update.nextSteps as string[] | undefined) || [],
+    learningPoints: (update.learningPoints as string[] | undefined) || [],
+    media: (update.media as string[] | undefined) || [],
   }
 
   return (
@@ -75,7 +89,7 @@ export default async function EditUpdatePage({ params }: PageProps) {
           <p className="text-slate-500 text-sm mt-1 line-clamp-1">{update.title}</p>
         </div>
 
-        <UpdateForm mode="edit" domainGroups={domainGroups} defaultValues={defaultValues} />
+        <UpdateForm mode="edit" domainGroups={domainGroups} allDomains={allDomains} allTags={allTags} defaultValues={defaultValues} />
       </main>
     </div>
   )

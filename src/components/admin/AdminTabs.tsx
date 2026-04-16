@@ -7,8 +7,10 @@ import { DomainTable } from './DomainTable'
 import { AddDomainForm } from './AddDomainForm'
 import { ProductTable } from './ProductTable'
 import { AddProductForm } from './AddProductForm'
+import { TagTable } from './TagTable'
+import { AddTagForm } from './AddTagForm'
 
-type Tab = 'users' | 'domains' | 'products'
+type Tab = 'users' | 'domains' | 'products' | 'tags'
 
 interface SerializedUser {
   _id: string
@@ -43,10 +45,17 @@ interface SerializedProduct {
   members: { _id: string; name: string; email: string }[]
 }
 
+interface SerializedTag {
+  _id: string
+  name: string
+  slug: string
+}
+
 interface AdminTabsProps {
   users: SerializedUser[]
   domains: SerializedDomain[]
   products: SerializedProduct[]
+  tags: SerializedTag[]
   currentUserId: string
 }
 
@@ -54,15 +63,17 @@ const TABS: { id: Tab; label: string; description: string }[] = [
   { id: 'users', label: 'Users', description: 'Manage access and roles' },
   { id: 'domains', label: 'Domains', description: 'Top-level groupings (e.g. Team 1)' },
   { id: 'products', label: 'Products', description: 'Products that updates are grouped under (e.g. API)' },
+  { id: 'tags', label: 'Tags', description: 'Labels for categorizing updates' },
 ]
 
-export function AdminTabs({ users, domains, products, currentUserId }: AdminTabsProps) {
+export function AdminTabs({ users, domains, products, tags, currentUserId }: AdminTabsProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   const counts: Record<Tab, number> = {
     users: users.length,
     domains: domains.length,
     products: products.length,
+    tags: tags.length,
   }
 
   return (
@@ -126,6 +137,19 @@ export function AdminTabs({ users, domains, products, currentUserId }: AdminTabs
             <AddProductForm domains={domains} users={users} />
           </div>
           <ProductTable products={products} domains={domains} users={users} />
+        </section>
+      )}
+
+      {tab === 'tags' && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Tags</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Labels for categorizing updates</p>
+            </div>
+            <AddTagForm />
+          </div>
+          <TagTable tags={tags} />
         </section>
       )}
     </div>

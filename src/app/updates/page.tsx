@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { Types } from 'mongoose'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
@@ -7,37 +8,30 @@ import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
 import { SavedUpdate } from '@/models/SavedUpdate'
 import { UserSeenUpdate } from '@/models/UserSeenUpdate'
+import { Comment } from '@/models/Comment'
+import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/Navbar'
-import { FilterBar } from '@/components/updates/FilterBar'
+import { DomainPills } from '@/components/updates/DomainPills'
 import { UpdatesPageClient } from '@/components/updates/UpdatesPageClient'
-
-const PAGE_SIZE = 20
 
 interface PageProps {
   searchParams: {
-    product?: string
     domain?: string
-    year?: string
-    month?: string
-    sort?: string
-    id?: string
     view?: string
-    search?: string
-    page?: string
   }
 }
 
 export default async function UpdatesPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions)
   await connectDB()
+  void Tag // ensure Tag schema is registered for populate('tagIds')
 
   const currentView = searchParams.view || 'all'
   const isWhatsNewView = currentView === 'new'
   const isSavedView = currentView === 'saved'
-  const currentPage = parseInt(searchParams.page || '1', 10)
 
-  // Fetch seen IDs + saved IDs once for filtering and badge counts
-  let seenIds: unknown[] = []
+  // Fetch seen IDs + saved IDs
+  let seenIds: Types.ObjectId[] = []
   let unseenCount = 0
   const savedIds = new Set<string>()
   if (session) {
@@ -45,13 +39,14 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
       UserSeenUpdate.find({ userId: session.user.id }).select('updateId').lean(),
       SavedUpdate.find({ userId: session.user.id }).select('updateId').lean(),
     ])
-    seenIds = seenRecords.map((r) => r.updateId)
+    seenIds = seenRecords.map((r) => r.updateId as Types.ObjectId)
     for (const r of savedRecords) savedIds.add(r.updateId.toString())
     unseenCount = await Update.countDocuments({ isPublished: true, _id: { $nin: seenIds } })
   }
 
   const savedCount = savedIds.size
 
+  // Build query
   const query: Record<string, unknown> = { isPublished: true }
 
   if (isWhatsNewView) {
@@ -60,10 +55,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     query._id = { $in: Array.from(savedIds) }
   }
 
-  if (searchParams.product) {
-    const product = await Product.findOne({ slug: searchParams.product })
-    if (product) query.productId = product._id
-  } else if (searchParams.domain) {
+  if (searchParams.domain && !isSavedView) {
     const domain = await Domain.findOne({ slug: searchParams.domain })
     if (domain) {
       const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
@@ -71,130 +63,40 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     }
   }
 
-  if (searchParams.year) {
-    const year = parseInt(searchParams.year)
-    if (searchParams.month) {
-      const month = parseInt(searchParams.month) - 1
-      query.date = {
-        $gte: new Date(year, month, 1),
-        $lt: new Date(year, month + 1, 1),
-      }
-    } else {
-      query.date = {
-        $gte: new Date(year, 0, 1),
-        $lt: new Date(year + 1, 0, 1),
-      }
-    }
-  }
-
-  if (searchParams.search) {
-    const escaped = searchParams.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    query.$or = [
-      { title: { $regex: escaped, $options: 'i' } },
-      { summary: { $regex: escaped, $options: 'i' } },
-    ]
-  }
-
-  const sortDir = searchParams.sort === 'asc' ? 1 : -1
-
-  // Get distinct years from update dates
-  const allDates = await Update.find({ isPublished: true }, { date: 1 }).lean()
-  const yearSet = new Set<number>()
-  for (const u of allDates) yearSet.add(new Date(u.date).getFullYear())
-  const availableYears = Array.from(yearSet).sort((a, b) => b - a)
-
-  const skip = (currentPage - 1) * PAGE_SIZE
-
-  const [allProducts, allDomains, updates, totalCount] = await Promise.all([
-    Product.find().populate('domainId').sort({ name: 1 }).lean(),
+  // Fetch all domains for pills + all updates (grouped by month client-side)
+  const [allDomains, updates] = await Promise.all([
     Domain.find().sort({ name: 1 }).lean(),
-    Update.find(query).populate({ path: 'productId', populate: { path: 'domainId' } }).sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
-    Update.countDocuments(query),
+    Update.find(query)
+      .populate({ path: 'productId', populate: { path: 'domainId' } })
+      .populate('domainIds')
+      .populate('tagIds')
+      .sort({ date: -1 })
+      .lean(),
   ])
 
-  // Build domain-grouped product list for FilterBar
-  const domainMap = new Map(allDomains.map((d) => [d._id.toString(), d]))
-  const domainGroupsMap = new Map<string, { _id: string; name: string; slug: string; products: { _id: string; name: string; slug: string; color: string }[] }>()
-  const ungrouped: { _id: string; name: string; slug: string; color: string }[] = []
-
-  for (const p of allProducts) {
-    const domainDoc = p.domainId as { _id: { toString(): string } } | null
-    const domainId = domainDoc?._id?.toString()
-    const serializedProduct = {
-      _id: p._id.toString(),
-      name: p.name,
-      slug: p.slug,
-      color: p.color,
-    }
-    if (domainId && domainMap.has(domainId)) {
-      if (!domainGroupsMap.has(domainId)) {
-        const d = domainMap.get(domainId)!
-        domainGroupsMap.set(domainId, { _id: domainId, name: d.name, slug: d.slug, products: [] })
-      }
-      domainGroupsMap.get(domainId)!.products.push(serializedProduct)
-    } else {
-      ungrouped.push(serializedProduct)
-    }
-  }
-
-  const domainGroups = Array.from(domainGroupsMap.values())
-  if (ungrouped.length > 0) {
-    domainGroups.push({ _id: 'other', name: 'Other', slug: 'other', products: ungrouped })
-  }
-
-  // All domains for the domain filter dropdown (include domains with no products too)
-  const allDomainOptions = allDomains.map((d) => ({ _id: d._id.toString(), name: d.name, slug: d.slug }))
-
-  // Fetch selected update for side panel
-  let selectedUpdate: {
-    _id: string
-    title: string
-    summary: string
-    content: string
-    date: string
-    highlights: string[]
-    isPublished: boolean
-    productId: { _id: string; name: string; color: string; slug: string }
-  } | null = null
-
-  if (searchParams.id) {
-    const u = await Update.findById(searchParams.id).populate('productId').lean()
-    if (u) {
-      const p = u.productId as { _id: { toString(): string }; name: string; color: string; slug: string }
-      selectedUpdate = {
-        _id: u._id.toString(),
-        title: u.title,
-        summary: u.summary,
-        content: u.content,
-        date: u.date.toISOString(),
-        highlights: u.highlights,
-        isPublished: u.isPublished,
-        productId: {
-          _id: p?._id?.toString() || '',
-          name: p?.name || '',
-          color: p?.color || '#6366f1',
-          slug: p?.slug || '',
-        },
-      }
-    }
-  }
-
-  const hasFilters = !!(searchParams.product || searchParams.domain || searchParams.year || searchParams.month || searchParams.search)
-
+  // Serialize updates
   const serializedUpdates = (updates as Array<{
     _id: { toString(): string }
     title: string
     summary: string
     date: Date
-    highlights: string[]
+    progressUpdates: string[]
+    nextSteps: string[]
+    learningPoints: string[]
+    media: string[]
     isPublished: boolean
     productId: unknown
+    domainIds: unknown[]
+    tagIds: unknown[]
   }>).map((update) => ({
     _id: update._id.toString(),
     title: update.title,
     summary: update.summary,
     date: update.date.toISOString(),
-    highlights: update.highlights,
+    progressUpdates: update.progressUpdates || [],
+    nextSteps: update.nextSteps || [],
+    learningPoints: update.learningPoints || [],
+    media: update.media || [],
     isPublished: update.isPublished,
     productId: {
       _id: (update.productId as { _id: { toString(): string } })?._id?.toString() || '',
@@ -203,38 +105,56 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
       slug: (update.productId as { slug: string })?.slug || '',
       domainName: (update.productId as { domainId?: { name?: string } })?.domainId?.name || '',
     },
+    domains: Array.isArray(update.domainIds)
+      ? (update.domainIds as Array<{ _id: { toString(): string }; name: string }>).map((d) => ({
+          _id: d._id.toString(),
+          name: d.name,
+        }))
+      : [],
+    tags: Array.isArray(update.tagIds)
+      ? (update.tagIds as Array<{ _id: { toString(): string }; name: string }>).map((t) => ({
+          _id: t._id.toString(),
+          name: t.name,
+        }))
+      : [],
   }))
 
+  // Fetch comment counts for returned updates
+  const updateObjectIds = serializedUpdates.map((u) => new Types.ObjectId(u._id))
+  const commentAgg = await Comment.aggregate<{ _id: Types.ObjectId; count: number }>([
+    { $match: { updateId: { $in: updateObjectIds } } },
+    { $group: { _id: '$updateId', count: { $sum: 1 } } },
+  ])
+  const commentCounts: Record<string, number> = {}
+  for (const row of commentAgg) {
+    commentCounts[row._id.toString()] = row.count
+  }
+
+  const allDomainOptions = allDomains.map((d) => ({ name: d.name, slug: d.slug }))
+  const seenIdStrings = seenIds.map((id) => id.toString())
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        <div className="mb-8">
+      <main className="max-w-2xl mx-auto px-6 py-10">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Pipeline Updates</h1>
           <p className="text-slate-500 text-sm">Latest product updates and improvements</p>
         </div>
 
         <Suspense>
-          <FilterBar
-              domains={domainGroups}
-              allDomains={allDomainOptions}
-              availableYears={availableYears}
-              currentSearch={searchParams.search || ''}
-            />
-          </Suspense>
+          <DomainPills domains={allDomainOptions} activeDomain={searchParams.domain} />
+        </Suspense>
 
         <UpdatesPageClient
           updates={serializedUpdates}
-          selectedUpdate={selectedUpdate}
           savedIds={Array.from(savedIds)}
-          hasFilters={!!hasFilters}
+          seenIds={seenIdStrings}
           currentView={currentView}
           unseenCount={unseenCount}
           savedCount={savedCount}
-          totalCount={totalCount}
-          currentPage={currentPage}
-          pageSize={PAGE_SIZE}
+          commentCounts={commentCounts}
         />
       </main>
     </div>

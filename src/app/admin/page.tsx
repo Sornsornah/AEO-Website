@@ -6,6 +6,7 @@ import { User } from '@/models/User'
 import { Product } from '@/models/Product'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
+import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminTabs } from '@/components/admin/AdminTabs'
 
@@ -15,11 +16,12 @@ export default async function AdminPage() {
 
   await connectDB()
 
-  const [users, products, updates, domains] = await Promise.all([
+  const [users, products, updates, domains, tags] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     Product.find().populate('domainId').populate('members', 'name email').sort({ name: 1 }).lean(),
     Update.find({}, { productId: 1 }).lean(),
     Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
+    Tag.find().sort({ name: 1 }).lean(),
   ])
 
   const updateCountByProduct: Record<string, number> = {}
@@ -78,6 +80,12 @@ export default async function AdminPage() {
     }
   })
 
+  const serializedTags = tags.map((t) => ({
+    _id: t._id.toString(),
+    name: t.name,
+    slug: t.slug,
+  }))
+
   const whitelistedCount = serializedUsers.filter((u) => u.isWhitelisted).length
 
   return (
@@ -95,6 +103,8 @@ export default async function AdminPage() {
             {serializedDomains.length} domain{serializedDomains.length !== 1 ? 's' : ''}
             <span className="text-slate-300 mx-2">·</span>
             {serializedProducts.length} product{serializedProducts.length !== 1 ? 's' : ''}
+            <span className="text-slate-300 mx-2">·</span>
+            {serializedTags.length} tag{serializedTags.length !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -102,6 +112,7 @@ export default async function AdminPage() {
           users={serializedUsers}
           domains={serializedDomains}
           products={serializedProducts}
+          tags={serializedTags}
           currentUserId={session.user.id}
         />
       </main>

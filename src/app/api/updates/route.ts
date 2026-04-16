@@ -66,28 +66,28 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
   const body = await req.json()
-  const { title, summary, content, domainId, productId, date, highlights, isPublished } = body
+  const { title, summary, content, domainIds, productId, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished } = body
 
-  if (!title || !summary || !content || !domainId || !date) {
+  if (!title || !summary || !date) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
-
-  // Editors can only post to products they're a member of (when a product is selected)
-  if (session.user.role === 'editor' && productId) {
-    const product = await Product.findById(productId).lean()
-    if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-    const isMember = (product.members as unknown[]).some((m) => m?.toString() === session.user.id)
-    if (!isMember) return NextResponse.json({ error: 'You are not a member of this product' }, { status: 403 })
+  if (!Array.isArray(domainIds) || domainIds.length === 0) {
+    return NextResponse.json({ error: 'At least one domain is required' }, { status: 400 })
   }
 
   const update = await Update.create({
     title,
     summary,
-    content,
-    domainId,
+    content: content || '',
+    domainIds,
     productId: productId || undefined,
+    tagIds: tagIds || [],
     date: new Date(date),
     highlights: highlights || [],
+    progressUpdates: progressUpdates || [],
+    nextSteps: nextSteps || [],
+    learningPoints: learningPoints || [],
+    media: media || [],
     isPublished: isPublished || false,
     createdBy: session.user.id,
   })

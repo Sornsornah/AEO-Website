@@ -29,6 +29,10 @@ export default async function UpdateDetailPage({ params }: PageProps) {
     ...update,
     _id: update._id.toString(),
     date: update.date.toISOString(),
+    progressUpdates: (update.progressUpdates as string[] | undefined) || [],
+    nextSteps: (update.nextSteps as string[] | undefined) || [],
+    learningPoints: (update.learningPoints as string[] | undefined) || [],
+    media: (update.media as string[] | undefined) || [],
     productId: {
       ...(update.productId as Record<string, unknown>),
       _id: (update.productId as { _id: { toString(): string } })?._id?.toString() || '',

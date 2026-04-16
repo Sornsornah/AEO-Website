@@ -28,16 +28,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   await connectDB()
 
   const body = await req.json()
-  const { title, summary, content, domainId, productId, date, highlights, isPublished } = body
+  const { title, summary, content, domainIds, productId, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished } = body
 
   const updateData: Record<string, unknown> = {}
   if (title !== undefined) updateData.title = title
   if (summary !== undefined) updateData.summary = summary
   if (content !== undefined) updateData.content = content
-  if (domainId !== undefined) updateData.domainId = domainId
+  if (domainIds !== undefined) updateData.domainIds = domainIds
   if (productId !== undefined) updateData.productId = productId || null
+  if (tagIds !== undefined) updateData.tagIds = tagIds
   if (date !== undefined) updateData.date = new Date(date)
   if (highlights !== undefined) updateData.highlights = highlights
+  if (progressUpdates !== undefined) updateData.progressUpdates = progressUpdates
+  if (nextSteps !== undefined) updateData.nextSteps = nextSteps
+  if (learningPoints !== undefined) updateData.learningPoints = learningPoints
+  if (media !== undefined) updateData.media = media
   if (isPublished !== undefined) updateData.isPublished = isPublished
 
   const update = await Update.findByIdAndUpdate(params.id, updateData, { new: true })

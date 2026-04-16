@@ -4,25 +4,25 @@ import { authOptions } from '@/lib/auth'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 
-const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+const MAX_SIZE = 50 * 1024 * 1024 // 50MB
+const ALLOWED_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'video/mp4', 'video/webm', 'video/quicktime',
+]
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: 'File must be an image (JPEG, PNG, GIF, WebP, SVG)' }, { status: 400 })
+    return NextResponse.json({ error: 'File must be an image or video (JPEG, PNG, GIF, WebP, SVG, MP4, WebM, MOV)' }, { status: 400 })
   }
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'File exceeds 5MB limit' }, { status: 400 })
+    return NextResponse.json({ error: 'File exceeds 50MB limit' }, { status: 400 })
   }
 
   const bytes = await file.arrayBuffer()

@@ -11,9 +11,11 @@ interface UpdatePanelProps {
     _id: string
     title: string
     summary: string
-    content: string
     date: string
-    highlights: string[]
+    progressUpdates: string[]
+    nextSteps: string[]
+    learningPoints: string[]
+    media: string[]
     isPublished: boolean
     productId: { _id: string; name: string; color: string; slug: string }
   }

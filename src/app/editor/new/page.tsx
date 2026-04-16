@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
+import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/Navbar'
 import { UpdateForm } from '@/components/editor/UpdateForm'
 
@@ -13,10 +14,10 @@ export default async function NewUpdatePage() {
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
-  const productQuery = {}
-  const [products, domains] = await Promise.all([
-    Product.find(productQuery).populate('domainId').sort({ name: 1 }).lean(),
+  const [products, domains, tags] = await Promise.all([
+    Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
+    Tag.find().sort({ name: 1 }).lean(),
   ])
 
   // Pre-populate all domains (even those with no products) so every domain is selectable
@@ -33,6 +34,8 @@ export default async function NewUpdatePage() {
   }
 
   const domainGroups = Array.from(groupMap.values())
+  const allDomains = domains.map((d) => ({ _id: d._id.toString(), name: d.name }))
+  const allTags = tags.map((t) => ({ _id: t._id.toString(), name: t.name }))
 
   return (
     <div className="min-h-screen bg-white">
@@ -53,7 +56,7 @@ export default async function NewUpdatePage() {
           <p className="text-slate-500 text-sm mt-1">Create a new product update post</p>
         </div>
 
-        <UpdateForm mode="create" domainGroups={domainGroups} />
+        <UpdateForm mode="create" domainGroups={domainGroups} allDomains={allDomains} allTags={allTags} />
       </main>
     </div>
   )

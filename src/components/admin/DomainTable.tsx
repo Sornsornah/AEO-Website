@@ -61,7 +61,6 @@ export function DomainTable({ domains, users }: { domains: DomainRow[]; users: U
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
               <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Domain</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24 text-right">Products</TableHead>
               <TableHead className="w-28" />
             </TableRow>
           </TableHeader>
@@ -80,9 +79,6 @@ export function DomainTable({ domains, users }: { domains: DomainRow[]; users: U
                       </p>
                     )}
                   </div>
-                </TableCell>
-                <TableCell className="text-sm text-slate-500 text-right">
-                  {domain.productCount}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
