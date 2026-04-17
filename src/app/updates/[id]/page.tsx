@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Navbar } from '@/components/layout/Navbar'
-import { UpdateDetail } from '@/components/updates/UpdateDetail'
+import { ComparisonView } from '@/components/updates/ComparisonView'
 import { SeenTracker } from '@/components/updates/SeenTracker'
 
 interface PageProps {
@@ -25,25 +25,46 @@ export default async function UpdateDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  const serialized = {
-    ...update,
-    _id: update._id.toString(),
-    date: update.date.toISOString(),
-    progressUpdates: (update.progressUpdates as string[] | undefined) || [],
-    nextSteps: (update.nextSteps as string[] | undefined) || [],
-    learningPoints: (update.learningPoints as string[] | undefined) || [],
-    media: (update.media as string[] | undefined) || [],
-    productId: {
-      ...(update.productId as Record<string, unknown>),
-      _id: (update.productId as { _id: { toString(): string } })?._id?.toString() || '',
-    } as { _id: string; name: string; color: string; slug: string },
+  function serializeUpdate(u: typeof update) {
+    return {
+      title: u.title,
+      summary: u.summary,
+      date: u.date.toISOString(),
+      progressUpdates: (u.progressUpdates as string[] | undefined) || [],
+      nextSteps: (u.nextSteps as string[] | undefined) || [],
+      learningPoints: (u.learningPoints as string[] | undefined) || [],
+      media: (u.media as string[] | undefined) || [],
+      productId: {
+        ...(u.productId as Record<string, unknown>),
+        _id: (u.productId as { _id: { toString(): string } })?._id?.toString() || '',
+      } as { _id: string; name: string; color: string; slug: string },
+    }
+  }
+
+  const serialized = { ...serializeUpdate(update), _id: update._id.toString() }
+
+  // Fetch previous update for the same product (for comparison)
+  let serializedPrev: ReturnType<typeof serializeUpdate> | null = null
+  if (update.productId) {
+    const prevUpdate = await Update.findOne({
+      productId: update.productId,
+      date: { $lt: update.date },
+      isPublished: true,
+    })
+      .sort({ date: -1 })
+      .populate('productId')
+      .lean()
+
+    if (prevUpdate) {
+      serializedPrev = serializeUpdate(prevUpdate as typeof update)
+    }
   }
 
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div className="mb-8">
           <Link
             href="/updates"
@@ -56,7 +77,7 @@ export default async function UpdateDetailPage({ params }: PageProps) {
           </Link>
         </div>
 
-        <UpdateDetail update={serialized} />
+        <ComparisonView current={serialized} prev={serializedPrev} />
       </main>
 
       {update.isPublished && <SeenTracker updateId={params.id} />}

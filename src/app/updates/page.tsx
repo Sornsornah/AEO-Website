@@ -137,7 +137,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="max-w-2xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Pipeline Updates</h1>
           <p className="text-slate-500 text-sm">Latest product updates and improvements</p>

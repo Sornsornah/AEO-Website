@@ -34,7 +34,7 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
   const product = update.productId
 
   return (
-    <article className="max-w-2xl">
+    <article>
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           {product && <ProductBadge name={product.name} color={product.color} />}

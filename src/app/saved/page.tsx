@@ -34,7 +34,7 @@ export default async function SavedPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Saved</h1>
           <p className="text-slate-500 text-sm">Updates you&apos;ve bookmarked</p>

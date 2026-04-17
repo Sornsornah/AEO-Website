@@ -74,7 +74,7 @@ export default async function EditUpdatePage({ params }: PageProps) {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div className="mb-8">
           <Link
             href="/editor"

@@ -92,7 +92,7 @@ export default async function AdminPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Admin</h1>
           <p className="text-slate-500 text-sm">

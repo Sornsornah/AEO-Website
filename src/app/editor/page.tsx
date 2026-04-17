@@ -154,7 +154,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      <main className="px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 mb-1">Editor Dashboard</h1>
