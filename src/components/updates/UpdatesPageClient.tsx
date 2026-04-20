@@ -10,9 +10,9 @@ interface UpdateItem {
   title: string
   summary: string
   date: string
-  progressUpdates: string[]
-  nextSteps: string[]
-  learningPoints: string[]
+  progressUpdates: string | string[]
+  nextSteps: string | string[]
+  learningPoints: string | string[]
   media: string[]
   isPublished: boolean
   productId: { _id: string; name: string; color: string; slug: string; domainName?: string }
@@ -24,10 +24,8 @@ interface UpdatesPageClientProps {
   updates: UpdateItem[]
   savedIds: string[]
   currentView: string
-  unseenCount: number
   savedCount: number
   commentCounts: Record<string, number>
-  seenIds: string[]
 }
 
 function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem[] }[] {
@@ -40,13 +38,12 @@ function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export function UpdatesPageClient({ updates, savedIds, currentView, unseenCount, savedCount, commentCounts, seenIds }: UpdatesPageClientProps) {
+export function UpdatesPageClient({ updates, savedIds, currentView, savedCount, commentCounts }: UpdatesPageClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const savedSet = new Set(savedIds)
-  const seenSet = new Set(seenIds)
 
   const switchView = useCallback(
     (view: string) => {
@@ -80,21 +77,6 @@ export function UpdatesPageClient({ updates, savedIds, currentView, unseenCount,
           All Updates
         </button>
         <button
-          onClick={() => switchView('new')}
-          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            currentView === 'new'
-              ? 'border-slate-900 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          {"What's New"}
-          {unseenCount > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] text-[10px] font-semibold bg-blue-600 text-white rounded-full px-1">
-              {unseenCount > 99 ? '99+' : unseenCount}
-            </span>
-          )}
-        </button>
-        <button
           onClick={() => switchView('saved')}
           className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             currentView === 'saved'
@@ -114,18 +96,7 @@ export function UpdatesPageClient({ updates, savedIds, currentView, unseenCount,
       {/* Feed */}
       {updates.length === 0 ? (
         <div className="text-center py-16">
-          {currentView === 'new' ? (
-            <>
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-slate-400">
-                  <path d="M10 2a8 8 0 100 16A8 8 0 0010 2z" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <p className="text-slate-700 font-medium mb-1">{"You're all caught up"}</p>
-              <p className="text-slate-400 text-sm">{"You've seen all the latest updates."}</p>
-            </>
-          ) : currentView === 'saved' ? (
+          {currentView === 'saved' ? (
             <>
               <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-slate-400">
@@ -143,15 +114,20 @@ export function UpdatesPageClient({ updates, savedIds, currentView, unseenCount,
         <div className="space-y-10">
           {monthGroups.map(({ month, items }) => (
             <section key={month}>
-              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
-                {month}
-              </h2>
+              <div className="flex items-center gap-4 mb-4">
+                <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex-shrink-0">
+                  {month}
+                </h2>
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400 flex-shrink-0">
+                  {items.length} {items.length === 1 ? 'update' : 'updates'}
+                </span>
+              </div>
               <div className="space-y-4">
                 {items.map((update) => (
                   <SocialUpdateCard
                     key={update._id}
                     update={update}
-                    isNew={!seenSet.has(update._id)}
                     isSaved={savedSet.has(update._id)}
                     commentCount={commentCounts[update._id] ?? 0}
                   />

@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { HighlightsInput } from './HighlightsInput'
 import { ImagePlus, X } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -37,9 +36,9 @@ interface UpdateFormProps {
     tagIds?: string[]
     date?: string
     isPublished?: boolean
-    progressUpdates?: string[]
-    nextSteps?: string[]
-    learningPoints?: string[]
+    progressUpdates?: string
+    nextSteps?: string
+    learningPoints?: string
     media?: string[]
   }
 }
@@ -59,9 +58,9 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       : format(new Date(), 'yyyy-MM')
   )
   const [isPublished, setIsPublished] = useState(defaultValues.isPublished || false)
-  const [progressUpdates, setProgressUpdates] = useState<string[]>(defaultValues.progressUpdates || [])
-  const [nextSteps, setNextSteps] = useState<string[]>(defaultValues.nextSteps || [])
-  const [learningPoints, setLearningPoints] = useState<string[]>(defaultValues.learningPoints || [])
+  const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates || '')
+  const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps || '')
+  const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints || '')
   const [media, setMedia] = useState<string[]>(defaultValues.media || [])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -137,8 +136,8 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Please select at least one domain.')
       return
     }
-    if (progressUpdates.length === 0 && nextSteps.length === 0 && learningPoints.length === 0) {
-      setError('Add at least one item to Progress Updates, Next Steps, or Learning Points.')
+    if (!progressUpdates.trim() && !nextSteps.trim() && !learningPoints.trim()) {
+      setError('Add content to at least one of Progress Updates, Next Steps, or Learning Points.')
       return
     }
 
@@ -306,22 +305,40 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       {/* Progress Updates */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Progress Updates</Label>
-        <p className="text-xs text-slate-400">What was accomplished this period</p>
-        <HighlightsInput value={progressUpdates} onChange={setProgressUpdates} />
+        <p className="text-xs text-slate-400">What was accomplished this period — supports Markdown</p>
+        <textarea
+          value={progressUpdates}
+          onChange={(e) => setProgressUpdates(e.target.value)}
+          placeholder="- Shipped the new dashboard&#10;- Fixed auth bug&#10;&#10;**Bold** and *italic* supported"
+          rows={4}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
+        />
       </div>
 
       {/* Next Steps */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Next Steps</Label>
-        <p className="text-xs text-slate-400">{"What's planned for the next period"}</p>
-        <HighlightsInput value={nextSteps} onChange={setNextSteps} />
+        <p className="text-xs text-slate-400">{"What's planned for the next period — supports Markdown"}</p>
+        <textarea
+          value={nextSteps}
+          onChange={(e) => setNextSteps(e.target.value)}
+          placeholder="- Deploy to staging&#10;- Review with stakeholders"
+          rows={4}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
+        />
       </div>
 
       {/* Learning Points */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Learning Points</Label>
-        <p className="text-xs text-slate-400">Insights and lessons from this period</p>
-        <HighlightsInput value={learningPoints} onChange={setLearningPoints} />
+        <p className="text-xs text-slate-400">Insights and lessons from this period — supports Markdown</p>
+        <textarea
+          value={learningPoints}
+          onChange={(e) => setLearningPoints(e.target.value)}
+          placeholder="- Users prefer X over Y&#10;- Caching reduced latency by 40%"
+          rows={4}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
+        />
       </div>
 
       {/* Photos & Videos */}

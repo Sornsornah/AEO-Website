@@ -80,9 +80,9 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     title: string
     summary: string
     date: Date
-    progressUpdates: string[]
-    nextSteps: string[]
-    learningPoints: string[]
+    progressUpdates: string | string[]
+    nextSteps: string | string[]
+    learningPoints: string | string[]
     media: string[]
     isPublished: boolean
     productId: unknown
@@ -93,9 +93,9 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     title: update.title,
     summary: update.summary,
     date: update.date.toISOString(),
-    progressUpdates: update.progressUpdates || [],
-    nextSteps: update.nextSteps || [],
-    learningPoints: update.learningPoints || [],
+    progressUpdates: update.progressUpdates || '',
+    nextSteps: update.nextSteps || '',
+    learningPoints: update.learningPoints || '',
     media: update.media || [],
     isPublished: update.isPublished,
     productId: {
@@ -134,13 +134,15 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
   const seenIdStrings = seenIds.map((id) => id.toString())
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#f5f0eb]">
       <Navbar />
 
       <main className="px-6 py-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Pipeline Updates</h1>
-          <p className="text-slate-500 text-sm">Latest product updates and improvements</p>
+          <h1 className="text-5xl font-bold text-slate-900 mb-2">Pipeline Updates</h1>
+          <p className="text-slate-500 text-sm max-w-md">
+            A field journal of product progress — what shipped, what&apos;s next, and what we learned along the way.
+          </p>
         </div>
 
         <Suspense>
@@ -150,9 +152,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
         <UpdatesPageClient
           updates={serializedUpdates}
           savedIds={Array.from(savedIds)}
-          seenIds={seenIdStrings}
           currentView={currentView}
-          unseenCount={unseenCount}
           savedCount={savedCount}
           commentCounts={commentCounts}
         />

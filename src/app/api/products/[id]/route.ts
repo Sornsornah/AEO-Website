@@ -27,6 +27,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (body.deckUrl !== undefined) updateData.deckUrl = body.deckUrl || null
   if (body.logoUrl !== undefined) updateData.logoUrl = body.logoUrl || null
   if (body.members !== undefined) updateData.members = Array.isArray(body.members) ? body.members : []
+  // New fields
+  if (body.status !== undefined) updateData.status = body.status
+  if (body.shortDescription !== undefined) updateData.shortDescription = body.shortDescription
+  if (body.uiScreenshot !== undefined) updateData.uiScreenshot = body.uiScreenshot
+  if (body.productManagers !== undefined) updateData.productManagers = Array.isArray(body.productManagers) ? body.productManagers : []
+  if (body.developers !== undefined) updateData.developers = Array.isArray(body.developers) ? body.developers : []
+  if (body.overviewContent !== undefined) updateData.overviewContent = body.overviewContent
+  if (body.whyWeBuiltThis !== undefined) updateData.whyWeBuiltThis = body.whyWeBuiltThis
+  if (body.whatWeBuilt !== undefined) updateData.whatWeBuilt = body.whatWeBuilt
+  if (body.highlightStats !== undefined) updateData.highlightStats = Array.isArray(body.highlightStats) ? body.highlightStats : []
+  if (body.features !== undefined) updateData.features = Array.isArray(body.features) ? body.features : []
+  if (body.userQuotes !== undefined) updateData.userQuotes = Array.isArray(body.userQuotes) ? body.userQuotes : []
+  if (body.roadmap !== undefined) updateData.roadmap = Array.isArray(body.roadmap) ? body.roadmap : []
+  if (body.useCases !== undefined) updateData.useCases = Array.isArray(body.useCases) ? body.useCases : []
 
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })

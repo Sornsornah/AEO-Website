@@ -16,6 +16,7 @@ const PAGE_SIZE = 20
 
 interface PageProps {
   searchParams: {
+    tab?: string
     product?: string
     domain?: string
     year?: string
@@ -32,6 +33,98 @@ export default async function EditorPage({ searchParams }: PageProps) {
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
+
+  const activeTab = searchParams.tab === 'products' ? 'products' : 'updates'
+
+  // Products tab — just fetch products and return early
+  if (activeTab === 'products') {
+    const allProducts = await Product.find().populate('domainId').sort({ name: 1 }).lean()
+    const serializedProducts = (allProducts as Array<{
+      _id: { toString(): string }
+      name: string
+      slug: string
+      description?: string
+      color: string
+      logoUrl?: string
+      status?: string
+    }>).map((p) => ({
+      _id: p._id.toString(),
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      color: p.color,
+      logoUrl: p.logoUrl,
+      status: p.status || 'live',
+    }))
+
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="px-6 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
+          </div>
+          {/* Tab switcher */}
+          <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
+            <Link
+              href="/editor"
+              className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
+            >
+              Updates
+            </Link>
+            <Link
+              href="/editor?tab=products"
+              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900"
+            >
+              Products
+            </Link>
+          </div>
+          {/* Products list */}
+          <div className="space-y-2">
+            {serializedProducts.map((p) => {
+              const statusLabels: Record<string, string> = { live: 'Live', beta: 'Beta', coming_soon: 'Coming Soon' }
+              const statusColors: Record<string, string> = {
+                live: 'bg-emerald-50 text-emerald-700',
+                beta: 'bg-amber-50 text-amber-700',
+                coming_soon: 'bg-slate-100 text-slate-600',
+              }
+              return (
+                <div key={p._id} className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl bg-white">
+                  <div
+                    className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: p.logoUrl ? undefined : p.color }}
+                  >
+                    {p.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="text-white text-xs font-bold">{p.name.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{p.name}</p>
+                    {p.description && <p className="text-xs text-slate-500 truncate">{p.description}</p>}
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[p.status] || statusColors.live}`}>
+                    {statusLabels[p.status] || 'Live'}
+                  </span>
+                  <Link
+                    href={`/editor/products/${p._id}`}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                  >
+                    Edit
+                  </Link>
+                </div>
+              )
+            })}
+            {serializedProducts.length === 0 && (
+              <p className="text-slate-400 text-sm py-8 text-center">No products yet.</p>
+            )}
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   const currentPage = parseInt(searchParams.page || '1', 10)
   const sortDir = searchParams.sort === 'asc' ? 1 : -1
@@ -155,20 +248,35 @@ export default async function EditorPage({ searchParams }: PageProps) {
       <Navbar />
 
       <main className="px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-1">Editor Dashboard</h1>
-            <p className="text-slate-500 text-sm">
-              {totalCount} update{totalCount !== 1 ? 's' : ''}
-              {hasFilters && <span className="text-slate-400 ml-1">(filtered)</span>}
-            </p>
-          </div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
           <Link href="/editor/new">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
               + New Update
             </Button>
           </Link>
         </div>
+
+        {/* Tab switcher */}
+        <div className="flex items-center gap-1 border-b border-slate-200 mb-6">
+          <Link
+            href="/editor"
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900"
+          >
+            Updates
+          </Link>
+          <Link
+            href="/editor?tab=products"
+            className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
+          >
+            Products
+          </Link>
+        </div>
+
+        <p className="text-slate-500 text-sm mb-4">
+          {totalCount} update{totalCount !== 1 ? 's' : ''}
+          {hasFilters && <span className="text-slate-400 ml-1">(filtered)</span>}
+        </p>
 
         <Suspense>
           <FilterBar

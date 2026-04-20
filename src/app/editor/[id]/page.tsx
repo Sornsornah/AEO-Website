@@ -64,9 +64,15 @@ export default async function EditUpdatePage({ params }: PageProps) {
     tagIds: (update.tagIds as unknown[] | undefined)?.map(String) || [],
     date: format(update.date, 'yyyy-MM'),
     isPublished: update.isPublished,
-    progressUpdates: (update.progressUpdates as string[] | undefined) || [],
-    nextSteps: (update.nextSteps as string[] | undefined) || [],
-    learningPoints: (update.learningPoints as string[] | undefined) || [],
+    progressUpdates: (update.progressUpdates as string | string[] | undefined) instanceof Array
+      ? (update.progressUpdates as string[]).join('\n')
+      : (update.progressUpdates as string | undefined) || '',
+    nextSteps: (update.nextSteps as string | string[] | undefined) instanceof Array
+      ? (update.nextSteps as string[]).join('\n')
+      : (update.nextSteps as string | undefined) || '',
+    learningPoints: (update.learningPoints as string | string[] | undefined) instanceof Array
+      ? (update.learningPoints as string[]).join('\n')
+      : (update.learningPoints as string | undefined) || '',
     media: (update.media as string[] | undefined) || [],
   }
 

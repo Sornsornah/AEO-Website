@@ -10,9 +10,9 @@ export interface IUpdate extends Document {
   tagIds: Types.ObjectId[]
   date: Date
   highlights: string[]
-  progressUpdates: string[]
-  nextSteps: string[]
-  learningPoints: string[]
+  progressUpdates: string
+  nextSteps: string
+  learningPoints: string
   media: string[]
   isPublished: boolean
   createdBy?: Types.ObjectId
@@ -31,9 +31,9 @@ const UpdateSchema = new Schema<IUpdate>(
     tagIds: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
     date: { type: Date, required: true },
     highlights: [{ type: String, trim: true }],
-    progressUpdates: [{ type: String, trim: true }],
-    nextSteps: [{ type: String, trim: true }],
-    learningPoints: [{ type: String, trim: true }],
+    progressUpdates: { type: String, default: '' },
+    nextSteps: { type: String, default: '' },
+    learningPoints: { type: String, default: '' },
     media: [{ type: String }],
     isPublished: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },

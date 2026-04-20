@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { SaveButton } from './SaveButton'
 import { CommentButton } from './CommentButton'
 import { CommentSidePanel } from './CommentSidePanel'
-import { Badge } from '@/components/ui/badge'
 
 interface Product {
   _id: string
@@ -22,16 +22,15 @@ interface SocialUpdateCardProps {
     title: string
     summary: string
     date: string | Date
-    progressUpdates: string[]
-    nextSteps: string[]
-    learningPoints: string[]
+    progressUpdates: string | string[]
+    nextSteps: string | string[]
+    learningPoints: string | string[]
     media: string[]
     productId: Product
     isPublished?: boolean
     domains: { _id: string; name: string }[]
     tags: { _id: string; name: string }[]
   }
-  isNew?: boolean
   isSaved?: boolean
   commentCount?: number
 }
@@ -41,12 +40,17 @@ function isVideo(url: string) {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Progress',        bg: 'bg-emerald-50', labelColor: 'text-emerald-700', dot: 'bg-emerald-500' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-50',    labelColor: 'text-blue-700',    dot: 'bg-blue-500'    },
-  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700',   dot: 'bg-amber-500'   },
+  { key: 'progressUpdates' as const, label: 'Progress',        bg: 'bg-emerald-50', labelColor: 'text-emerald-700' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-50',    labelColor: 'text-blue-700'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
 ]
 
-export function SocialUpdateCard({ update, isNew = false, isSaved = false, commentCount = 0 }: SocialUpdateCardProps) {
+function toMarkdown(val: string | string[]): string {
+  if (Array.isArray(val)) return val.map((item) => `- ${item}`).join('\n')
+  return val
+}
+
+export function SocialUpdateCard({ update, isSaved = false, commentCount = 0 }: SocialUpdateCardProps) {
   const product = update.productId
   const hasProduct = !!product?._id
   const [commentPanelOpen, setCommentPanelOpen] = useState(false)
@@ -88,15 +92,6 @@ export function SocialUpdateCard({ update, isNew = false, isSaved = false, comme
           </div>
         )}
 
-        {/* Header: new badge */}
-        {isNew && (
-          <div className="mb-2">
-            <Badge className="bg-blue-50 text-blue-700 border-blue-100 text-xs font-medium hover:bg-blue-50">
-              New
-            </Badge>
-          </div>
-        )}
-
         {/* Title + summary */}
         <h2 className="text-base font-semibold text-slate-900 mb-2 leading-snug">
           {update.title}
@@ -108,24 +103,16 @@ export function SocialUpdateCard({ update, isNew = false, isSaved = false, comme
         {/* Structured sections */}
         <div className="space-y-2 mb-3">
           {SECTIONS.map((s) => {
-            const items = update[s.key] || []
-            if (items.length === 0) return null
+            const md = toMarkdown(update[s.key] || '')
+            if (!md.trim()) return null
             return (
               <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>
                   {s.label}
                 </p>
-                <ul className="space-y-0.5">
-                  {items.slice(0, 2).map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                      <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                  {items.length > 2 && (
-                    <li className="text-xs text-slate-400 pl-3.5">+{items.length - 2} more</li>
-                  )}
-                </ul>
+                <div className="prose prose-xs max-w-none text-xs text-slate-600 [&_ul]:space-y-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:pl-4 [&_p]:mb-0 [&_li]:leading-relaxed">
+                  <ReactMarkdown>{md}</ReactMarkdown>
+                </div>
               </div>
             )
           })}
@@ -180,7 +167,7 @@ export function SocialUpdateCard({ update, isNew = false, isSaved = false, comme
       {commentPanelOpen && (
         <CommentSidePanel
           updateId={update._id}
-          updateTitle={update.title}
+          update={update}
           onClose={() => setCommentPanelOpen(false)}
           onCountChange={setLiveCount}
         />
