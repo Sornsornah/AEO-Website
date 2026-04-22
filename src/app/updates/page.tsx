@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { Types } from 'mongoose'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

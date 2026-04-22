@@ -1,12 +1,11 @@
+export const dynamic = 'force-dynamic'
+
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
-  if (session) {
-    redirect('/updates')
-  } else {
-    redirect('/login')
-  }
+  if (session) redirect('/updates')
+  redirect('/login')
 }

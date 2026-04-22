@@ -11,7 +11,8 @@
     "seed-domains": "node node_modules/tsx/dist/cli.mjs src/scripts/seed-domains.ts",
     "create-user": "node node_modules/tsx/dist/cli.mjs src/scripts/create-user.ts",
     "whitelist-user": "node node_modules/tsx/dist/cli.mjs src/scripts/whitelist-user.ts",
-    "migrate-roles": "node node_modules/tsx/dist/cli.mjs src/scripts/migrate-editor-to-admin.ts"
+    "migrate-roles": "node node_modules/tsx/dist/cli.mjs src/scripts/migrate-editor-to-admin.ts",
+    "migrate-db": "node node_modules/tsx/dist/cli.mjs src/scripts/migrate-db.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
