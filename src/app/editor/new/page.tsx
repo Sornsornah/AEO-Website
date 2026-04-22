@@ -38,7 +38,7 @@ export default async function NewUpdatePage() {
   const allTags = tags.map((t) => ({ _id: t._id.toString(), name: t.name }))
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="px-6 py-10">

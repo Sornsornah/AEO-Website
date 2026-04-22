@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 import { ExternalLink, Globe, FileText } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
 
 interface TeamMember {
   name: string
@@ -17,6 +16,9 @@ interface ProductUpdate {
   title: string
   summary: string
   date: string
+  progressUpdates: string | string[]
+  nextSteps: string | string[]
+  learningPoints: string | string[]
 }
 
 interface UseCase {
@@ -24,6 +26,13 @@ interface UseCase {
   content: string
   image?: string
   functionTag?: string
+  department?: string
+}
+
+interface SimpleProductUpdate {
+  title: string
+  content: string
+  date: string
 }
 
 interface ProductDetailProps {
@@ -42,8 +51,12 @@ interface ProductDetailProps {
     productManagers: TeamMember[]
     developers: TeamMember[]
     overviewContent?: string
+    vision?: string
+    mission?: string
+    goals?: string
     highlightStats: { value: string; label: string }[]
     useCases: UseCase[]
+    productUpdates: SimpleProductUpdate[]
   }
   updates: ProductUpdate[]
 }
@@ -98,7 +111,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="relative bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         {useCase.image && (
           <div className="relative h-48 overflow-hidden rounded-t-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -131,6 +144,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
 export function ProductDetailClient({ product, updates }: ProductDetailProps) {
   const [tab, setTab] = useState<'overview' | 'usecases' | 'updates'>('overview')
   const [openUseCase, setOpenUseCase] = useState<UseCase | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
 
   const status = STATUS_CONFIG[product.status] || STATUS_CONFIG.live
   const hasTeam = product.productManagers.length > 0 || product.developers.length > 0
@@ -208,15 +222,15 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
         {(['overview', 'usecases', 'updates'] as const).map((t) => {
-          const labels = { overview: 'Overview', usecases: 'Use cases', updates: `Updates (${updates.length})` }
+          const labels = { overview: 'Overview', usecases: 'Use cases', updates: 'Updates' }
           return (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 tab === t
                   ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
               {labels[t]}
@@ -252,7 +266,10 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
           )}
 
           {product.overviewContent ? (
-            <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-rose-600 [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_p]:leading-relaxed">
+            <div
+              className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_p]:leading-relaxed [&_h2]:[color:var(--product-color)]"
+              style={{ '--product-color': product.color } as React.CSSProperties}
+            >
               <ReactMarkdown>{product.overviewContent}</ReactMarkdown>
             </div>
           ) : (
@@ -262,70 +279,165 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
       )}
 
       {/* Use cases tab */}
-      {tab === 'usecases' && (
-        <div>
-          {product.useCases.length === 0 ? (
-            <p className="text-sm text-slate-400 py-8 text-center">No use cases yet.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {product.useCases.map((uc, i) => (
-                <button
-                  key={i}
-                  onClick={() => setOpenUseCase(uc)}
-                  className="text-left border border-slate-200 rounded-xl overflow-hidden bg-white hover:shadow-sm hover:border-slate-300 transition-all"
-                >
-                  {uc.image && (
-                    <div className="h-36 overflow-hidden bg-slate-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={uc.image} alt={uc.title} className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  <div className="p-4">
-                    {uc.functionTag && (
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 mb-1">{uc.functionTag}</p>
-                    )}
-                    <p className="text-sm font-semibold text-slate-900 mb-1">{uc.title}</p>
-                    <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">
-                      {uc.content.replace(/[#*`\[\]]/g, '').slice(0, 150)}
-                    </p>
-                  </div>
-                </button>
-              ))}
+      {tab === 'usecases' && (() => {
+        const allTags = Array.from(new Set(product.useCases.map((uc) => uc.functionTag).filter(Boolean))) as string[]
+        const filtered = activeTag ? product.useCases.filter((uc) => uc.functionTag === activeTag) : product.useCases
+        return (
+          <div>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Learn how others are using the platform
+              </p>
+              <span className="text-xs text-slate-400">
+                {product.useCases.length} {product.useCases.length === 1 ? 'story' : 'stories'}
+              </span>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Tag filter pills */}
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                <button
+                  onClick={() => setActiveTag(null)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    activeTag === null
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All
+                </button>
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => setActiveTag(tag === activeTag ? null : tag)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      activeTag === tag
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {product.useCases.length === 0 ? (
+              <p className="text-sm text-slate-400 py-8 text-center">No use cases yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {filtered.map((uc, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setOpenUseCase(uc)}
+                    className="w-full text-left border border-slate-200 rounded-xl p-5 bg-card hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      {uc.department ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: product.color }}>
+                          {uc.department}
+                        </p>
+                      ) : <span />}
+                      {uc.functionTag && (
+                        <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                          {uc.functionTag}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{uc.title}</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
+                      {uc.content.replace(/[#*`[\]]/g, '').slice(0, 200)}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-3">More details</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Updates tab */}
       {tab === 'updates' && (
         <div>
-          {updates.length === 0 ? (
+          {product.productUpdates.length === 0 && updates.length === 0 ? (
             <p className="text-sm text-slate-400 py-8 text-center">No updates published yet.</p>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {updates.map((update) => (
-                <Link
-                  key={update._id}
-                  href={`/updates/${update._id}`}
-                  className="block py-4 group hover:bg-slate-50 -mx-3 px-3 rounded-lg transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {update.title}
-                      </p>
-                      {update.summary && (
-                        <p className="text-sm text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">
-                          {update.summary}
-                        </p>
-                      )}
+          ) : product.productUpdates.length > 0 ? (
+            <div className="relative">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+              <div className="space-y-10">
+                {product.productUpdates.map((update, idx) => (
+                  <div key={idx} className="flex gap-5">
+                    <div className="flex-shrink-0 w-4 flex flex-col items-center pt-1">
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-background ring-2 z-10" style={{ backgroundColor: product.color }} />
                     </div>
-                    <time className="text-xs text-slate-400 flex-shrink-0 mt-0.5">
-                      {formatDate(new Date(update.date))}
-                    </time>
+                    <div className="flex-1 min-w-0 pb-2">
+                      <div className="mb-2">
+                        <h3 className="text-sm font-bold uppercase tracking-wide leading-snug" style={{ color: product.color }}>
+                          {update.title}
+                        </h3>
+                      </div>
+                      <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-slate-500 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500">
+                        <ReactMarkdown>{update.content}</ReactMarkdown>
+                      </div>
+                    </div>
                   </div>
-                </Link>
-              ))}
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+              <div className="space-y-10">
+                {updates.map((update) => {
+                  const sections = [
+                    { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-50', labelColor: 'text-emerald-700' },
+                    { key: 'nextSteps'        as const, label: 'Next Steps',      bg: 'bg-blue-50',    labelColor: 'text-blue-700'    },
+                    { key: 'learningPoints'   as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
+                  ]
+                  function toNumbered(val: string | string[]): string {
+                    if (Array.isArray(val)) return val.map((item, i) => `${i + 1}. ${item}`).join('\n')
+                    let counter = 0
+                    return val.split('\n').map((line) => {
+                      const stripped = line.replace(/^[-*•]\s+/, '')
+                      if (stripped !== line) { counter++; return `${counter}. ${stripped}` }
+                      return line
+                    }).join('\n')
+                  }
+                  return (
+                    <div key={update._id} className="flex gap-5">
+                      <div className="flex-shrink-0 w-4 flex flex-col items-center pt-1">
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-background ring-2 z-10" style={{ backgroundColor: product.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0 pb-2">
+                        <div className="mb-1">
+                          <h3 className="text-sm font-bold uppercase tracking-wide leading-snug" style={{ color: product.color }}>
+                            {update.title}
+                          </h3>
+                        </div>
+                        {update.summary && (
+                          <p className="text-sm text-slate-500 mb-3 leading-relaxed">{update.summary}</p>
+                        )}
+                        <div className="space-y-2">
+                          {sections.map((s) => {
+                            const md = toNumbered(update[s.key] || '')
+                            if (!md.trim()) return null
+                            return (
+                              <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
+                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>{s.label}</p>
+                                <div className="prose prose-xs max-w-none text-xs text-slate-600 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:mb-0 [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic">
+                                  <ReactMarkdown>{md}</ReactMarkdown>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

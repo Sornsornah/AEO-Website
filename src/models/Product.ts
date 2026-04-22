@@ -30,6 +30,14 @@ export interface IUseCase {
   content: string
   image?: string
   functionTag?: string
+  department?: string
+  isDraft?: boolean
+}
+
+export interface IProductUpdate {
+  title: string
+  content: string
+  date?: Date
 }
 
 export interface IProduct extends Document {
@@ -51,11 +59,15 @@ export interface IProduct extends Document {
   overviewContent?: string
   whyWeBuiltThis?: string
   whatWeBuilt?: string
+  vision?: string
+  mission?: string
+  goals?: string
   highlightStats: IHighlightStat[]
   features: IFeature[]
   userQuotes: IUserQuote[]
   roadmap: IRoadmapItem[]
   useCases: IUseCase[]
+  productUpdates: IProductUpdate[]
   createdAt: Date
   updatedAt: Date
 }
@@ -85,11 +97,15 @@ const ProductSchema = new Schema<IProduct>(
     overviewContent: { type: String },
     whyWeBuiltThis: { type: String },
     whatWeBuilt: { type: String },
+    vision: { type: String },
+    mission: { type: String },
+    goals: { type: String },
     highlightStats: [{ value: { type: String }, label: { type: String }, _id: false }],
     features: [{ title: { type: String }, description: { type: String }, _id: false }],
     userQuotes: [{ text: { type: String }, author: { type: String }, _id: false }],
     roadmap: [{ quarter: { type: String }, description: { type: String }, _id: false }],
-    useCases: [{ title: { type: String }, content: { type: String }, image: { type: String }, functionTag: { type: String }, _id: false }],
+    useCases: [{ title: { type: String }, content: { type: String }, image: { type: String }, functionTag: { type: String }, department: { type: String }, isDraft: { type: Boolean, default: false }, _id: false }],
+    productUpdates: [{ title: { type: String }, content: { type: String }, date: { type: Date }, _id: false }],
   },
   { timestamps: true }
 )

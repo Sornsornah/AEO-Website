@@ -61,7 +61,7 @@ export default async function UpdateDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="px-6 py-10">

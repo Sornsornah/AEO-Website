@@ -99,7 +99,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Date</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Title</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Domain</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Section</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Product</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Status</TableHead>
             <TableHead className="w-24" />

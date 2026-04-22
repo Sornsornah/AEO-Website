@@ -51,7 +51,7 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="pt-12 pb-8 text-center px-6">
         <p className="text-xs font-semibold tracking-[0.2em] text-amber-700 uppercase mb-3">
@@ -72,11 +72,11 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
             return (
               <button
                 key={product._id}
-                onClick={() => setSelectedId(product._id)}
+                onMouseEnter={() => setSelectedId(product._id)}
                 className={`w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all ${
                   isSelected
-                    ? 'bg-white border-slate-200 shadow-sm'
-                    : 'bg-white/60 border-transparent hover:bg-white hover:border-slate-200'
+                    ? 'bg-white border-slate-200 shadow-md'
+                    : 'bg-white/70 border-slate-200/70 hover:bg-white hover:border-slate-200 hover:shadow-sm'
                 }`}
                 style={isSelected ? { borderLeftColor: product.color, borderLeftWidth: 3 } : {}}
               >
@@ -106,10 +106,10 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
         {/* Right panel — preview */}
         {selected && (
           <div
-            className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-white/60"
-            style={{ background: `linear-gradient(135deg, ${hexToRgba(selected.color, 0.12)} 0%, ${hexToRgba(selected.color, 0.04)} 100%), #ffffff` }}
+            className="flex-1 rounded-2xl overflow-hidden shadow-md border border-slate-200 max-h-[calc(100vh-220px)] overflow-y-auto"
+            style={{ background: `linear-gradient(135deg, ${hexToRgba(selected.color, 0.1)} 0%, ${hexToRgba(selected.color, 0.03)} 100%), var(--tw-bg-card, hsl(var(--card)))` }}
           >
-            <div className="p-8">
+            <div className="bg-white/80 p-8">
               {/* Logo + name + link */}
               <div className="flex items-center gap-3 mb-4">
                 <div
@@ -148,7 +148,7 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
               {selected.uiScreenshot && (
                 <div className="rounded-xl overflow-hidden mb-5 border border-black/5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selected.uiScreenshot} alt={`${selected.name} UI`} className="w-full object-cover max-h-64" />
+                  <img src={selected.uiScreenshot} alt={`${selected.name} UI`} className="w-full object-contain" />
                 </div>
               )}
 
@@ -161,7 +161,7 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
 
               {/* Features */}
               {selected.features.length > 0 && (
-                <ul className="space-y-2 mb-5">
+                <ul className="space-y-2">
                   {selected.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
                       <span className="mt-0.5 flex-shrink-0 text-base leading-none" style={{ color: selected.color }}>✦</span>
@@ -170,8 +170,6 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
                   ))}
                 </ul>
               )}
-
-              <hr className="border-slate-200" />
             </div>
           </div>
         )}

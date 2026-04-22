@@ -60,7 +60,7 @@ export function DomainTable({ domains, users }: { domains: DomainRow[]; users: U
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
-              <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Domain</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
               <TableHead className="w-28" />
             </TableRow>
           </TableHeader>

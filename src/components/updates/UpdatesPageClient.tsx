@@ -1,9 +1,21 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { SlidersHorizontal, Inbox } from 'lucide-react'
 import { formatMonthYear } from '@/lib/utils'
 import { SocialUpdateCard } from './SocialUpdateCard'
+
+const DOMAIN_ORDER = [
+  'General',
+  'Products',
+  'Central Solutions',
+  'Frontier',
+  'Performance',
+  'AI Governance',
+  'Strategy, Partnerships & Cap Dev',
+  'People & Culture',
+]
 
 interface UpdateItem {
   _id: string
@@ -22,10 +34,11 @@ interface UpdateItem {
 
 interface UpdatesPageClientProps {
   updates: UpdateItem[]
-  savedIds: string[]
-  currentView: string
-  savedCount: number
   commentCounts: Record<string, number>
+  domains: { name: string; slug: string }[]
+  activeDomain?: string
+  products: { name: string; slug: string }[]
+  activeProduct?: string
 }
 
 function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem[] }[] {
@@ -38,84 +51,138 @@ function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem
   return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
 }
 
-export function UpdatesPageClient({ updates, savedIds, currentView, savedCount, commentCounts }: UpdatesPageClientProps) {
+export function UpdatesPageClient({
+  updates,
+  commentCounts,
+  domains,
+  activeDomain,
+  products,
+  activeProduct,
+}: UpdatesPageClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [filterOpen, setFilterOpen] = useState(false)
 
-  const savedSet = new Set(savedIds)
-
-  const switchView = useCallback(
-    (view: string) => {
+  const pushParams = useCallback(
+    (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (view === 'all') {
-        params.delete('view')
-      } else {
-        params.set('view', view)
-      }
-      params.delete('id')
       params.delete('page')
+      for (const [key, val] of Object.entries(updates)) {
+        if (val) params.set(key, val)
+        else params.delete(key)
+      }
       router.push(`${pathname}?${params.toString()}`)
     },
     [router, pathname, searchParams]
   )
 
+  const sortedDomains = [...domains].sort((a, b) => {
+    const ai = DOMAIN_ORDER.indexOf(a.name)
+    const bi = DOMAIN_ORDER.indexOf(b.name)
+    if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  })
+
+  const isFiltered = !!(activeDomain || activeProduct)
+  const activeLabel = activeDomain
+    ? domains.find((d) => d.slug === activeDomain)?.name
+    : activeProduct
+    ? products.find((p) => p.slug === activeProduct)?.name
+    : null
   const monthGroups = groupByMonth(updates)
 
   return (
     <div>
-      {/* View tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-slate-100 pb-0">
+      {/* Page header */}
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <h1 className="text-5xl font-bold text-slate-900 mb-2">Internal Updates</h1>
+          <p className="text-slate-500 text-sm whitespace-nowrap">
+            AEO&apos;s progress — what&apos;s shipped, what&apos;s next and what we&apos;ve learnt along the way
+          </p>
+        </div>
         <button
-          onClick={() => switchView('all')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            currentView === 'all'
-              ? 'border-slate-900 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
+          onClick={() => setFilterOpen((o) => !o)}
+          className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            isFiltered
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : filterOpen
+              ? 'bg-slate-700 text-white'
+              : 'bg-slate-900 text-white hover:bg-slate-700'
           }`}
         >
-          All Updates
-        </button>
-        <button
-          onClick={() => switchView('saved')}
-          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            currentView === 'saved'
-              ? 'border-slate-900 text-slate-900'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          Saved
-          {savedCount > 0 && (
-            <span className="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] text-[10px] font-semibold bg-slate-200 text-slate-600 rounded-full px-1">
-              {savedCount > 99 ? '99+' : savedCount}
-            </span>
-          )}
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          {isFiltered && activeLabel ? `FILTER · ${activeLabel}` : 'FILTER'}
         </button>
       </div>
+
+      {/* Filter bar */}
+      {filterOpen && (
+        <div className="flex items-end gap-3 mb-6 p-4 bg-surface-raised border border-slate-200 rounded-xl">
+          {/* Section dropdown */}
+          <div className="flex-1">
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              Section
+            </label>
+            <select
+              value={activeDomain ?? ''}
+              onChange={(e) => pushParams({ domain: e.target.value || null, product: null })}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-card text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer"
+            >
+              <option value="">All sections</option>
+              {sortedDomains.map((d) => (
+                <option key={d.slug} value={d.slug}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Product dropdown */}
+          <div className="flex-1">
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              Product
+            </label>
+            <select
+              value={activeProduct ?? ''}
+              onChange={(e) => pushParams({ product: e.target.value || null, domain: null })}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-card text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer"
+            >
+              <option value="">All products</option>
+              {products.map((p) => (
+                <option key={p.slug} value={p.slug}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Clear */}
+          {isFiltered && (
+            <button
+              onClick={() => pushParams({ domain: null, product: null })}
+              className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Feed */}
       {updates.length === 0 ? (
         <div className="text-center py-16">
-          {currentView === 'saved' ? (
-            <>
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-slate-400">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <p className="text-slate-700 font-medium mb-1">No saved updates</p>
-              <p className="text-slate-400 text-sm">Bookmark updates to find them here.</p>
-            </>
-          ) : (
-            <p className="text-slate-400 text-sm">No updates yet.</p>
-          )}
+          <Inbox className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm font-medium">No updates found</p>
+          <p className="text-slate-300 text-xs mt-1">
+            {isFiltered ? 'Try clearing your filters' : 'Published updates will appear here'}
+          </p>
         </div>
       ) : (
         <div className="space-y-10">
           {monthGroups.map(({ month, items }) => (
             <section key={month}>
               <div className="flex items-center gap-4 mb-4">
-                <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex-shrink-0">
+                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-widest flex-shrink-0">
                   {month}
                 </h2>
                 <div className="flex-1 h-px bg-slate-200" />
@@ -128,7 +195,6 @@ export function UpdatesPageClient({ updates, savedIds, currentView, savedCount, 
                   <SocialUpdateCard
                     key={update._id}
                     update={update}
-                    isSaved={savedSet.has(update._id)}
                     commentCount={commentCounts[update._id] ?? 0}
                   />
                 ))}

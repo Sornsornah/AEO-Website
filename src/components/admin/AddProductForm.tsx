@@ -149,7 +149,7 @@ export function AddProductForm({ domains, users }: { domains: Domain[]; users: U
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Domain</Label>
+                <Label className="text-xs font-medium text-slate-600">Section</Label>
                 <Select value={domainId} onValueChange={setDomainId}>
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="No domain" />

@@ -30,8 +30,12 @@ export default async function ProductPage({ params }: Props) {
     productManagers?: { name: string; email: string }[]
     developers?: { name: string; email: string }[]
     overviewContent?: string
+    vision?: string
+    mission?: string
+    goals?: string
     highlightStats?: { value: string; label: string }[]
-    useCases?: { title: string; content: string; image?: string; functionTag?: string }[]
+    useCases?: { title: string; content: string; image?: string; functionTag?: string; department?: string; isDraft?: boolean }[]
+    productUpdates?: { title: string; content: string; date?: Date }[]
   }
 
   const serializedProduct = {
@@ -49,22 +53,43 @@ export default async function ProductPage({ params }: Props) {
     productManagers: p.productManagers || [],
     developers: p.developers || [],
     overviewContent: p.overviewContent,
+    vision: p.vision,
+    mission: p.mission,
+    goals: p.goals,
     highlightStats: p.highlightStats || [],
-    useCases: p.useCases || [],
+    useCases: (p.useCases || []).filter((uc: { isDraft?: boolean }) => !uc.isDraft).map((uc: { title: string; content: string; image?: string; functionTag?: string; department?: string }) => ({
+      title: uc.title,
+      content: uc.content,
+      image: uc.image,
+      functionTag: uc.functionTag,
+      department: uc.department,
+    })),
+    productUpdates: (p.productUpdates || []).map((u: { title: string; content: string; date?: Date }) => ({
+      title: u.title,
+      content: u.content,
+      date: u.date ? new Date(u.date).toISOString() : new Date().toISOString(),
+    })),
   }
 
-  const serializedUpdates = updates.map((u) => ({
+  const serializedUpdates = (updates as Array<typeof updates[0] & {
+    progressUpdates?: string | string[]
+    nextSteps?: string | string[]
+    learningPoints?: string | string[]
+  }>).map((u) => ({
     _id: u._id.toString(),
     title: u.title,
     summary: u.summary,
     date: u.date.toISOString(),
+    progressUpdates: u.progressUpdates || '',
+    nextSteps: u.nextSteps || '',
+    learningPoints: u.learningPoints || '',
   }))
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <main className="px-6 py-10 max-w-4xl mx-auto">
-        <ProductDetailClient product={serializedProduct} updates={serializedUpdates} />
+        <ProductDetailClient product={{ ...serializedProduct, productUpdates: serializedProduct.productUpdates ?? [] }} updates={serializedUpdates} />
       </main>
     </div>
   )

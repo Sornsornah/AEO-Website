@@ -41,6 +41,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (body.userQuotes !== undefined) updateData.userQuotes = Array.isArray(body.userQuotes) ? body.userQuotes : []
   if (body.roadmap !== undefined) updateData.roadmap = Array.isArray(body.roadmap) ? body.roadmap : []
   if (body.useCases !== undefined) updateData.useCases = Array.isArray(body.useCases) ? body.useCases : []
+  if (body.productUpdates !== undefined) updateData.productUpdates = Array.isArray(body.productUpdates) ? body.productUpdates : []
 
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })

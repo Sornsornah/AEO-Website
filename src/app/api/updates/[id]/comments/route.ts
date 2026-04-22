@@ -18,6 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(
     comments.map((c) => ({
       _id: c._id.toString(),
+      userId: c.userId?.toString() || '',
       userName: c.userName,
       text: c.text,
       attachments: c.attachments || [],
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({
     _id: comment._id.toString(),
+    userId: session.user.id,
     userName: comment.userName,
     text: comment.text,
     attachments: comment.attachments || [],

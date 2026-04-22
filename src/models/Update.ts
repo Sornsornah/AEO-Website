@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose'
 
 export interface IUpdate extends Document {
   title: string
-  summary: string
+  summary?: string
   content?: string
   domainId?: Types.ObjectId
   domainIds: Types.ObjectId[]
@@ -23,7 +23,7 @@ export interface IUpdate extends Document {
 const UpdateSchema = new Schema<IUpdate>(
   {
     title: { type: String, required: true, trim: true },
-    summary: { type: String, required: true, trim: true },
+    summary: { type: String, required: false, trim: true },
     content: { type: String, required: false },
     domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: false },
     domainIds: [{ type: Schema.Types.ObjectId, ref: 'Domain' }],

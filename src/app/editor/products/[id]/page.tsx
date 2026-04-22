@@ -34,7 +34,8 @@ export default async function EditProductPage({ params }: Props) {
     features?: { title: string; description: string }[]
     userQuotes?: { text: string; author: string }[]
     roadmap?: { quarter: string; description: string }[]
-    useCases?: { title: string; content: string; image?: string; functionTag?: string }[]
+    useCases?: { title: string; content: string; image?: string; functionTag?: string; department?: string; isDraft?: boolean }[]
+    productUpdates?: { title: string; content: string; date?: Date }[]
   }
 
   const defaultValues = {
@@ -51,16 +52,23 @@ export default async function EditProductPage({ params }: Props) {
     developers: p.developers || [],
     overviewContent: p.overviewContent || '',
     highlightStats: p.highlightStats || [],
-    useCases: (p.useCases || []).map((uc: { title: string; content: string; image?: string; functionTag?: string }) => ({
+    useCases: (p.useCases || []).map((uc: { title: string; content: string; image?: string; functionTag?: string; department?: string; isDraft?: boolean }) => ({
       title: uc.title,
       content: uc.content,
       image: uc.image || '',
       functionTag: uc.functionTag || '',
+      department: uc.department || '',
+      isDraft: uc.isDraft || false,
+    })),
+    productUpdates: (p.productUpdates || []).map((u: { title: string; content: string; date?: Date }) => ({
+      title: u.title,
+      content: u.content,
+      date: u.date ? new Date(u.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     })),
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <main className="px-6 py-10 max-w-3xl mx-auto">
         {/* Breadcrumb */}

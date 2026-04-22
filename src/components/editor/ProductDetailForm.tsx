@@ -7,11 +7,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ImagePlus, X, Plus, Trash2 } from 'lucide-react'
+import { ImagePlus, X, Plus, Trash2, FileEdit } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface TeamMember { name: string; email: string }
 interface HighlightStat { value: string; label: string }
-interface UseCase { title: string; content: string; image: string; functionTag: string }
+interface UseCase { title: string; content: string; image: string; functionTag: string; department: string; isDraft: boolean }
+interface ProductUpdate { title: string; content: string; date: string }
+
+type Tab = 'project' | 'overview' | 'usecases' | 'content'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'project', label: 'Project information' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'usecases', label: 'Use cases' },
+  { id: 'content', label: 'Content' },
+]
 
 interface ProductDetailFormProps {
   productId: string
@@ -30,6 +41,7 @@ interface ProductDetailFormProps {
     overviewContent: string
     highlightStats: HighlightStat[]
     useCases: UseCase[]
+    productUpdates: ProductUpdate[]
   }
 }
 
@@ -61,6 +73,7 @@ function RepeatableRow({ children, onRemove }: { children: React.ReactNode; onRe
 
 export function ProductDetailForm({ productId, defaultValues }: ProductDetailFormProps) {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<Tab>('project')
 
   const [name, setName] = useState(defaultValues.name)
   const [description, setDescription] = useState(defaultValues.description)
@@ -76,6 +89,7 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
   const [overviewContent, setOverviewContent] = useState(defaultValues.overviewContent)
   const [highlightStats, setHighlightStats] = useState<HighlightStat[]>(defaultValues.highlightStats)
   const [useCases, setUseCases] = useState<UseCase[]>(defaultValues.useCases)
+  const [productUpdates, setProductUpdates] = useState<ProductUpdate[]>(defaultValues.productUpdates)
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -131,7 +145,7 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
           logoUrl: logoUrl || null, uiScreenshot: uiScreenshot || null,
           websiteUrl: websiteUrl || null, deckUrl: deckUrl || null,
           productManagers, developers,
-          overviewContent, highlightStats, useCases,
+          overviewContent, highlightStats, useCases, productUpdates,
         }),
       })
       if (!res.ok) {
@@ -149,170 +163,188 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-10">
+    <form onSubmit={handleSubmit}>
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+              activeTab === tab.id
+                ? 'border-slate-900 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* ── Basics ── */}
-      <section>
-        <SectionHeader title="Basics" />
-        <div className="space-y-4">
-          {/* Logo */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-slate-700">Logo</Label>
-            <div className="flex items-center gap-4">
-              {logoUrl ? (
-                <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
-                  <Image src={logoUrl} alt="Logo" fill className="object-contain p-1" />
-                  <button
-                    type="button"
-                    onClick={() => setLogoUrl('')}
-                    className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
+      {/* ── Project information ── */}
+      {activeTab === 'project' && (
+        <div className="space-y-10">
+          <section>
+            <SectionHeader title="Basics" />
+            <div className="space-y-4">
+              {/* Logo */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-700">Logo</Label>
+                <div className="flex items-center gap-4">
+                  {logoUrl ? (
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
+                      <Image src={logoUrl} alt="Logo" fill className="object-contain p-1" />
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl('')}
+                        className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color }}>
+                      <span className="text-white text-lg font-bold">{name.charAt(0)}</span>
+                    </div>
+                  )}
+                  <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'logo' ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={!!uploading} />
+                    <ImagePlus className="w-4 h-4" />
+                    {uploading === 'logo' ? 'Uploading...' : 'Upload logo'}
+                  </label>
                 </div>
-              ) : (
-                <div className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color }}>
-                  <span className="text-white text-lg font-bold">{name.charAt(0)}</span>
+              </div>
+
+              {/* Name */}
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-sm font-medium text-slate-700">Name <span className="text-red-500">*</span></Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="h-10" required />
+              </div>
+
+              {/* One-liner */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description" className="text-sm font-medium text-slate-700">One-liner</Label>
+                  <span className={`text-xs ${description.length > 75 ? 'text-red-500' : 'text-slate-400'}`}>{description.length}/75</span>
                 </div>
-              )}
-              <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'logo' ? 'opacity-50 pointer-events-none' : ''}`}>
-                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={!!uploading} />
-                <ImagePlus className="w-4 h-4" />
-                {uploading === 'logo' ? 'Uploading...' : 'Upload logo'}
-              </label>
-            </div>
-          </div>
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="name" className="text-sm font-medium text-slate-700">Name <span className="text-red-500">*</span></Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="h-10" required />
-          </div>
-
-          {/* One-liner */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="description" className="text-sm font-medium text-slate-700">One-liner</Label>
-              <span className={`text-xs ${description.length > 75 ? 'text-red-500' : 'text-slate-400'}`}>{description.length}/75</span>
-            </div>
-            <Input
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 75))}
-              placeholder="Platform for deploying AI workflows"
-              className="h-10"
-            />
-          </div>
-
-          {/* Short description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="shortDescription" className="text-sm font-medium text-slate-700">Short description</Label>
-            <textarea
-              id="shortDescription"
-              value={shortDescription}
-              onChange={(e) => setShortDescription(e.target.value)}
-              placeholder="A longer paragraph describing what the product does..."
-              rows={3}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-            />
-          </div>
-
-          {/* Status + Color row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-slate-700">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="live">● Live</SelectItem>
-                  <SelectItem value="beta">● Beta</SelectItem>
-                  <SelectItem value="coming_soon">● Coming Soon</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-slate-700">Brand color</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    className={`w-6 h-6 rounded-full border-2 transition-all ${color === c ? 'border-slate-900 scale-110' : 'border-transparent hover:scale-105'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent"
-                  title="Custom color"
+                <Input
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value.slice(0, 75))}
+                  placeholder="Platform for deploying AI workflows"
+                  className="h-10"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Links */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="websiteUrl" className="text-sm font-medium text-slate-700">Website URL</Label>
-              <Input id="websiteUrl" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://..." className="h-10" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="deckUrl" className="text-sm font-medium text-slate-700">Deck URL</Label>
-              <Input id="deckUrl" value={deckUrl} onChange={(e) => setDeckUrl(e.target.value)} placeholder="https://..." className="h-10" />
-            </div>
-          </div>
-        </div>
-      </section>
+              {/* Short description */}
+              <div className="space-y-1.5">
+                <Label htmlFor="shortDescription" className="text-sm font-medium text-slate-700">Short description</Label>
+                <textarea
+                  id="shortDescription"
+                  value={shortDescription}
+                  onChange={(e) => setShortDescription(e.target.value)}
+                  placeholder="A longer paragraph describing what the product does..."
+                  rows={3}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                />
+              </div>
 
-      {/* ── Team ── */}
-      <section>
-        <SectionHeader title="Team" />
-        <div className="grid grid-cols-2 gap-6">
-          {/* Product Managers */}
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">Product Managers</p>
-            <div className="space-y-2">
-              {productManagers.map((pm, i) => (
-                <RepeatableRow key={i} onRemove={() => setProductManagers((prev) => prev.filter((_, j) => j !== i))}>
-                  <div className="flex gap-2">
-                    <Input value={pm.name} onChange={(e) => setProductManagers((prev) => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))} placeholder="Full name" className="h-9 text-sm" />
-                    <Input value={pm.email} onChange={(e) => setProductManagers((prev) => prev.map((m, j) => j === i ? { ...m, email: e.target.value } : m))} placeholder="email@..." className="h-9 text-sm" />
+              {/* Status + Color row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-700">Status</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="live">● Live</SelectItem>
+                      <SelectItem value="beta">● Beta</SelectItem>
+                      <SelectItem value="coming_soon">● Coming Soon</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-700">Brand color</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {PRESET_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        className={`w-6 h-6 rounded-full border-2 transition-all ${color === c ? 'border-slate-900 scale-110' : 'border-transparent hover:scale-105'}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent"
+                      title="Custom color"
+                    />
                   </div>
-                </RepeatableRow>
-              ))}
-              <button type="button" onClick={() => setProductManagers((prev) => [...prev, { name: '', email: '' }])} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors">
-                <Plus className="w-3.5 h-3.5" /> Add PM
-              </button>
-            </div>
-          </div>
-          {/* Developers */}
-          <div>
-            <p className="text-xs font-medium text-slate-500 mb-2">Developers</p>
-            <div className="space-y-2">
-              {developers.map((dev, i) => (
-                <RepeatableRow key={i} onRemove={() => setDevelopers((prev) => prev.filter((_, j) => j !== i))}>
-                  <div className="flex gap-2">
-                    <Input value={dev.name} onChange={(e) => setDevelopers((prev) => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))} placeholder="Full name" className="h-9 text-sm" />
-                    <Input value={dev.email} onChange={(e) => setDevelopers((prev) => prev.map((m, j) => j === i ? { ...m, email: e.target.value } : m))} placeholder="email@..." className="h-9 text-sm" />
-                  </div>
-                </RepeatableRow>
-              ))}
-              <button type="button" onClick={() => setDevelopers((prev) => [...prev, { name: '', email: '' }])} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors">
-                <Plus className="w-3.5 h-3.5" /> Add developer
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+                </div>
+              </div>
 
-      {/* ── Overview content ── */}
-      <section>
-        <SectionHeader title="Overview content" />
+              {/* Links */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="websiteUrl" className="text-sm font-medium text-slate-700">Website URL</Label>
+                  <Input id="websiteUrl" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://..." className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="deckUrl" className="text-sm font-medium text-slate-700">Deck URL</Label>
+                  <Input id="deckUrl" value={deckUrl} onChange={(e) => setDeckUrl(e.target.value)} placeholder="https://..." className="h-10" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <SectionHeader title="Team" />
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Product Managers</p>
+                <div className="space-y-2">
+                  {productManagers.map((pm, i) => (
+                    <RepeatableRow key={i} onRemove={() => setProductManagers((prev) => prev.filter((_, j) => j !== i))}>
+                      <div className="flex gap-2">
+                        <Input value={pm.name} onChange={(e) => setProductManagers((prev) => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))} placeholder="Full name" className="h-9 text-sm" />
+                        <Input value={pm.email} onChange={(e) => setProductManagers((prev) => prev.map((m, j) => j === i ? { ...m, email: e.target.value } : m))} placeholder="email@..." className="h-9 text-sm" />
+                      </div>
+                    </RepeatableRow>
+                  ))}
+                  <button type="button" onClick={() => setProductManagers((prev) => [...prev, { name: '', email: '' }])} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> Add PM
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">Developers</p>
+                <div className="space-y-2">
+                  {developers.map((dev, i) => (
+                    <RepeatableRow key={i} onRemove={() => setDevelopers((prev) => prev.filter((_, j) => j !== i))}>
+                      <div className="flex gap-2">
+                        <Input value={dev.name} onChange={(e) => setDevelopers((prev) => prev.map((m, j) => j === i ? { ...m, name: e.target.value } : m))} placeholder="Full name" className="h-9 text-sm" />
+                        <Input value={dev.email} onChange={(e) => setDevelopers((prev) => prev.map((m, j) => j === i ? { ...m, email: e.target.value } : m))} placeholder="email@..." className="h-9 text-sm" />
+                      </div>
+                    </RepeatableRow>
+                  ))}
+                  <button type="button" onClick={() => setDevelopers((prev) => [...prev, { name: '', email: '' }])} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> Add developer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ── Overview ── */}
+      {activeTab === 'overview' && (
         <div className="space-y-5">
           {/* UI Screenshot */}
           <div className="space-y-1.5">
@@ -334,7 +366,7 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
             )}
           </div>
 
-          {/* Overview content (markdown) */}
+          {/* Overview content */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-700">Overview content</Label>
             <p className="text-xs text-slate-400">Supports markdown — use ## headings, **bold**, bullet lists, blockquotes, etc.</p>
@@ -365,14 +397,29 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
             </div>
           </div>
         </div>
-      </section>
+      )}
 
       {/* ── Use cases ── */}
-      <section>
-        <SectionHeader title="Use cases" />
+      {activeTab === 'usecases' && (
         <div className="space-y-6">
           {useCases.map((uc, i) => (
-            <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3 relative">
+            <div
+              key={i}
+              className={cn(
+                'border rounded-xl p-4 space-y-3 relative',
+                uc.isDraft ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'
+              )}
+            >
+              {/* Card header row */}
+              <div className="flex items-center justify-between pr-8">
+                <span className="text-xs font-semibold text-slate-500">Use case {i + 1}</span>
+                {uc.isDraft && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                    <FileEdit className="w-2.5 h-2.5" /> Draft
+                  </span>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setUseCases((prev) => prev.filter((_, j) => j !== i))}
@@ -380,6 +427,7 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
               >
                 <Trash2 className="w-4 h-4" />
               </button>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-slate-500">Title</Label>
@@ -389,6 +437,10 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
                   <Label className="text-xs font-medium text-slate-500">Function tag</Label>
                   <Input value={uc.functionTag} onChange={(e) => setUseCases((prev) => prev.map((item, j) => j === i ? { ...item, functionTag: e.target.value } : item))} placeholder="e.g. HR, Policy, Operations" className="h-9 text-sm" />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-500">Department name</Label>
+                <Input value={uc.department} onChange={(e) => setUseCases((prev) => prev.map((item, j) => j === i ? { ...item, department: e.target.value } : item))} placeholder="e.g. Housing Schemes Department" className="h-9 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-500">Content (Markdown)</Label>
@@ -422,23 +474,97 @@ export function ProductDetailForm({ productId, defaultValues }: ProductDetailFor
                   </label>
                 )}
               </div>
+
+              {/* Draft toggle */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-xs text-slate-500">
+                  {uc.isDraft ? 'This use case is saved as a draft and not visible to viewers.' : 'This use case is published and visible to viewers.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUseCases((prev) => prev.map((item, j) => j === i ? { ...item, isDraft: !item.isDraft } : item))}
+                  className={cn(
+                    'text-xs font-medium px-3 py-1.5 rounded-lg transition-colors',
+                    uc.isDraft
+                      ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                  )}
+                >
+                  {uc.isDraft ? 'Publish' : 'Save as draft'}
+                </button>
+              </div>
             </div>
           ))}
           <button
             type="button"
-            onClick={() => setUseCases((prev) => [...prev, { title: '', content: '', image: '', functionTag: '' }])}
+            onClick={() => setUseCases((prev) => [...prev, { title: '', content: '', image: '', functionTag: '', department: '', isDraft: false }])}
             className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-xl px-4 py-3 w-full justify-center hover:border-slate-400 transition-colors"
           >
             <Plus className="w-4 h-4" /> Add use case
           </button>
         </div>
-      </section>
-
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">{error}</p>
       )}
 
-      <div className="flex gap-3 pt-2 pb-10">
+      {/* ── Content ── */}
+      {activeTab === 'content' && (
+        <div className="space-y-6">
+          <p className="text-xs text-slate-400 -mt-2">These appear on the product detail page under the Updates tab. Each entry has a title and markdown content.</p>
+          {productUpdates.map((u, i) => (
+            <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3 relative">
+              <button
+                type="button"
+                onClick={() => setProductUpdates((prev) => prev.filter((_, j) => j !== i))}
+                className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-500">Title</Label>
+                  <Input
+                    value={u.title}
+                    onChange={(e) => setProductUpdates((prev) => prev.map((item, j) => j === i ? { ...item, title: e.target.value } : item))}
+                    placeholder="e.g. Q2 launch milestone"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-500">Date</Label>
+                  <Input
+                    type="date"
+                    value={u.date}
+                    onChange={(e) => setProductUpdates((prev) => prev.map((item, j) => j === i ? { ...item, date: e.target.value } : item))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-500">Content (Markdown)</Label>
+                <textarea
+                  value={u.content}
+                  onChange={(e) => setProductUpdates((prev) => prev.map((item, j) => j === i ? { ...item, content: e.target.value } : item))}
+                  placeholder="Describe this update in markdown..."
+                  rows={6}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
+                />
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setProductUpdates((prev) => [...prev, { title: '', content: '', date: new Date().toISOString().split('T')[0] }])}
+            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-xl px-4 py-3 w-full justify-center hover:border-slate-400 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add update
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-8 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">{error}</p>
+      )}
+
+      <div className="flex gap-3 pt-8 pb-10">
         <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-6">
           {loading ? 'Saving...' : 'Save changes'}
         </Button>

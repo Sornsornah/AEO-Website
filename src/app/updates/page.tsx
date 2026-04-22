@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { Types } from 'mongoose'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -6,17 +5,16 @@ import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
-import { SavedUpdate } from '@/models/SavedUpdate'
 import { UserSeenUpdate } from '@/models/UserSeenUpdate'
 import { Comment } from '@/models/Comment'
 import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/Navbar'
-import { DomainPills } from '@/components/updates/DomainPills'
 import { UpdatesPageClient } from '@/components/updates/UpdatesPageClient'
 
 interface PageProps {
   searchParams: {
     domain?: string
+    product?: string
     view?: string
   }
 }
@@ -28,44 +26,38 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
 
   const currentView = searchParams.view || 'all'
   const isWhatsNewView = currentView === 'new'
-  const isSavedView = currentView === 'saved'
 
-  // Fetch seen IDs + saved IDs
+  // Fetch seen IDs
   let seenIds: Types.ObjectId[] = []
-  let unseenCount = 0
-  const savedIds = new Set<string>()
   if (session) {
-    const [seenRecords, savedRecords] = await Promise.all([
-      UserSeenUpdate.find({ userId: session.user.id }).select('updateId').lean(),
-      SavedUpdate.find({ userId: session.user.id }).select('updateId').lean(),
-    ])
+    const seenRecords = await UserSeenUpdate.find({ userId: session.user.id }).select('updateId').lean()
     seenIds = seenRecords.map((r) => r.updateId as Types.ObjectId)
-    for (const r of savedRecords) savedIds.add(r.updateId.toString())
-    unseenCount = await Update.countDocuments({ isPublished: true, _id: { $nin: seenIds } })
   }
-
-  const savedCount = savedIds.size
 
   // Build query
   const query: Record<string, unknown> = { isPublished: true }
 
   if (isWhatsNewView) {
     query._id = { $nin: seenIds }
-  } else if (isSavedView) {
-    query._id = { $in: Array.from(savedIds) }
   }
 
-  if (searchParams.domain && !isSavedView) {
+  if (searchParams.domain) {
     const domain = await Domain.findOne({ slug: searchParams.domain })
     if (domain) {
       const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
       query.productId = { $in: domainProducts.map((p) => p._id) }
     }
+  } else if (searchParams.product) {
+    const product = await Product.findOne({ slug: searchParams.product }).select('_id').lean()
+    if (product) {
+      query.productId = product._id
+    }
   }
 
-  // Fetch all domains for pills + all updates (grouped by month client-side)
-  const [allDomains, updates] = await Promise.all([
-    Domain.find().sort({ name: 1 }).lean(),
+  // Fetch all domains, products, and updates
+  const [allDomains, allProducts, updates] = await Promise.all([
+    Domain.find().lean(),
+    Product.find().select('name slug').sort({ name: 1 }).lean(),
     Update.find(query)
       .populate({ path: 'productId', populate: { path: 'domainId' } })
       .populate('domainIds')
@@ -131,30 +123,25 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
   }
 
   const allDomainOptions = allDomains.map((d) => ({ name: d.name, slug: d.slug }))
-  const seenIdStrings = seenIds.map((id) => id.toString())
+  const allProductOptions = allProducts.map((p) => ({ name: p.name, slug: p.slug }))
 
   return (
-    <div className="min-h-screen bg-[#f5f0eb]">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
+      <div className="w-full bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-200 px-2 py-0.5 rounded-full">Restricted Access</span>
+        <p className="text-xs text-amber-800">This page is intended for authorised internal users only.</p>
+      </div>
+
       <main className="px-6 py-10">
-        <div className="mb-6">
-          <h1 className="text-5xl font-bold text-slate-900 mb-2">Pipeline Updates</h1>
-          <p className="text-slate-500 text-sm max-w-md">
-            A field journal of product progress — what shipped, what&apos;s next, and what we learned along the way.
-          </p>
-        </div>
-
-        <Suspense>
-          <DomainPills domains={allDomainOptions} activeDomain={searchParams.domain} />
-        </Suspense>
-
         <UpdatesPageClient
           updates={serializedUpdates}
-          savedIds={Array.from(savedIds)}
-          currentView={currentView}
-          savedCount={savedCount}
           commentCounts={commentCounts}
+          domains={allDomainOptions}
+          activeDomain={searchParams.domain}
+          products={allProductOptions}
+          activeProduct={searchParams.product}
         />
       </main>
     </div>

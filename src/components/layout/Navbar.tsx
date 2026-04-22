@@ -8,8 +8,9 @@ import { cn } from '@/lib/utils'
 import { NotificationBell } from './NotificationBell'
 
 const navLinks = [
-  { href: '/updates', label: 'Pipeline Updates' },
   { href: '/products', label: 'Products' },
+  { href: '/updates', label: 'Internal Updates', restricted: true },
+  { href: '/about', label: 'About us' },
 ]
 
 function getInitials(name: string) {
@@ -40,13 +41,10 @@ export function Navbar() {
   const initials = session?.user?.name ? getInitials(session.user.name) : '?'
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="w-full px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Link href="/updates" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">A</span>
-            </div>
             <span className="font-semibold text-slate-900 text-sm">AEO: AI Enablement Office</span>
           </Link>
 
@@ -58,20 +56,30 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'px-3 py-1.5 text-sm rounded-full transition-colors',
+                    'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-colors',
                     isActive
                       ? 'bg-slate-900 text-white font-medium'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                   )}
                 >
                   {link.label}
+                  {'restricted' in link && link.restricted && (
+                    <span className={cn(
+                      'text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full',
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-100 text-amber-700'
+                    )}>
+                      Restricted
+                    </span>
+                  )}
                 </Link>
               )
             })}
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {session?.user && (
             <>
               <NotificationBell />
@@ -86,7 +94,7 @@ export function Navbar() {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100">
                       <p className="text-sm font-medium text-slate-900 truncate">{session.user.name}</p>
                       <p className="text-xs text-slate-400 capitalize mt-0.5">{session.user.role}</p>

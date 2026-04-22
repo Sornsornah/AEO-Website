@@ -72,7 +72,7 @@ export function ProductTable({ products, domains, users }: { products: ProductRo
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
               <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Domain</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
               <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24 text-right">Updates</TableHead>
               <TableHead className="w-28" />
             </TableRow>

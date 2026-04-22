@@ -43,6 +43,9 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        'surface-raised': 'var(--surface-raised)',
+        'surface-warm': 'var(--surface-warm)',
+        'surface-warm-card': 'var(--surface-warm-card)',
       },
       borderRadius: {
         lg: 'var(--radius)',

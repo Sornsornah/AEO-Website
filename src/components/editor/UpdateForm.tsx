@@ -128,16 +128,16 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     e.preventDefault()
     setError('')
 
-    if (!title || !summary || !date) {
+    if (!title || !date) {
       setError('Please fill in all required fields.')
       return
     }
     if (domainIds.length === 0) {
-      setError('Please select at least one domain.')
+      setError('Please select at least one section.')
       return
     }
     if (!progressUpdates.trim() && !nextSteps.trim() && !learningPoints.trim()) {
-      setError('Add content to at least one of Progress Updates, Next Steps, or Learning Points.')
+      setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
       return
     }
 
@@ -197,11 +197,11 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         />
       </div>
 
-      {/* Domain + Date row */}
+      {/* Section + Date row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-sm font-medium text-slate-700">
-            Domain <span className="text-red-500">*</span>
+            Section <span className="text-red-500">*</span>
           </Label>
           <div className="flex flex-wrap gap-2 pt-0.5">
             {allDomains.map((d) => (
@@ -289,7 +289,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       {/* Summary */}
       <div className="space-y-1.5">
         <Label htmlFor="summary" className="text-sm font-medium text-slate-700">
-          Summary <span className="text-red-500">*</span>
+          Summary
         </Label>
         <textarea
           id="summary"
@@ -298,13 +298,12 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           placeholder="A short plain-text description shown in the feed..."
           rows={2}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-          required
         />
       </div>
 
-      {/* Progress Updates */}
+      {/* Key Milestones */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-slate-700">Progress Updates</Label>
+        <Label className="text-sm font-medium text-slate-700">Key Milestones</Label>
         <p className="text-xs text-slate-400">What was accomplished this period — supports Markdown</p>
         <textarea
           value={progressUpdates}

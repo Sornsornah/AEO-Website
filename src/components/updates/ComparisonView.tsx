@@ -25,7 +25,7 @@ interface ComparisonViewProps {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Progress Updates', border: 'border-emerald-200', labelColor: 'text-emerald-700', dot: 'bg-emerald-500', addedBg: 'bg-emerald-50', addedText: 'text-emerald-700' },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',   border: 'border-emerald-200', labelColor: 'text-emerald-700', dot: 'bg-emerald-500', addedBg: 'bg-emerald-50', addedText: 'text-emerald-700' },
   { key: 'nextSteps'       as const, label: 'Next Steps',       border: 'border-blue-200',    labelColor: 'text-blue-700',    dot: 'bg-blue-500',    addedBg: 'bg-blue-50',    addedText: 'text-blue-700'    },
   { key: 'learningPoints'  as const, label: 'Learning Points',  border: 'border-amber-200',   labelColor: 'text-amber-700',   dot: 'bg-amber-500',   addedBg: 'bg-amber-50',   addedText: 'text-amber-700'   },
 ]
@@ -116,26 +116,26 @@ export function ComparisonView({ current, prev }: ComparisonViewProps) {
               <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${s.labelColor}`}>
                 {s.label}
               </h2>
-              <ul className="space-y-2">
+              <ol className="space-y-2 list-none">
                 {unchanged.map((item, i) => (
                   <li key={`u-${i}`} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
+                    <span className={`flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5 ${s.labelColor}`}>{i + 1}.</span>
                     {item}
                   </li>
                 ))}
                 {added.map((item, i) => (
                   <li key={`a-${i}`} className={`flex items-start gap-2 text-sm ${s.addedText} ${s.addedBg} rounded-lg px-2 py-1.5 -mx-2`}>
-                    <span className="mt-0.5 font-bold text-base leading-none flex-shrink-0">+</span>
+                    <span className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5">{unchanged.length + i + 1}.</span>
                     {item}
                   </li>
                 ))}
                 {removed.map((item, i) => (
                   <li key={`r-${i}`} className="flex items-start gap-3 text-sm text-slate-400 line-through">
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-slate-300" />
+                    <span className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5">–</span>
                     {item}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )
         })}

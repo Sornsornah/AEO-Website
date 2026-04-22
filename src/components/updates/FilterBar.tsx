@@ -116,9 +116,9 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
         />
       </div>
 
-      {/* Domain */}
+      {/* Section */}
       <div className="flex flex-col gap-1.5">
-        <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Domain</Label>
+        <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Section</Label>
         <Select
           value={currentDomain || 'all'}
           onValueChange={(val) => updateParams({ domain: val === 'all' ? '' : val, product: '' })}

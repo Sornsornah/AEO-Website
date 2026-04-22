@@ -58,7 +58,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
     }))
 
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-background">
         <Navbar />
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
@@ -244,7 +244,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
   })
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       <main className="px-6 py-10">

@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import ReactMarkdown from 'react-markdown'
 import { createPortal } from 'react-dom'
-import { X, Paperclip, Send } from 'lucide-react'
+import { X, Paperclip, Send, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from 'next-auth/react'
 
 interface Comment {
   _id: string
+  userId: string
   userName: string
   text: string
   attachments: string[]
@@ -45,9 +45,40 @@ const SECTIONS = [
   { key: 'learningPoints'  as const, label: 'Learning Points',  bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
 ]
 
-function toMarkdown(val: string | string[]): string {
-  if (Array.isArray(val)) return val.map((item) => `- ${item}`).join('\n')
-  return val
+function renderItems(val: string | string[]) {
+  const items: { text: string; sub: string[] }[] = []
+  if (Array.isArray(val)) {
+    val.forEach((text) => items.push({ text, sub: [] }))
+  } else {
+    for (const line of val.split('\n')) {
+      const subMatch = line.match(/^[ \t]{2,}[-*•]\s+(.+)/)
+      const mainMatch = line.match(/^[-*•]\s+(.+)/)
+      if (subMatch && items.length > 0) {
+        items[items.length - 1].sub.push(subMatch[1])
+      } else if (mainMatch) {
+        items.push({ text: mainMatch[1], sub: [] })
+      } else if (line.trim()) {
+        items.push({ text: line.trim(), sub: [] })
+      }
+    }
+  }
+  if (items.length === 0) return null
+  return (
+    <ol className="list-none p-0 m-0 space-y-1">
+      {items.map((item, i) => (
+        <li key={i} className="leading-relaxed">
+          {i + 1}. {item.text}
+          {item.sub.length > 0 && (
+            <ol className="list-none pl-4 mt-0.5 space-y-0.5">
+              {item.sub.map((sub, j) => (
+                <li key={j} className="leading-relaxed">{String.fromCharCode(97 + j)}. {sub}</li>
+              ))}
+            </ol>
+          )}
+        </li>
+      ))}
+    </ol>
+  )
 }
 
 const AVATAR_COLORS = [
@@ -92,7 +123,7 @@ function EnlargedCard({ update }: { update: UpdateData }) {
   const hasTags = update.domains.length > 0 || hasProduct || update.tags.length > 0
 
   return (
-    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg">
+    <div className="bg-card rounded-2xl shadow-2xl p-6 w-full max-w-lg">
       {hasTags && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {update.domains.map((d) => (
@@ -119,13 +150,13 @@ function EnlargedCard({ update }: { update: UpdateData }) {
 
       <div className="space-y-2">
         {SECTIONS.map((s) => {
-          const md = toMarkdown(update[s.key] || '')
-          if (!md.trim()) return null
+          const rendered = renderItems(update[s.key] || '')
+          if (!rendered) return null
           return (
             <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
               <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>{s.label}</p>
-              <div className="prose prose-xs max-w-none text-xs text-slate-600 [&_ul]:space-y-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:pl-4 [&_p]:mb-0 [&_li]:leading-relaxed">
-                <ReactMarkdown>{md}</ReactMarkdown>
+              <div className="text-xs text-black leading-relaxed">
+                {rendered}
               </div>
             </div>
           )
@@ -143,6 +174,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const [pendingFiles, setPendingFiles] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
   const [allUsers, setAllUsers] = useState<MentionUser[]>([])
@@ -262,12 +294,25 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
     setPendingFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  async function deleteComment(commentId: string) {
+    setDeletingId(commentId)
+    try {
+      await fetch(`/api/updates/${updateId}/comments/${commentId}`, { method: 'DELETE' })
+      const next = comments.filter((c) => c._id !== commentId)
+      setComments(next)
+      onCountChange(next.length)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if ((!text.trim() && pendingFiles.length === 0) || submitting) return
     setSubmitting(true)
     const optimistic: Comment = {
       _id: `temp-${Date.now()}`,
+      userId: session?.user?.id || '',
       userName: session?.user?.name || 'You',
       text: text.trim(),
       attachments: [...pendingFiles],
@@ -319,7 +364,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
 
         {/* Comment side panel */}
         <div
-          className={`h-full w-[380px] flex-shrink-0 bg-white shadow-2xl flex flex-col pointer-events-auto transition-transform duration-300 ease-out ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
+          className={`h-full w-[380px] flex-shrink-0 bg-card shadow-2xl flex flex-col pointer-events-auto transition-transform duration-300 ease-out ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100">
@@ -358,6 +403,16 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                       <span className="text-[11px] text-slate-400">
                         {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
                       </span>
+                      {c.userId === session?.user?.id && !c._id.startsWith('temp-') && (
+                        <button
+                          onClick={() => deleteComment(c._id)}
+                          disabled={deletingId === c._id}
+                          className="ml-auto text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
+                          aria-label="Delete comment"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                     {c.text && (
                       <p className="text-sm text-slate-600 leading-relaxed">{renderTextWithMentions(c.text)}</p>
@@ -409,13 +464,13 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
 
               <div className="relative">
                 {mentionQuery !== null && filteredUsers.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                  <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
                     {filteredUsers.map((u) => (
                       <button
                         key={u._id}
                         type="button"
                         onMouseDown={(e) => { e.preventDefault(); insertMention(u.name) }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
                       >
                         {u._id === 'team' ? (
                           <>
@@ -447,7 +502,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                   placeholder="Add to the discussion…"
                   rows={3}
                   maxLength={1000}
-                  className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300 placeholder:text-slate-400"
+                  className="w-full text-sm text-slate-900 bg-background border border-slate-200 rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300 placeholder:text-slate-400"
                 />
 
                 <div className="flex items-center justify-between mt-2">
@@ -467,7 +522,6 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                       />
                       <Paperclip className="w-3.5 h-3.5" />
                     </label>
-                    <span className="text-xs text-slate-400">Markdown supported</span>
                   </div>
                   <button
                     type="submit"

@@ -25,7 +25,7 @@ function isVideo(url: string) {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Progress Updates', border: 'border-emerald-200', labelColor: 'text-emerald-700', dotColor: '#10b981' },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',   border: 'border-emerald-200', labelColor: 'text-emerald-700', dotColor: '#10b981' },
   { key: 'nextSteps'       as const, label: 'Next Steps',       border: 'border-blue-200',    labelColor: 'text-blue-700',    dotColor: '#3b82f6' },
   { key: 'learningPoints'  as const, label: 'Learning Points',  border: 'border-amber-200',   labelColor: 'text-amber-700',   dotColor: '#f59e0b' },
 ]
@@ -82,17 +82,19 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
               <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${s.labelColor}`}>
                 {s.label}
               </h2>
-              <ul className="space-y-2">
+              <ol className="space-y-2 list-none">
                 {items.map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
                     <span
-                      className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: s.dotColor }}
-                    />
+                      className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5"
+                      style={{ color: s.dotColor }}
+                    >
+                      {i + 1}.
+                    </span>
                     {item}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )
         })}

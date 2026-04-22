@@ -34,7 +34,7 @@ export default async function ProductsPage() {
   }))
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8]">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <ProductsCatalogueClient products={serialized} totalCount={serialized.length} />
     </div>

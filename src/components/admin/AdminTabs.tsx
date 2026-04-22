@@ -61,7 +61,7 @@ interface AdminTabsProps {
 
 const TABS: { id: Tab; label: string; description: string }[] = [
   { id: 'users', label: 'Users', description: 'Manage access and roles' },
-  { id: 'domains', label: 'Domains', description: 'Top-level groupings (e.g. Team 1)' },
+  { id: 'domains', label: 'Sections', description: 'Top-level groupings (e.g. Team 1)' },
   { id: 'products', label: 'Products', description: 'Products that updates are grouped under (e.g. API)' },
   { id: 'tags', label: 'Tags', description: 'Labels for categorizing updates' },
 ]
@@ -118,7 +118,7 @@ export function AdminTabs({ users, domains, products, tags, currentUserId }: Adm
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Domains</h2>
+              <h2 className="text-base font-semibold text-slate-900">Sections</h2>
               <p className="text-xs text-slate-400 mt-0.5">Top-level groupings (e.g. Team 1)</p>
             </div>
             <AddDomainForm users={users} />
