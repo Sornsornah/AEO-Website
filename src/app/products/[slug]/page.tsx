@@ -5,7 +5,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
-import { Update } from '@/models/Update'
 import { Navbar } from '@/components/layout/Navbar'
 import { ProductDetailClient } from '@/components/products/ProductDetailClient'
 
@@ -19,10 +18,6 @@ export default async function ProductPage({ params }: Props) {
 
   const product = await Product.findOne({ slug: params.slug }).lean()
   if (!product) notFound()
-
-  const updates = await Update.find({ productId: product._id, isPublished: true })
-    .sort({ date: -1 })
-    .lean()
 
   const p = product as typeof product & {
     _id: { toString(): string }
@@ -73,25 +68,14 @@ export default async function ProductPage({ params }: Props) {
     })),
   }
 
-  const serializedUpdates = (updates as Array<typeof updates[0] & {
-    progressUpdates?: string | string[]
-    nextSteps?: string | string[]
-    learningPoints?: string | string[]
-  }>).map((u) => ({
-    _id: u._id.toString(),
-    title: u.title,
-    summary: u.summary,
-    date: u.date.toISOString(),
-    progressUpdates: u.progressUpdates || '',
-    nextSteps: u.nextSteps || '',
-    learningPoints: u.learningPoints || '',
-  }))
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-center text-xs text-amber-800">
+        Note: This page contains synthetic data for demonstration purposes only.
+      </div>
       <main className="px-6 py-10 max-w-4xl mx-auto">
-        <ProductDetailClient product={{ ...serializedProduct, productUpdates: serializedProduct.productUpdates ?? [] }} updates={serializedUpdates} />
+        <ProductDetailClient product={{ ...serializedProduct, productUpdates: serializedProduct.productUpdates ?? [] }} />
       </main>
     </div>
   )

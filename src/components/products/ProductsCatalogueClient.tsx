@@ -19,7 +19,6 @@ interface CatalogueProduct {
 
 interface ProductsCatalogueClientProps {
   products: CatalogueProduct[]
-  totalCount: number
 }
 
 function getTextColor(hex: string): string {
@@ -37,7 +36,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalogueClientProps) {
+export function ProductsCatalogueClient({ products }: ProductsCatalogueClientProps) {
   const [selectedId, setSelectedId] = useState<string>(products[0]?._id || '')
 
   const selected = products.find((p) => p._id === selectedId) || products[0]
@@ -52,6 +51,9 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-center text-xs text-amber-800">
+        Note: This page contains synthetic data for demonstration purposes only.
+      </div>
       {/* Header */}
       <div className="pt-12 pb-8 text-center px-6">
         <p className="text-xs font-semibold tracking-[0.2em] text-amber-700 uppercase mb-3">
@@ -59,7 +61,7 @@ export function ProductsCatalogueClient({ products, totalCount }: ProductsCatalo
         </p>
         <h1 className="text-4xl font-bold text-slate-900 mb-3">Explore potential products</h1>
         <p className="text-slate-500 text-sm">
-          Browse the full suite — {totalCount} product{totalCount !== 1 ? 's' : ''} built for CPF officers.
+          Browse the full suite of products built for CPF officers.
         </p>
       </div>
 

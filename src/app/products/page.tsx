@@ -11,7 +11,7 @@ export default async function ProductsPage() {
   await getServerSession(authOptions)
   await connectDB()
 
-  const products = await Product.find().sort({ name: 1 }).lean()
+  const products = await Product.find().sort({ order: 1, name: 1 }).lean()
 
   const serialized = (products as Array<{
     _id: { toString(): string }
@@ -38,7 +38,7 @@ export default async function ProductsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <ProductsCatalogueClient products={serialized} totalCount={serialized.length} />
+      <ProductsCatalogueClient products={serialized} />
     </div>
   )
 }
