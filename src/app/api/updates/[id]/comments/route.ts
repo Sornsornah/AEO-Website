@@ -9,6 +9,7 @@ import { Notification } from '@/models/Notification'
 import { User } from '@/models/User'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
+import { Product } from '@/models/Product'
 import { Types } from 'mongoose'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -32,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 type NotificationPayload = {
   userId: Types.ObjectId
-  type: 'mention' | 'team_mention'
+  type: 'mention' | 'team_mention' | 'product_team'
   fromUserId: Types.ObjectId
   fromUserName: string
   commentId: Types.ObjectId
@@ -145,6 +146,43 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
               updateId: updateObjId,
               updateTitle,
             })
+          }
+        }
+      }
+    }
+  }
+
+  // Product team → notify members of associated products
+  {
+    const update = await Update.findById(params.id).select('title productId productIds').lean()
+    if (update) {
+      const updateTitle = (update as { title?: string }).title || 'an update'
+      const rawProductId = (update as { productId?: unknown }).productId
+      const rawProductIds = (update as { productIds?: unknown[] }).productIds || []
+      const productIdSet = new Set<string>()
+      if (rawProductId) productIdSet.add(String(rawProductId))
+      for (const id of rawProductIds) if (id) productIdSet.add(String(id))
+
+      if (productIdSet.size > 0) {
+        const products = await Product.find({ _id: { $in: Array.from(productIdSet) } }).select('members').lean()
+        const alreadyNotified = new Set([session.user.id, ...notifications.map((n) => n.userId.toString())])
+        const seenIds = new Set<string>()
+        for (const product of products) {
+          const members = ((product as { members?: unknown[] }).members || []) as Types.ObjectId[]
+          for (const memberId of members) {
+            const memberStr = memberId.toString()
+            if (!alreadyNotified.has(memberStr) && !seenIds.has(memberStr)) {
+              seenIds.add(memberStr)
+              notifications.push({
+                userId: memberId,
+                type: 'product_team',
+                fromUserId: fromObjId,
+                fromUserName: session.user.name,
+                commentId: commentObjId,
+                updateId: updateObjId,
+                updateTitle,
+              })
+            }
           }
         }
       }

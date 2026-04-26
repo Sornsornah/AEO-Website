@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 interface Notification {
   _id: string
-  type: 'mention' | 'team_mention'
+  type: 'mention' | 'team_mention' | 'product_team'
   fromUserName: string
   updateId: string
   updateTitle: string
@@ -32,7 +32,9 @@ function NotificationItem({
   const message =
     notification.type === 'mention'
       ? `${notification.fromUserName} mentioned you in "${notification.updateTitle}"`
-      : `${notification.fromUserName} mentioned @team in "${notification.updateTitle}"`
+      : notification.type === 'team_mention'
+      ? `${notification.fromUserName} mentioned @team in "${notification.updateTitle}"`
+      : `${notification.fromUserName} commented on "${notification.updateTitle}"`
 
   return (
     <button
