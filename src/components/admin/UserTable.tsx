@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Trash2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDateShort } from '@/lib/utils'
@@ -148,9 +149,9 @@ export function UserTable({ users, currentUserId }: { users: UserRow[]; currentU
                       size="sm"
                       onClick={() => deleteUser(user)}
                       disabled={deletingId === user._id}
-                      className="h-7 px-2 text-xs text-slate-400 hover:text-red-600"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
                     >
-                      {deletingId === user._id ? '...' : 'Delete'}
+                      {deletingId === user._id ? '…' : <Trash2 size={14} />}
                     </Button>
                   )}
                 </TableCell>
