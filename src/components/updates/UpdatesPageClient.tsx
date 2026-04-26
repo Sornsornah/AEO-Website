@@ -22,12 +22,13 @@ interface UpdateItem {
   title: string
   summary: string
   date: string
-  progressUpdates: string | string[]
-  nextSteps: string | string[]
-  learningPoints: string | string[]
+  progressUpdates: string
+  nextSteps: string
+  learningPoints: string
   media: string[]
   isPublished: boolean
-  productId: { _id: string; name: string; color: string; slug: string; domainName?: string }
+  productId?: { _id: string; name: string; color: string; slug: string; domainName?: string }
+  productIds?: { _id: string; name: string; color: string; slug: string; domainName?: string }[]
   domains: { _id: string; name: string }[]
   tags: { _id: string; name: string }[]
 }

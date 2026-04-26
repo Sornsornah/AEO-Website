@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { formatDateShort } from '@/lib/utils'
+import { formatMonthYear } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,13 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ProductBadge } from '@/components/updates/ProductBadge'
+import { Pencil, Trash2 } from 'lucide-react'
+import { format } from 'date-fns'
 
 interface Product {
   _id: string
   name: string
   color: string
-  domainName?: string
 }
 
 interface UpdateRow {
@@ -29,7 +29,9 @@ interface UpdateRow {
   summary: string
   date: string
   isPublished: boolean
-  productId: Product
+  scheduledAt?: string | null
+  products: Product[]
+  domainNames: string[]
 }
 
 interface UpdateTableProps {
@@ -99,8 +101,8 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Date</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Title</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Section</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Product</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Status</TableHead>
             <TableHead className="w-24" />
           </TableRow>
@@ -109,7 +111,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           {updates.map((update) => (
             <TableRow key={update._id} className="hover:bg-slate-50/50">
               <TableCell className="text-sm text-slate-500 whitespace-nowrap">
-                {formatDateShort(update.date)}
+                {formatMonthYear(update.date)}
               </TableCell>
               <TableCell>
                 <div>
@@ -118,24 +120,42 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                 </div>
               </TableCell>
               <TableCell>
-                <span className="text-sm text-slate-500">
-                  {update.productId?.domainName || <span className="text-slate-300">—</span>}
-                </span>
+                {update.domainNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {update.domainNames.map((name) => (
+                      <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
               </TableCell>
               <TableCell>
-                {update.productId && (
-                  <ProductBadge
-                    name={update.productId.name}
-                    color={update.productId.color}
-                    size="sm"
-                  />
+                {update.products.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {update.products.map((p) => (
+                      <span key={p._id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-300">—</span>
                 )}
               </TableCell>
               <TableCell>
                 {update.isPublished ? (
-                  <Badge className="bg-green-50 text-green-700 border-green-100 text-xs hover:bg-green-50">
-                    Published
-                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-100 text-xs hover:bg-green-50">Published</Badge>
+                ) : update.scheduledAt ? (
+                  <div>
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-100 text-xs hover:bg-amber-50 whitespace-nowrap">Scheduled</Badge>
+                    <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
+                      {format(new Date(update.scheduledAt), 'MMM d, h:mm a')}
+                    </p>
+                  </div>
                 ) : (
                   <Badge variant="secondary" className="text-xs">Draft</Badge>
                 )}
@@ -143,8 +163,8 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Link href={`/editor/${update._id}`}>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-500">
-                      Edit
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700">
+                      <Pencil size={14} />
                     </Button>
                   </Link>
                   <Button
@@ -152,9 +172,9 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                     size="sm"
                     onClick={() => handleDelete(update._id, update.title)}
                     disabled={deletingId === update._id}
-                    className="h-7 px-2 text-xs text-slate-400 hover:text-red-600"
+                    className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
                   >
-                    {deletingId === update._id ? '...' : 'Delete'}
+                    {deletingId === update._id ? '…' : <Trash2 size={14} />}
                   </Button>
                 </div>
               </TableCell>

@@ -1,3 +1,4 @@
+import ReactMarkdown from 'react-markdown'
 import { formatDate } from '@/lib/utils'
 import { ProductBadge } from './ProductBadge'
 import { UpdateDetail } from './UpdateDetail'
@@ -12,11 +13,12 @@ interface UpdateSnapshot {
   title: string
   summary: string
   date: string | Date
-  progressUpdates: string[]
-  nextSteps: string[]
-  learningPoints: string[]
+  progressUpdates: string
+  nextSteps: string
+  learningPoints: string
   media: string[]
-  productId: Product
+  productId?: Product
+  productIds?: Product[]
 }
 
 interface ComparisonViewProps {
@@ -25,29 +27,19 @@ interface ComparisonViewProps {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Key Milestones',   border: 'border-emerald-200', labelColor: 'text-emerald-700', dot: 'bg-emerald-500', addedBg: 'bg-emerald-50', addedText: 'text-emerald-700' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',       border: 'border-blue-200',    labelColor: 'text-blue-700',    dot: 'bg-blue-500',    addedBg: 'bg-blue-50',    addedText: 'text-blue-700'    },
-  { key: 'learningPoints'  as const, label: 'Learning Points',  border: 'border-amber-200',   labelColor: 'text-amber-700',   dot: 'bg-amber-500',   addedBg: 'bg-amber-50',   addedText: 'text-amber-700'   },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',  border: 'border-emerald-200', labelColor: 'text-emerald-700' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',      border: 'border-blue-200',    labelColor: 'text-blue-700'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points', border: 'border-amber-200',   labelColor: 'text-amber-700'   },
 ]
-
-function diffArray(current: string[], prev: string[]) {
-  const normalize = (s: string) => s.trim().toLowerCase()
-  const prevSet = new Set(prev.map(normalize))
-  const currSet = new Set(current.map(normalize))
-
-  const added = current.filter((item) => !prevSet.has(normalize(item)))
-  const removed = prev.filter((item) => !currSet.has(normalize(item)))
-  const unchanged = current.filter((item) => prevSet.has(normalize(item)))
-
-  return { added, removed, unchanged }
-}
 
 export function ComparisonView({ current, prev }: ComparisonViewProps) {
   if (!prev) {
     return <UpdateDetail update={current} />
   }
 
-  const product = current.productId
+  const products: Product[] = current.productIds?.length
+    ? current.productIds
+    : current.productId ? [current.productId] : []
 
   const titleChanged = current.title.trim() !== prev.title.trim()
   const summaryChanged = current.summary.trim() !== prev.summary.trim()
@@ -61,7 +53,9 @@ export function ComparisonView({ current, prev }: ComparisonViewProps) {
       {/* Header */}
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          {product && <ProductBadge name={product.name} color={product.color} />}
+          {products.map((p) => (
+            <ProductBadge key={p._id} name={p.name} color={p.color} />
+          ))}
           <span className="text-slate-300">·</span>
           <time className="text-sm text-slate-400">{formatDate(current.date)}</time>
           <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2.5 py-0.5">
@@ -99,43 +93,19 @@ export function ComparisonView({ current, prev }: ComparisonViewProps) {
         </div>
       )}
 
-      {/* Diff sections */}
+      {/* Sections */}
       <div className="space-y-4">
         {SECTIONS.map((s) => {
-          const currItems = current[s.key] || []
-          const prevItems = prev[s.key] || []
-          if (currItems.length === 0 && prevItems.length === 0) return null
-
-          const { added, removed, unchanged } = diffArray(currItems, prevItems)
-          const hasContent = unchanged.length > 0 || added.length > 0 || removed.length > 0
-
-          if (!hasContent) return null
-
+          const content = current[s.key]
+          if (!content?.trim()) return null
           return (
             <div key={s.key} className={`p-5 bg-white rounded-xl border ${s.border}`}>
               <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${s.labelColor}`}>
                 {s.label}
               </h2>
-              <ol className="space-y-2 list-none">
-                {unchanged.map((item, i) => (
-                  <li key={`u-${i}`} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span className={`flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5 ${s.labelColor}`}>{i + 1}.</span>
-                    {item}
-                  </li>
-                ))}
-                {added.map((item, i) => (
-                  <li key={`a-${i}`} className={`flex items-start gap-2 text-sm ${s.addedText} ${s.addedBg} rounded-lg px-2 py-1.5 -mx-2`}>
-                    <span className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5">{unchanged.length + i + 1}.</span>
-                    {item}
-                  </li>
-                ))}
-                {removed.map((item, i) => (
-                  <li key={`r-${i}`} className="flex items-start gap-3 text-sm text-slate-400 line-through">
-                    <span className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5">–</span>
-                    {item}
-                  </li>
-                ))}
-              </ol>
+              <div className="prose prose-sm max-w-none text-slate-700">
+                <ReactMarkdown>{content}</ReactMarkdown>
+              </div>
             </div>
           )
         })}

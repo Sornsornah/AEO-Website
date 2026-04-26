@@ -18,7 +18,7 @@ export default async function UpdateDetailPage({ params }: PageProps) {
   const session = await getServerSession(authOptions)
 
   await connectDB()
-  const update = await Update.findById(params.id).populate('productId').lean()
+  const update = await Update.findById(params.id).populate('productId').populate('productIds').lean()
 
   if (!update) notFound()
 
@@ -27,19 +27,30 @@ export default async function UpdateDetailPage({ params }: PageProps) {
     notFound()
   }
 
+  function toMarkdownString(val: unknown): string {
+    if (Array.isArray(val)) return (val as string[]).map((s) => `- ${s}`).join('\n')
+    return (val as string | undefined) || ''
+  }
+
+  type PopProduct = { _id: { toString(): string }; name: string; color: string; slug: string }
   function serializeUpdate(u: typeof update) {
+    const rawProductIds = Array.isArray((u as { productIds?: PopProduct[] }).productIds) && (u as { productIds?: PopProduct[] }).productIds!.length > 0
+      ? (u as { productIds: PopProduct[] }).productIds
+      : u.productId ? [u.productId as unknown as PopProduct] : []
     return {
       title: u.title,
       summary: u.summary,
       date: u.date.toISOString(),
-      progressUpdates: (u.progressUpdates as string[] | undefined) || [],
-      nextSteps: (u.nextSteps as string[] | undefined) || [],
-      learningPoints: (u.learningPoints as string[] | undefined) || [],
+      progressUpdates: toMarkdownString(u.progressUpdates),
+      nextSteps: toMarkdownString(u.nextSteps),
+      learningPoints: toMarkdownString(u.learningPoints),
       media: (u.media as string[] | undefined) || [],
-      productId: {
-        ...(u.productId as Record<string, unknown>),
-        _id: (u.productId as { _id: { toString(): string } })?._id?.toString() || '',
-      } as { _id: string; name: string; color: string; slug: string },
+      productIds: rawProductIds.map((p) => ({
+        _id: p._id.toString(),
+        name: p.name || '',
+        color: p.color || '#6366f1',
+        slug: p.slug || '',
+      })),
     }
   }
 

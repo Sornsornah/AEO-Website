@@ -1,3 +1,4 @@
+import ReactMarkdown from 'react-markdown'
 import { formatDate } from '@/lib/utils'
 import { ProductBadge } from './ProductBadge'
 
@@ -12,11 +13,12 @@ interface UpdateDetailProps {
     title: string
     summary: string
     date: string | Date
-    progressUpdates: string[]
-    nextSteps: string[]
-    learningPoints: string[]
+    progressUpdates: string
+    nextSteps: string
+    learningPoints: string
     media: string[]
-    productId: Product
+    productId?: Product
+    productIds?: Product[]
   }
 }
 
@@ -25,19 +27,23 @@ function isVideo(url: string) {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Key Milestones',   border: 'border-emerald-200', labelColor: 'text-emerald-700', dotColor: '#10b981' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',       border: 'border-blue-200',    labelColor: 'text-blue-700',    dotColor: '#3b82f6' },
-  { key: 'learningPoints'  as const, label: 'Learning Points',  border: 'border-amber-200',   labelColor: 'text-amber-700',   dotColor: '#f59e0b' },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',  border: 'border-emerald-200', labelColor: 'text-emerald-700' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',      border: 'border-blue-200',    labelColor: 'text-blue-700'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points', border: 'border-amber-200',   labelColor: 'text-amber-700'   },
 ]
 
 export function UpdateDetail({ update }: UpdateDetailProps) {
-  const product = update.productId
+  const products: Product[] = update.productIds?.length
+    ? update.productIds
+    : update.productId ? [update.productId] : []
 
   return (
     <article>
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          {product && <ProductBadge name={product.name} color={product.color} />}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          {products.map((p) => (
+            <ProductBadge key={p._id} name={p.name} color={p.color} />
+          ))}
           <span className="text-slate-300">·</span>
           <time className="text-sm text-slate-400">{formatDate(update.date)}</time>
         </div>
@@ -52,21 +58,10 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
           <div className="grid grid-cols-2 gap-2">
             {update.media.map((url, i) =>
               isVideo(url) ? (
-                <video
-                  key={i}
-                  src={url}
-                  controls
-                  className="w-full rounded-xl max-h-64 bg-black col-span-1"
-                />
+                <video key={i} src={url} controls className="w-full rounded-xl max-h-64 bg-black col-span-1" />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={url}
-                  alt=""
-                  className="w-full rounded-xl object-cover max-h-64 cursor-pointer col-span-1"
-                  onClick={() => window.open(url)}
-                />
+                <img key={i} src={url} alt="" className="w-full rounded-xl object-cover max-h-64 cursor-pointer col-span-1" onClick={() => window.open(url)} />
               )
             )}
           </div>
@@ -75,26 +70,16 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
 
       <div className="space-y-4">
         {SECTIONS.map((s) => {
-          const items = update[s.key] || []
-          if (items.length === 0) return null
+          const content = update[s.key]
+          if (!content?.trim()) return null
           return (
             <div key={s.key} className={`p-5 bg-white rounded-xl border ${s.border}`}>
               <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${s.labelColor}`}>
                 {s.label}
               </h2>
-              <ol className="space-y-2 list-none">
-                {items.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span
-                      className="flex-shrink-0 w-5 text-right text-xs font-semibold mt-0.5"
-                      style={{ color: s.dotColor }}
-                    >
-                      {i + 1}.
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ol>
+              <div className="prose prose-sm max-w-none text-slate-700">
+                <ReactMarkdown>{content}</ReactMarkdown>
+              </div>
             </div>
           )
         })}

@@ -22,7 +22,8 @@ interface UpdateCardProps {
     summary: string
     date: string | Date
     highlights: string[]
-    productId: Product
+    productId?: Product
+    productIds?: Product[]
     isPublished?: boolean
   }
   isNew?: boolean
@@ -32,7 +33,9 @@ interface UpdateCardProps {
 }
 
 export function UpdateCard({ update, isNew = false, showStatus = false, isSaved = false, onSelect }: UpdateCardProps) {
-  const product = update.productId
+  const products: Product[] = update.productIds?.length
+    ? update.productIds
+    : update.productId ? [update.productId] : []
 
   const content = (
     <div className="flex gap-8 py-8 border-b border-slate-100 hover:bg-slate-50/50 -mx-6 px-6 rounded-lg transition-colors cursor-pointer">
@@ -45,11 +48,10 @@ export function UpdateCard({ update, isNew = false, showStatus = false, isSaved 
 
       {/* Content column */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-2">
-          {product?.domainName && (
-            <span className="text-xs text-slate-400">{product.domainName}</span>
-          )}
-          {product && <ProductBadge name={product.name} color={product.color} />}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          {products.map((p) => (
+            <ProductBadge key={p._id} name={p.name} color={p.color} />
+          ))}
           {isNew && (
             <Badge className="bg-blue-50 text-blue-700 border-blue-100 text-xs font-medium hover:bg-blue-50">
               New

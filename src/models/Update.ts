@@ -7,6 +7,7 @@ export interface IUpdate extends Document {
   domainId?: Types.ObjectId
   domainIds: Types.ObjectId[]
   productId?: Types.ObjectId
+  productIds: Types.ObjectId[]
   tagIds: Types.ObjectId[]
   date: Date
   highlights: string[]
@@ -15,6 +16,7 @@ export interface IUpdate extends Document {
   learningPoints: string
   media: string[]
   isPublished: boolean
+  scheduledAt?: Date
   createdBy?: Types.ObjectId
   createdAt: Date
   updatedAt: Date
@@ -28,6 +30,7 @@ const UpdateSchema = new Schema<IUpdate>(
     domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: false },
     domainIds: [{ type: Schema.Types.ObjectId, ref: 'Domain' }],
     productId: { type: Schema.Types.ObjectId, ref: 'Product', required: false },
+    productIds: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
     tagIds: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
     date: { type: Date, required: true },
     highlights: [{ type: String, trim: true }],
@@ -36,6 +39,7 @@ const UpdateSchema = new Schema<IUpdate>(
     learningPoints: { type: String, default: '' },
     media: [{ type: String }],
     isPublished: { type: Boolean, default: false },
+    scheduledAt: { type: Date, required: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

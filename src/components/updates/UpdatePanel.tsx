@@ -12,12 +12,13 @@ interface UpdatePanelProps {
     title: string
     summary: string
     date: string
-    progressUpdates: string[]
-    nextSteps: string[]
-    learningPoints: string[]
+    progressUpdates: string
+    nextSteps: string
+    learningPoints: string
     media: string[]
     isPublished: boolean
-    productId: { _id: string; name: string; color: string; slug: string }
+    productId?: { _id: string; name: string; color: string; slug: string }
+    productIds?: { _id: string; name: string; color: string; slug: string }[]
   }
   isSaved: boolean
   onClose: () => void

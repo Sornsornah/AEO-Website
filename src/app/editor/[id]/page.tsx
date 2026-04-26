@@ -62,10 +62,13 @@ export default async function EditUpdatePage({ params }: PageProps) {
     title: update.title,
     summary: update.summary,
     domainIds: existingDomainIds,
-    productId: update.productId?.toString() || '',
+    productIds: (update.productIds as unknown[] | undefined)?.map(String).length
+      ? (update.productIds as unknown[]).map(String)
+      : update.productId ? [update.productId.toString()] : [],
     tagIds: (update.tagIds as unknown[] | undefined)?.map(String) || [],
     date: format(update.date, 'yyyy-MM'),
     isPublished: update.isPublished,
+    scheduledAt: update.scheduledAt ? format(new Date(update.scheduledAt as Date), "yyyy-MM-dd'T'HH:mm") : '',
     progressUpdates: (update.progressUpdates as string | string[] | undefined) instanceof Array
       ? (update.progressUpdates as string[]).join('\n')
       : (update.progressUpdates as string | undefined) || '',
