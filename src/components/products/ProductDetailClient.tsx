@@ -4,22 +4,22 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
+import type { Components } from 'react-markdown'
 import { ExternalLink, Globe, FileText } from 'lucide-react'
+
+const markdownComponents: Components = {
+  a: ({ href, children }) => {
+    const isInternalUpdates = href?.startsWith('/updates')
+    if (isInternalUpdates) return <span className="text-blue-600">{children}</span>
+    return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  },
+}
 
 interface TeamMember {
   name: string
   email: string
 }
 
-interface ProductUpdate {
-  _id: string
-  title: string
-  summary: string
-  date: string
-  progressUpdates: string | string[]
-  nextSteps: string | string[]
-  learningPoints: string | string[]
-}
 
 interface UseCase {
   title: string
@@ -58,7 +58,6 @@ interface ProductDetailProps {
     useCases: UseCase[]
     productUpdates: SimpleProductUpdate[]
   }
-  updates: ProductUpdate[]
 }
 
 const STATUS_CONFIG = {
@@ -133,7 +132,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
             </button>
           </div>
           <div className="prose prose-sm max-w-none text-slate-600 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed">
-            <ReactMarkdown>{useCase.content}</ReactMarkdown>
+            <ReactMarkdown components={markdownComponents}>{useCase.content}</ReactMarkdown>
           </div>
         </div>
       </div>
@@ -141,7 +140,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
   )
 }
 
-export function ProductDetailClient({ product, updates }: ProductDetailProps) {
+export function ProductDetailClient({ product }: ProductDetailProps) {
   const [tab, setTab] = useState<'overview' | 'usecases' | 'updates'>('overview')
   const [openUseCase, setOpenUseCase] = useState<UseCase | null>(null)
   const [activeTag, setActiveTag] = useState<string | null>(null)
@@ -270,7 +269,7 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
               className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_p]:leading-relaxed [&_h2]:[color:var(--product-color)]"
               style={{ '--product-color': product.color } as React.CSSProperties}
             >
-              <ReactMarkdown>{product.overviewContent}</ReactMarkdown>
+              <ReactMarkdown components={markdownComponents}>{product.overviewContent}</ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-slate-400 py-8 text-center">No overview content yet.</p>
@@ -361,9 +360,9 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
       {/* Updates tab */}
       {tab === 'updates' && (
         <div>
-          {product.productUpdates.length === 0 && updates.length === 0 ? (
+          {product.productUpdates.length === 0 ? (
             <p className="text-sm text-slate-400 py-8 text-center">No updates published yet.</p>
-          ) : product.productUpdates.length > 0 ? (
+          ) : (
             <div className="relative">
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
               <div className="space-y-10">
@@ -379,64 +378,11 @@ export function ProductDetailClient({ product, updates }: ProductDetailProps) {
                         </h3>
                       </div>
                       <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-slate-500 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500">
-                        <ReactMarkdown>{update.content}</ReactMarkdown>
+                        <ReactMarkdown components={markdownComponents}>{update.content}</ReactMarkdown>
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
-              <div className="space-y-10">
-                {updates.map((update) => {
-                  const sections = [
-                    { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-50', labelColor: 'text-emerald-700' },
-                    { key: 'nextSteps'        as const, label: 'Next Steps',      bg: 'bg-blue-50',    labelColor: 'text-blue-700'    },
-                    { key: 'learningPoints'   as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
-                  ]
-                  function toNumbered(val: string | string[]): string {
-                    if (Array.isArray(val)) return val.map((item, i) => `${i + 1}. ${item}`).join('\n')
-                    let counter = 0
-                    return val.split('\n').map((line) => {
-                      const stripped = line.replace(/^[-*•]\s+/, '')
-                      if (stripped !== line) { counter++; return `${counter}. ${stripped}` }
-                      return line
-                    }).join('\n')
-                  }
-                  return (
-                    <div key={update._id} className="flex gap-5">
-                      <div className="flex-shrink-0 w-4 flex flex-col items-center pt-1">
-                        <div className="w-3.5 h-3.5 rounded-full border-2 border-background ring-2 z-10" style={{ backgroundColor: product.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0 pb-2">
-                        <div className="mb-1">
-                          <h3 className="text-sm font-bold uppercase tracking-wide leading-snug" style={{ color: product.color }}>
-                            {update.title}
-                          </h3>
-                        </div>
-                        {update.summary && (
-                          <p className="text-sm text-slate-500 mb-3 leading-relaxed">{update.summary}</p>
-                        )}
-                        <div className="space-y-2">
-                          {sections.map((s) => {
-                            const md = toNumbered(update[s.key] || '')
-                            if (!md.trim()) return null
-                            return (
-                              <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
-                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>{s.label}</p>
-                                <div className="prose prose-xs max-w-none text-xs text-slate-600 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:mb-0 [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic">
-                                  <ReactMarkdown>{md}</ReactMarkdown>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
             </div>
           )}
