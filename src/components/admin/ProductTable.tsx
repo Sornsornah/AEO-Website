@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EditProductModal } from './EditProductModal'
 
@@ -105,18 +106,18 @@ export function ProductTable({ products, domains, users }: { products: ProductRo
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingProduct(product)}
-                      className="h-7 px-2 text-xs text-slate-400 hover:text-slate-700"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                     >
-                      Edit
+                      <Pencil size={14} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDelete(product)}
                       disabled={deletingId === product._id}
-                      className="h-7 px-2 text-xs text-slate-400 hover:text-red-600 disabled:opacity-40"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 disabled:opacity-40"
                     >
-                      {deletingId === product._id ? '...' : 'Delete'}
+                      {deletingId === product._id ? '…' : <Trash2 size={14} />}
                     </Button>
                   </div>
                 </TableCell>
