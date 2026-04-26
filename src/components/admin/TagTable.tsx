@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Trash2 } from 'lucide-react'
 
 interface Tag {
   _id: string
@@ -46,11 +47,11 @@ export function TagTable({ tags }: { tags: Tag[] }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
                   onClick={() => handleDelete(tag._id)}
                   disabled={deleting === tag._id}
                 >
-                  {deleting === tag._id ? 'Deleting...' : 'Delete'}
+                  {deleting === tag._id ? '…' : <Trash2 size={14} />}
                 </Button>
               </td>
             </tr>

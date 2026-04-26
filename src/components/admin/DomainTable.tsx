@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Pencil, Trash2 } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EditDomainModal } from './EditDomainModal'
 
@@ -86,18 +87,18 @@ export function DomainTable({ domains, users }: { domains: DomainRow[]; users: U
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingDomain(domain)}
-                      className="h-7 px-2 text-xs text-slate-400 hover:text-slate-700"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                     >
-                      Edit
+                      <Pencil size={14} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDelete(domain)}
                       disabled={deletingId === domain._id}
-                      className="h-7 px-2 text-xs text-slate-400 hover:text-red-600 disabled:opacity-40"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 disabled:opacity-40"
                     >
-                      {deletingId === domain._id ? '...' : 'Delete'}
+                      {deletingId === domain._id ? '…' : <Trash2 size={14} />}
                     </Button>
                   </div>
                 </TableCell>
