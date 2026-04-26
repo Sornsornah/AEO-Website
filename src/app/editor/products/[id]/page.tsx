@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
+import { User } from '@/models/User'
 import { Navbar } from '@/components/layout/Navbar'
 import { ProductDetailForm } from '@/components/editor/ProductDetailForm'
 
@@ -19,7 +20,10 @@ export default async function EditProductPage({ params }: Props) {
 
   await connectDB()
 
-  const product = await Product.findById(params.id).lean()
+  const [product, whitelistedUsers] = await Promise.all([
+    Product.findById(params.id).lean(),
+    User.find({ isWhitelisted: true }).select('_id name email').sort({ name: 1 }).lean(),
+  ])
   if (!product) notFound()
 
   const p = product as typeof product & {
@@ -54,20 +58,27 @@ export default async function EditProductPage({ params }: Props) {
     developers: p.developers || [],
     overviewContent: p.overviewContent || '',
     highlightStats: p.highlightStats || [],
-    useCases: (p.useCases || []).map((uc: { title: string; content: string; image?: string; functionTag?: string; department?: string; isDraft?: boolean }) => ({
+    useCases: (p.useCases || []).map((uc: { title: string; content: string; image?: string; functionTag?: string; isDraft?: boolean }) => ({
       title: uc.title,
       content: uc.content,
       image: uc.image || '',
       functionTag: uc.functionTag || '',
-      department: uc.department || '',
       isDraft: uc.isDraft || false,
     })),
-    productUpdates: (p.productUpdates || []).map((u: { title: string; content: string; date?: Date }) => ({
+    productUpdates: (p.productUpdates || []).map((u: { title: string; content: string; date?: Date; isDraft?: boolean }) => ({
       title: u.title,
       content: u.content,
       date: u.date ? new Date(u.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      isDraft: u.isDraft || false,
     })),
+    memberIds: ((p.members || []) as unknown as { toString(): string }[]).map((id) => id.toString()),
   }
+
+  const serializedWhitelistedUsers = whitelistedUsers.map((u) => ({
+    _id: (u._id as { toString(): string }).toString(),
+    name: u.name as string,
+    email: u.email as string,
+  }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,7 +91,7 @@ export default async function EditProductPage({ params }: Props) {
           <span className="text-slate-600">{p.name}</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
-        <ProductDetailForm productId={p._id.toString()} defaultValues={defaultValues} />
+        <ProductDetailForm productId={p._id.toString()} defaultValues={defaultValues} whitelistedUsers={serializedWhitelistedUsers} />
       </main>
     </div>
   )
