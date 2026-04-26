@@ -12,6 +12,7 @@ import { Domain } from '@/models/Domain'
 import { Navbar } from '@/components/layout/Navbar'
 import { UpdateTable } from '@/components/editor/UpdateTable'
 import { FilterBar } from '@/components/updates/FilterBar'
+import { EditorProductsList } from '@/components/editor/EditorProductsList'
 import { Button } from '@/components/ui/button'
 
 const PAGE_SIZE = 20
@@ -40,7 +41,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
   // Products tab — just fetch products and return early
   if (activeTab === 'products') {
-    const allProducts = await Product.find().populate('domainId').sort({ name: 1 }).lean()
+    const allProducts = await Product.find().populate('domainId').sort({ order: 1, name: 1 }).lean()
     const serializedProducts = (allProducts as Array<{
       _id: { toString(): string }
       name: string
@@ -82,47 +83,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
             </Link>
           </div>
           {/* Products list */}
-          <div className="space-y-2">
-            {serializedProducts.map((p) => {
-              const statusLabels: Record<string, string> = { live: 'Live', beta: 'Beta', coming_soon: 'Coming Soon' }
-              const statusColors: Record<string, string> = {
-                live: 'bg-emerald-50 text-emerald-700',
-                beta: 'bg-amber-50 text-amber-700',
-                coming_soon: 'bg-slate-100 text-slate-600',
-              }
-              return (
-                <div key={p._id} className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl bg-white">
-                  <div
-                    className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden"
-                    style={{ backgroundColor: p.logoUrl ? undefined : p.color }}
-                  >
-                    {p.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.logoUrl} alt={p.name} className="w-full h-full object-contain" />
-                    ) : (
-                      <span className="text-white text-xs font-bold">{p.name.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{p.name}</p>
-                    {p.description && <p className="text-xs text-slate-500 truncate">{p.description}</p>}
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[p.status] || statusColors.live}`}>
-                    {statusLabels[p.status] || 'Live'}
-                  </span>
-                  <Link
-                    href={`/editor/products/${p._id}`}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
-                  >
-                    Edit
-                  </Link>
-                </div>
-              )
-            })}
-            {serializedProducts.length === 0 && (
-              <p className="text-slate-400 text-sm py-8 text-center">No products yet.</p>
-            )}
-          </div>
+          <EditorProductsList initialProducts={serializedProducts} />
         </main>
       </div>
     )
@@ -181,7 +142,11 @@ export default async function EditorPage({ searchParams }: PageProps) {
   const [allProducts, allDomains, updates, totalCount] = await Promise.all([
     Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
-    Update.find(query).populate({ path: 'productId', populate: { path: 'domainId' } }).sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
+    Update.find(query)
+      .populate({ path: 'productId', populate: { path: 'domainId' } })
+      .populate({ path: 'productIds', populate: { path: 'domainId' } })
+      .populate('domainIds')
+      .sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
     Update.countDocuments(query),
   ])
 
@@ -221,27 +186,48 @@ export default async function EditorPage({ searchParams }: PageProps) {
     searchParams.status
   )
 
+  type PopulatedProduct = { _id: { toString(): string }; name: string; color: string; domainId?: { name: string } }
+  type PopulatedDomain = { _id: { toString(): string }; name: string }
+
   const serialized = (updates as Array<{
     _id: { toString(): string }
     title: string
     summary: string
     date: Date
     isPublished: boolean
+    scheduledAt?: Date
     productId: unknown
+    productIds: unknown[]
+    domainIds: unknown[]
   }>).map((u) => {
-    const product = u.productId as { _id: { toString(): string }; name: string; color: string; domainId?: { name: string } } | null
+    // Merge legacy single fields with array fields, deduplicate by id
+    const legacyProduct = u.productId as PopulatedProduct | null
+    const allProducts: PopulatedProduct[] = [
+      ...(Array.isArray(u.productIds) ? u.productIds as PopulatedProduct[] : []),
+      ...(legacyProduct && !(u.productIds as unknown[])?.some((p) => (p as PopulatedProduct)?._id?.toString() === legacyProduct._id?.toString()) ? [legacyProduct] : []),
+    ].filter(Boolean)
+
+    const allDomains: PopulatedDomain[] = Array.isArray(u.domainIds) ? u.domainIds as PopulatedDomain[] : []
+
+    // Also collect domains from products if domainIds is empty
+    const domainNamesFromProducts = allProducts.map((p) => p.domainId?.name).filter(Boolean) as string[]
+    const domainNames = allDomains.length > 0
+      ? allDomains.map((d) => d.name)
+      : domainNamesFromProducts
+
     return {
       _id: u._id.toString(),
       title: u.title,
       summary: u.summary,
       date: u.date.toISOString(),
       isPublished: u.isPublished,
-      productId: {
-        _id: product?._id?.toString() || '',
-        name: product?.name || '',
-        color: product?.color || '#6366f1',
-        domainName: product?.domainId?.name || '',
-      },
+      scheduledAt: u.scheduledAt ? u.scheduledAt.toISOString() : null,
+      products: allProducts.map((p) => ({
+        _id: p._id.toString(),
+        name: p.name,
+        color: p.color,
+      })),
+      domainNames: Array.from(new Set(domainNames)),
     }
   })
 
@@ -274,11 +260,6 @@ export default async function EditorPage({ searchParams }: PageProps) {
             Products
           </Link>
         </div>
-
-        <p className="text-slate-500 text-sm mb-4">
-          {totalCount} update{totalCount !== 1 ? 's' : ''}
-          {hasFilters && <span className="text-slate-400 ml-1">(filtered)</span>}
-        </p>
 
         <Suspense>
           <FilterBar
