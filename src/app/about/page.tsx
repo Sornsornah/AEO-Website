@@ -32,6 +32,9 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-center text-xs text-amber-800">
+        Note: This page contains synthetic data for demonstration purposes only.
+      </div>
       <main className="max-w-3xl mx-auto px-6 py-16">
 
         {/* Header */}
