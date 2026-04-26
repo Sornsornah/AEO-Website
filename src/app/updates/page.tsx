@@ -21,6 +21,11 @@ interface PageProps {
   }
 }
 
+function toMarkdownString(val: string | string[] | undefined): string {
+  if (Array.isArray(val)) return val.map((s) => `- ${s}`).join('\n')
+  return val || ''
+}
+
 export default async function UpdatesPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions)
   await connectDB()
@@ -47,12 +52,13 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     const domain = await Domain.findOne({ slug: searchParams.domain })
     if (domain) {
       const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
-      query.productId = { $in: domainProducts.map((p) => p._id) }
+      const ids = domainProducts.map((p) => p._id)
+      query.$or = [{ productId: { $in: ids } }, { productIds: { $in: ids } }]
     }
   } else if (searchParams.product) {
     const product = await Product.findOne({ slug: searchParams.product }).select('_id').lean()
     if (product) {
-      query.productId = product._id
+      query.$or = [{ productId: product._id }, { productIds: product._id }]
     }
   }
 
@@ -62,6 +68,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     Product.find().select('name slug').sort({ name: 1 }).lean(),
     Update.find(query)
       .populate({ path: 'productId', populate: { path: 'domainId' } })
+      .populate({ path: 'productIds', populate: { path: 'domainId' } })
       .populate('domainIds')
       .populate('tagIds')
       .sort({ date: -1 })
@@ -74,31 +81,37 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     title: string
     summary: string
     date: Date
-    progressUpdates: string | string[]
-    nextSteps: string | string[]
-    learningPoints: string | string[]
+    progressUpdates: string | string[] | undefined
+    nextSteps: string | string[] | undefined
+    learningPoints: string | string[] | undefined
     media: string[]
     isPublished: boolean
     productId: unknown
+    productIds: unknown[]
     domainIds: unknown[]
     tagIds: unknown[]
-  }>).map((update) => ({
+  }>).map((update) => {
+    type PopProduct = { _id: { toString(): string }; name: string; color: string; slug: string; domainId?: { name?: string } }
+    const rawProductIds = Array.isArray(update.productIds) && update.productIds.length > 0
+      ? (update.productIds as PopProduct[])
+      : update.productId ? [update.productId as PopProduct] : []
+    return {
     _id: update._id.toString(),
     title: update.title,
     summary: update.summary,
     date: update.date.toISOString(),
-    progressUpdates: update.progressUpdates || '',
-    nextSteps: update.nextSteps || '',
-    learningPoints: update.learningPoints || '',
+    progressUpdates: toMarkdownString(update.progressUpdates),
+    nextSteps: toMarkdownString(update.nextSteps),
+    learningPoints: toMarkdownString(update.learningPoints),
     media: update.media || [],
     isPublished: update.isPublished,
-    productId: {
-      _id: (update.productId as { _id: { toString(): string } })?._id?.toString() || '',
-      name: (update.productId as { name: string })?.name || '',
-      color: (update.productId as { color: string })?.color || '#6366f1',
-      slug: (update.productId as { slug: string })?.slug || '',
-      domainName: (update.productId as { domainId?: { name?: string } })?.domainId?.name || '',
-    },
+    productIds: rawProductIds.map((p) => ({
+      _id: p._id.toString(),
+      name: p.name || '',
+      color: p.color || '#6366f1',
+      slug: p.slug || '',
+      domainName: p.domainId?.name || '',
+    })),
     domains: Array.isArray(update.domainIds)
       ? (update.domainIds as Array<{ _id: { toString(): string }; name: string }>).map((d) => ({
           _id: d._id.toString(),
@@ -111,7 +124,8 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
           name: t.name,
         }))
       : [],
-  }))
+  }
+  })
 
   // Fetch comment counts for returned updates
   const updateObjectIds = serializedUpdates.map((u) => new Types.ObjectId(u._id))

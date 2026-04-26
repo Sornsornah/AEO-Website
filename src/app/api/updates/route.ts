@@ -22,15 +22,16 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const includeUnpublished = searchParams.get('includeUnpublished') === 'true' && session.user.role === 'admin'
 
-  const query: Record<string, unknown> = {}
+  const must: Record<string, unknown>[] = []
+  const now = new Date()
 
   if (!includeUnpublished) {
-    query.isPublished = true
+    must.push({ $or: [{ isPublished: true }, { scheduledAt: { $lte: now } }] })
   }
 
   if (productSlug) {
     const product = await Product.findOne({ slug: productSlug })
-    if (product) query.productId = product._id
+    if (product) must.push({ $or: [{ productId: product._id }, { productIds: product._id }] })
   }
 
   if (from || to) {
@@ -41,13 +42,16 @@ export async function GET(req: NextRequest) {
       toDate.setHours(23, 59, 59, 999)
       dateQuery.$lte = toDate
     }
-    query.date = dateQuery
+    must.push({ date: dateQuery })
   }
+
+  const query = must.length === 0 ? {} : must.length === 1 ? must[0] : { $and: must }
 
   const skip = (page - 1) * PAGE_SIZE
   const totalCount = await Update.countDocuments(query)
   const updates = await Update.find(query)
     .populate('productId')
+    .populate('productIds')
     .sort({ date: -1 })
     .skip(skip)
     .limit(PAGE_SIZE)
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
   const body = await req.json()
-  const { title, summary, content, domainIds, productId, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished } = body
+  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = body
 
   if (!title || !date) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -77,12 +81,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'At least one domain is required' }, { status: 400 })
   }
 
+  const normalizedProductIds = Array.isArray(productIds) ? productIds : []
   const update = await Update.create({
     title,
     summary,
     content: content || '',
     domainIds,
-    productId: productId || undefined,
+    productIds: normalizedProductIds,
+    productId: normalizedProductIds[0] || undefined,
     tagIds: tagIds || [],
     date: new Date(date),
     highlights: highlights || [],
@@ -91,9 +97,10 @@ export async function POST(req: NextRequest) {
     learningPoints: learningPoints || '',
     media: media || [],
     isPublished: isPublished || false,
+    scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     createdBy: session.user.id,
   })
 
-  const populated = await Update.findById(update._id).populate('productId').lean()
+  const populated = await Update.findById(update._id).populate('productId').populate('productIds').lean()
   return NextResponse.json(populated, { status: 201 })
 }

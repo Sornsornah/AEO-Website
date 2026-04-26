@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CommentButton } from './CommentButton'
 import { CommentSidePanel } from './CommentSidePanel'
+import ReactMarkdown from 'react-markdown'
 
 interface Product {
   _id: string
@@ -18,11 +19,12 @@ interface SocialUpdateCardProps {
     title: string
     summary: string
     date: string | Date
-    progressUpdates: string | string[]
-    nextSteps: string | string[]
-    learningPoints: string | string[]
+    progressUpdates: string
+    nextSteps: string
+    learningPoints: string
     media: string[]
-    productId: Product
+    productId?: Product
+    productIds?: Product[]
     isPublished?: boolean
     domains: { _id: string; name: string }[]
     tags: { _id: string; name: string }[]
@@ -40,49 +42,15 @@ const SECTIONS = [
   { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
 ]
 
-function renderItems(val: string | string[]) {
-  const items: { text: string; sub: string[] }[] = []
-  if (Array.isArray(val)) {
-    val.forEach((text) => items.push({ text, sub: [] }))
-  } else {
-    for (const line of val.split('\n')) {
-      const subMatch = line.match(/^[ \t]{2,}[-*•]\s+(.+)/)
-      const mainMatch = line.match(/^[-*•]\s+(.+)/)
-      if (subMatch && items.length > 0) {
-        items[items.length - 1].sub.push(subMatch[1])
-      } else if (mainMatch) {
-        items.push({ text: mainMatch[1], sub: [] })
-      } else if (line.trim()) {
-        items.push({ text: line.trim(), sub: [] })
-      }
-    }
-  }
-  if (items.length === 0) return null
-  return (
-    <ol className="list-none p-0 m-0 space-y-1">
-      {items.map((item, i) => (
-        <li key={i} className="leading-relaxed">
-          {i + 1}. {item.text}
-          {item.sub.length > 0 && (
-            <ol className="list-none pl-4 mt-0.5 space-y-0.5">
-              {item.sub.map((sub, j) => (
-                <li key={j} className="leading-relaxed">{String.fromCharCode(97 + j)}. {sub}</li>
-              ))}
-            </ol>
-          )}
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 export function SocialUpdateCard({ update, commentCount = 0 }: SocialUpdateCardProps) {
-  const product = update.productId
-  const hasProduct = !!product?._id
+  const products: Product[] = update.productIds?.length
+    ? update.productIds
+    : update.productId?._id ? [update.productId] : []
   const [commentPanelOpen, setCommentPanelOpen] = useState(false)
   const [liveCount, setLiveCount] = useState(commentCount)
 
-  const hasTags = update.domains.length > 0 || hasProduct || update.tags.length > 0
+  const hasTags = update.domains.length > 0 || products.length > 0 || update.tags.length > 0
 
   return (
     <>
@@ -98,15 +66,15 @@ export function SocialUpdateCard({ update, commentCount = 0 }: SocialUpdateCardP
                 {d.name}
               </span>
             ))}
-            {hasProduct && (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+            {products.map((p) => (
+              <span key={p._id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: product.color }}
+                  style={{ backgroundColor: p.color }}
                 />
-                {product.name}
+                {p.name}
               </span>
-            )}
+            ))}
             {update.tags.map((t) => (
               <span
                 key={t._id}
@@ -122,22 +90,22 @@ export function SocialUpdateCard({ update, commentCount = 0 }: SocialUpdateCardP
         <h2 className="text-base font-semibold text-slate-900 mb-2 leading-snug">
           {update.title}
         </h2>
-        <p className="text-sm text-slate-500 leading-relaxed mb-3">
-          {update.summary}
-        </p>
+        <div className="text-sm text-slate-500 leading-relaxed mb-3 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline">
+          <ReactMarkdown>{update.summary}</ReactMarkdown>
+        </div>
 
         {/* Structured sections */}
         <div className="space-y-2 mb-3">
           {SECTIONS.map((s) => {
-            const rendered = renderItems(update[s.key] || '')
-            if (!rendered) return null
+            const content = update[s.key]
+            if (!content?.trim()) return null
             return (
               <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>
                   {s.label}
                 </p>
-                <div className="text-xs text-black leading-relaxed">
-                  {rendered}
+                <div className="prose prose-xs max-w-none text-black leading-relaxed [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-1 [&_li]:mb-0.5">
+                  <ReactMarkdown>{content}</ReactMarkdown>
                 </div>
               </div>
             )

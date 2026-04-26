@@ -1,14 +1,104 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { ImagePlus, X } from 'lucide-react'
+import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
+import { ImagePlus, X, Clock, ChevronDown, Check } from 'lucide-react'
 import { format } from 'date-fns'
+
+interface MultiSelectOption {
+  _id: string
+  name: string
+  color?: string
+}
+
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: MultiSelectOption[]
+  selected: string[]
+  onChange: (ids: string[]) => void
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOptions = options.filter((o) => selected.includes(o._id))
+
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center justify-between w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:bg-slate-50 transition-colors"
+      >
+        <span className="flex flex-wrap gap-1 min-w-0">
+          {selectedOptions.length === 0 ? (
+            <span className="text-muted-foreground">{placeholder}</span>
+          ) : (
+            selectedOptions.map((o) => (
+              <span
+                key={o._id}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-medium"
+              >
+                {o.color && (
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: o.color }} />
+                )}
+                {o.name}
+              </span>
+            ))
+          )}
+        </span>
+        <ChevronDown size={14} className={`ml-2 flex-shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+          {options.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-400">No options available</p>
+          ) : (
+            options.map((o) => {
+              const isSelected = selected.includes(o._id)
+              return (
+                <button
+                  key={o._id}
+                  type="button"
+                  onClick={() => toggle(o._id)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors"
+                >
+                  <span className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-slate-900 border-slate-900' : 'border-slate-300'}`}>
+                    {isSelected && <Check size={10} className="text-white" />}
+                  </span>
+                  {o.color && (
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: o.color }} />
+                  )}
+                  <span className="text-slate-700">{o.name}</span>
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Product {
   _id: string
@@ -32,10 +122,11 @@ interface UpdateFormProps {
     title?: string
     summary?: string
     domainIds?: string[]
-    productId?: string
+    productIds?: string[]
     tagIds?: string[]
     date?: string
     isPublished?: boolean
+    scheduledAt?: string
     progressUpdates?: string
     nextSteps?: string
     learningPoints?: string
@@ -43,48 +134,36 @@ interface UpdateFormProps {
   }
 }
 
-const PRODUCT_DOMAIN_NAMES = ['Products', 'Central Solutions']
-
 export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultValues = {} }: UpdateFormProps) {
   const router = useRouter()
   const [title, setTitle] = useState(defaultValues.title || '')
   const [summary, setSummary] = useState(defaultValues.summary || '')
   const [domainIds, setDomainIds] = useState<string[]>(defaultValues.domainIds || [])
-  const [productId, setProductId] = useState(defaultValues.productId || '')
+  const [productIds, setProductIds] = useState<string[]>(defaultValues.productIds || [])
   const [tagIds, setTagIds] = useState<string[]>(defaultValues.tagIds || [])
   const [date, setDate] = useState(
     defaultValues.date
       ? format(new Date(defaultValues.date), 'yyyy-MM')
       : format(new Date(), 'yyyy-MM')
   )
-  const [isPublished, setIsPublished] = useState(defaultValues.isPublished || false)
-  const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates || '')
-  const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps || '')
-  const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints || '')
+  const initialPublishState = defaultValues.isPublished
+    ? 'publish'
+    : defaultValues.scheduledAt
+    ? 'schedule'
+    : 'draft'
+  const [publishState, setPublishState] = useState<'draft' | 'publish' | 'schedule'>(initialPublishState)
+  const [scheduledAt, setScheduledAt] = useState(defaultValues.scheduledAt || '')
+  const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? (mode === 'create' ? '- ' : ''))
+  const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? (mode === 'create' ? '- ' : ''))
+  const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints ?? (mode === 'create' ? '- ' : ''))
   const [media, setMedia] = useState<string[]>(defaultValues.media || [])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const selectedDomains = allDomains.filter((d) => domainIds.includes(d._id))
-  const showProduct = selectedDomains.some((d) => PRODUCT_DOMAIN_NAMES.includes(d.name))
-
   const availableProducts = domainIds.length > 0
     ? domainGroups.filter((g) => domainIds.includes(g._id)).flatMap((g) => g.products)
     : domainGroups.flatMap((g) => g.products)
-
-  function toggleDomain(id: string) {
-    setDomainIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-    if (productId) {
-      const nextDomainIds = domainIds.includes(id)
-        ? domainIds.filter((x) => x !== id)
-        : [...domainIds, id]
-      const nextProducts = domainGroups.filter((g) => nextDomainIds.includes(g._id)).flatMap((g) => g.products)
-      if (!nextProducts.some((p) => p._id === productId)) setProductId('')
-    }
-  }
 
   function isVideo(url: string) {
     return /\.(mp4|webm|mov)$/i.test(url)
@@ -118,12 +197,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     setMedia((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function toggleTag(id: string) {
-    setTagIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -136,8 +209,13 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Please select at least one section.')
       return
     }
-    if (!progressUpdates.trim() && !nextSteps.trim() && !learningPoints.trim()) {
+    const hasContent = (s: string) => s.split('\n').some(l => l.replace(/^[-*•]\s*/, '').trim().length > 0)
+    if (!hasContent(progressUpdates) && !hasContent(nextSteps) && !hasContent(learningPoints)) {
       setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
+      return
+    }
+    if (publishState === 'schedule' && !scheduledAt) {
+      setError('Please select a date and time for scheduled publishing.')
       return
     }
 
@@ -154,14 +232,15 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           title,
           summary,
           domainIds,
-          productId: showProduct ? (productId || undefined) : undefined,
-          tagIds: showProduct ? [] : tagIds,
+          productIds,
+          tagIds,
           date: date + '-01',
           progressUpdates,
           nextSteps,
           learningPoints,
           media,
-          isPublished,
+          isPublished: publishState === 'publish',
+          scheduledAt: publishState === 'schedule' ? scheduledAt : null,
         }),
       })
 
@@ -203,22 +282,20 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           <Label className="text-sm font-medium text-slate-700">
             Section <span className="text-red-500">*</span>
           </Label>
-          <div className="flex flex-wrap gap-2 pt-0.5">
-            {allDomains.map((d) => (
-              <button
-                key={d._id}
-                type="button"
-                onClick={() => toggleDomain(d._id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
-                  domainIds.includes(d._id)
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                }`}
-              >
-                {d.name}
-              </button>
-            ))}
-          </div>
+          <MultiSelect
+            options={allDomains}
+            selected={domainIds}
+            onChange={(ids) => {
+              const nextDomainIds = ids
+              setDomainIds(nextDomainIds)
+              if (productIds.length > 0) {
+                const nextProducts = domainGroups.filter((g) => nextDomainIds.includes(g._id)).flatMap((g) => g.products)
+                const validIds = new Set(nextProducts.map((p) => p._id))
+                setProductIds((prev) => prev.filter((pid) => validIds.has(pid)))
+              }
+            }}
+            placeholder="Select sections..."
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -236,55 +313,27 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         </div>
       </div>
 
-      {/* Product (conditional) or Tags */}
-      {showProduct ? (
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-700">Product</Label>
-          <Select value={productId || 'none'} onValueChange={(val) => setProductId(val === 'none' ? '' : val)}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="No specific product" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No specific product</SelectItem>
-              {availableProducts.map((p) => (
-                <SelectItem key={p._id} value={p._id}>
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: p.color }}
-                    />
-                    {p.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-700">Tags</Label>
-          {allTags.length === 0 ? (
-            <p className="text-xs text-slate-400">No tags yet. Add tags in the Admin panel.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2 pt-0.5">
-              {allTags.map((t) => (
-                <button
-                  key={t._id}
-                  type="button"
-                  onClick={() => toggleTag(t._id)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
-                    tagIds.includes(t._id)
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Products */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-slate-700">Products</Label>
+        <MultiSelect
+          options={availableProducts}
+          selected={productIds}
+          onChange={setProductIds}
+          placeholder={availableProducts.length === 0 ? 'No products for selected sections' : 'Select products...'}
+        />
+      </div>
+
+      {/* Tags */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-slate-700">Tags</Label>
+        <MultiSelect
+          options={allTags}
+          selected={tagIds}
+          onChange={setTagIds}
+          placeholder={allTags.length === 0 ? 'No tags yet' : 'Select tags...'}
+        />
+      </div>
 
       {/* Summary */}
       <div className="space-y-1.5">
@@ -304,40 +353,22 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       {/* Key Milestones */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Key Milestones</Label>
-        <p className="text-xs text-slate-400">What was accomplished this period — supports Markdown</p>
-        <textarea
-          value={progressUpdates}
-          onChange={(e) => setProgressUpdates(e.target.value)}
-          placeholder="- Shipped the new dashboard&#10;- Fixed auth bug&#10;&#10;**Bold** and *italic* supported"
-          rows={4}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
-        />
+        <p className="text-xs text-slate-400">What was accomplished this period</p>
+        <MarkdownEditor value={progressUpdates} onChange={setProgressUpdates} />
       </div>
 
       {/* Next Steps */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Next Steps</Label>
-        <p className="text-xs text-slate-400">{"What's planned for the next period — supports Markdown"}</p>
-        <textarea
-          value={nextSteps}
-          onChange={(e) => setNextSteps(e.target.value)}
-          placeholder="- Deploy to staging&#10;- Review with stakeholders"
-          rows={4}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
-        />
+        <p className="text-xs text-slate-400">{"What's planned for the next period"}</p>
+        <MarkdownEditor value={nextSteps} onChange={setNextSteps} />
       </div>
 
       {/* Learning Points */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Learning Points</Label>
-        <p className="text-xs text-slate-400">Insights and lessons from this period — supports Markdown</p>
-        <textarea
-          value={learningPoints}
-          onChange={(e) => setLearningPoints(e.target.value)}
-          placeholder="- Users prefer X over Y&#10;- Caching reduced latency by 40%"
-          rows={4}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y font-mono"
-        />
+        <p className="text-xs text-slate-400">Insights and lessons from this period</p>
+        <MarkdownEditor value={learningPoints} onChange={setLearningPoints} />
       </div>
 
       {/* Photos & Videos */}
@@ -380,18 +411,50 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         </label>
       </div>
 
-      {/* Published toggle */}
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+      {/* Publish control */}
+      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
         <div>
-          <p className="text-sm font-medium text-slate-700">Publish update</p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {isPublished ? 'Visible to all users' : 'Draft — only visible to editors'}
+          <p className="text-sm font-medium text-slate-700 mb-1">Visibility</p>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white overflow-hidden">
+            {(['draft', 'publish', 'schedule'] as const).map((state) => (
+              <button
+                key={state}
+                type="button"
+                onClick={() => setPublishState(state)}
+                className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+                  publishState === state
+                    ? state === 'publish'
+                      ? 'bg-green-600 text-white'
+                      : state === 'schedule'
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-slate-900 text-white'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {state === 'draft' ? 'Draft' : state === 'publish' ? 'Publish Now' : 'Schedule'}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5">
+            {publishState === 'publish'
+              ? 'Visible to all users immediately'
+              : publishState === 'schedule'
+              ? 'Will become visible at the selected time'
+              : 'Only visible to editors'}
           </p>
         </div>
-        <Switch
-          checked={isPublished}
-          onCheckedChange={setIsPublished}
-        />
+        {publishState === 'schedule' && (
+          <div className="flex items-center gap-2">
+            <Clock size={14} className="text-slate-400 flex-shrink-0" />
+            <Input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="h-8 text-sm w-auto"
+              min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+            />
+          </div>
+        )}
       </div>
 
       {error && (
