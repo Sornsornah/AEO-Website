@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Paperclip, Send, Trash2 } from 'lucide-react'
+import { X, Paperclip, Send, Trash2, Pencil, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from 'next-auth/react'
+import ReactMarkdown from 'react-markdown'
 
 interface Comment {
   _id: string
@@ -24,12 +25,13 @@ interface MentionUser {
 interface UpdateData {
   title: string
   summary: string
-  progressUpdates: string | string[]
-  nextSteps: string | string[]
-  learningPoints: string | string[]
+  progressUpdates: string
+  nextSteps: string
+  learningPoints: string
   domains: { _id: string; name: string }[]
   tags: { _id: string; name: string }[]
-  productId?: { name: string; color: string }
+  productId?: { _id?: string; name: string; color: string }
+  productIds?: { _id: string; name: string; color: string }[]
 }
 
 interface CommentSidePanelProps {
@@ -45,41 +47,6 @@ const SECTIONS = [
   { key: 'learningPoints'  as const, label: 'Learning Points',  bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
 ]
 
-function renderItems(val: string | string[]) {
-  const items: { text: string; sub: string[] }[] = []
-  if (Array.isArray(val)) {
-    val.forEach((text) => items.push({ text, sub: [] }))
-  } else {
-    for (const line of val.split('\n')) {
-      const subMatch = line.match(/^[ \t]{2,}[-*•]\s+(.+)/)
-      const mainMatch = line.match(/^[-*•]\s+(.+)/)
-      if (subMatch && items.length > 0) {
-        items[items.length - 1].sub.push(subMatch[1])
-      } else if (mainMatch) {
-        items.push({ text: mainMatch[1], sub: [] })
-      } else if (line.trim()) {
-        items.push({ text: line.trim(), sub: [] })
-      }
-    }
-  }
-  if (items.length === 0) return null
-  return (
-    <ol className="list-none p-0 m-0 space-y-1">
-      {items.map((item, i) => (
-        <li key={i} className="leading-relaxed">
-          {i + 1}. {item.text}
-          {item.sub.length > 0 && (
-            <ol className="list-none pl-4 mt-0.5 space-y-0.5">
-              {item.sub.map((sub, j) => (
-                <li key={j} className="leading-relaxed">{String.fromCharCode(97 + j)}. {sub}</li>
-              ))}
-            </ol>
-          )}
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 const AVATAR_COLORS = [
   'bg-pink-200 text-pink-800',
@@ -119,11 +86,13 @@ function renderTextWithMentions(text: string) {
 }
 
 function EnlargedCard({ update }: { update: UpdateData }) {
-  const hasProduct = !!update.productId?.name
-  const hasTags = update.domains.length > 0 || hasProduct || update.tags.length > 0
+  const products = update.productIds?.length
+    ? update.productIds
+    : update.productId?.name ? [update.productId as { _id?: string; name: string; color: string }] : []
+  const hasTags = update.domains.length > 0 || products.length > 0 || update.tags.length > 0
 
   return (
-    <div className="bg-card rounded-2xl shadow-2xl p-6 w-full max-w-lg">
+    <div className="bg-card rounded-2xl shadow-2xl p-6 w-full">
       {hasTags && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {update.domains.map((d) => (
@@ -131,12 +100,12 @@ function EnlargedCard({ update }: { update: UpdateData }) {
               {d.name}
             </span>
           ))}
-          {hasProduct && (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: update.productId!.color }} />
-              {update.productId!.name}
+          {products.map((p, i) => (
+            <span key={p._id ?? i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              {p.name}
             </span>
-          )}
+          ))}
           {update.tags.map((t) => (
             <span key={t._id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
               {t.name}
@@ -146,17 +115,19 @@ function EnlargedCard({ update }: { update: UpdateData }) {
       )}
 
       <h2 className="text-lg font-semibold text-slate-900 mb-2 leading-snug">{update.title}</h2>
-      <p className="text-sm text-slate-500 leading-relaxed mb-4">{update.summary}</p>
+      <div className="text-sm text-slate-500 leading-relaxed mb-4 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline">
+        <ReactMarkdown>{update.summary}</ReactMarkdown>
+      </div>
 
       <div className="space-y-2">
         {SECTIONS.map((s) => {
-          const rendered = renderItems(update[s.key] || '')
-          if (!rendered) return null
+          const content = update[s.key]
+          if (!content?.trim()) return null
           return (
             <div key={s.key} className={`rounded-lg px-3 py-2.5 ${s.bg}`}>
               <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>{s.label}</p>
-              <div className="text-xs text-black leading-relaxed">
-                {rendered}
+              <div className="prose prose-xs max-w-none text-black leading-relaxed [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-1 [&_li]:mb-0.5">
+                <ReactMarkdown>{content}</ReactMarkdown>
               </div>
             </div>
           )
@@ -175,6 +146,9 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [savingEditId, setSavingEditId] = useState<string | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
   const [allUsers, setAllUsers] = useState<MentionUser[]>([])
@@ -294,6 +268,36 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
     setPendingFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  function startEdit(c: Comment) {
+    setEditingId(c._id)
+    setEditText(c.text)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  async function saveEdit(commentId: string) {
+    if (!editText.trim() || savingEditId) return
+    setSavingEditId(commentId)
+    try {
+      const res = await fetch(`/api/updates/${updateId}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editText.trim() }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setComments((prev) => prev.map((c) => (c._id === commentId ? updated : c)))
+        setEditingId(null)
+        setEditText('')
+      }
+    } finally {
+      setSavingEditId(null)
+    }
+  }
+
   async function deleteComment(commentId: string) {
     setDeletingId(commentId)
     try {
@@ -345,26 +349,29 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
 
   const panel = (
     <>
-      {/* Full-screen backdrop */}
+      {/* Backdrop — sits below navbar (top-14 = h-14 navbar height) */}
       <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        className={`fixed top-14 inset-x-0 bottom-0 z-40 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
         style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
         onClick={onClose}
         aria-hidden
       />
 
-      {/* Layout: enlarged card center + side panel right */}
-      <div className="fixed inset-0 z-50 flex items-center pointer-events-none">
-        {/* Enlarged card area */}
+      {/* Layout: enlarged card (3/4) + side panel (1/4) */}
+      <div className="fixed top-14 inset-x-0 bottom-0 z-50 flex pointer-events-none">
+        {/* Enlarged card area — scrollable; clicking empty space closes modal */}
         <div
-          className={`flex-1 flex items-center justify-center px-8 pointer-events-auto transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+          className={`flex-[3] h-full overflow-y-auto flex items-start justify-center px-8 py-10 pointer-events-auto transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+          onClick={onClose}
         >
-          <EnlargedCard update={update} />
+          <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            <EnlargedCard update={update} />
+          </div>
         </div>
 
         {/* Comment side panel */}
         <div
-          className={`h-full w-[380px] flex-shrink-0 bg-card shadow-2xl flex flex-col pointer-events-auto transition-transform duration-300 ease-out ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
+          className={`h-full flex-[1] min-w-[320px] max-w-[460px] bg-card shadow-2xl flex flex-col pointer-events-auto transition-transform duration-300 ease-out ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100">
@@ -403,31 +410,78 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                       <span className="text-[11px] text-slate-400">
                         {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
                       </span>
-                      {c.userId === session?.user?.id && !c._id.startsWith('temp-') && (
-                        <button
-                          onClick={() => deleteComment(c._id)}
-                          disabled={deletingId === c._id}
-                          className="ml-auto text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
-                          aria-label="Delete comment"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                      {c.userId === session?.user?.id && !c._id.startsWith('temp-') && editingId !== c._id && (
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <button
+                            onClick={() => startEdit(c)}
+                            className="text-slate-300 hover:text-slate-500 transition-colors"
+                            aria-label="Edit comment"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => deleteComment(c._id)}
+                            disabled={deletingId === c._id}
+                            className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
+                            aria-label="Delete comment"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
-                    {c.text && (
-                      <p className="text-sm text-slate-600 leading-relaxed">{renderTextWithMentions(c.text)}</p>
-                    )}
-                    {c.attachments?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {c.attachments.map((url, i) =>
-                          isVideo(url) ? (
-                            <video key={i} src={url} controls className="max-w-full rounded-lg max-h-48 bg-black" />
-                          ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img key={i} src={url} alt="" className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer" onClick={() => window.open(url)} />
-                          )
-                        )}
+
+                    {editingId === c._id ? (
+                      <div className="mt-1 space-y-1.5">
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(c._id) }
+                            if (e.key === 'Escape') cancelEdit()
+                          }}
+                          rows={3}
+                          maxLength={1000}
+                          autoFocus
+                          className="w-full text-sm text-slate-900 bg-background border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => saveEdit(c._id)}
+                            disabled={!editText.trim() || savingEditId === c._id}
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-slate-800 text-white rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors"
+                          >
+                            <Check className="w-3 h-3" />
+                            {savingEditId === c._id ? 'Saving…' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {c.text && (
+                          <p className="text-sm text-slate-600 leading-relaxed">{renderTextWithMentions(c.text)}</p>
+                        )}
+                        {c.attachments?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {c.attachments.map((url, i) =>
+                              isVideo(url) ? (
+                                <video key={i} src={url} controls className="max-w-full rounded-lg max-h-48 bg-black" />
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img key={i} src={url} alt="" className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer" onClick={() => window.open(url)} />
+                              )
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
