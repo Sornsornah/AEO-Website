@@ -51,6 +51,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (media !== undefined) updateData.media = media
   if (isPublished !== undefined) updateData.isPublished = isPublished
   if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null
+  updateData.updatedBy = session.user.id
 
   const update = await Update.findByIdAndUpdate(params.id, updateData, { new: true })
     .populate('productId')

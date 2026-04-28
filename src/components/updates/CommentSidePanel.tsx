@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Paperclip, Send, Trash2, Pencil, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -15,11 +15,6 @@ interface Comment {
   attachments: string[]
   mentions: string[]
   createdAt: string
-}
-
-interface MentionUser {
-  _id: string
-  name: string
 }
 
 interface UpdateData {
@@ -70,19 +65,6 @@ function getInitials(name: string) {
 
 function isVideo(url: string) {
   return /\.(mp4|webm|mov)$/i.test(url)
-}
-
-function renderTextWithMentions(text: string) {
-  const parts = text.split(/(@[\w][\w ]*)/g)
-  return parts.map((part, i) =>
-    part.startsWith('@') ? (
-      <span key={i} className="text-blue-600 font-medium">
-        {part}
-      </span>
-    ) : (
-      part
-    )
-  )
 }
 
 function EnlargedCard({ update }: { update: UpdateData }) {
@@ -151,10 +133,6 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const [savingEditId, setSavingEditId] = useState<string | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
-  const [allUsers, setAllUsers] = useState<MentionUser[]>([])
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
-  const [mentionAnchorIndex, setMentionAnchorIndex] = useState<number>(-1)
-
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -172,73 +150,16 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   }, [updateId])
 
   useEffect(() => {
-    fetch('/api/users/for-mention')
-      .then((r) => r.json())
-      .then((data) => setAllUsers(Array.isArray(data) ? data : []))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
     inputRef.current?.focus()
   }, [loading])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        if (mentionQuery !== null) setMentionQuery(null)
-        else onClose()
-      }
+      if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, mentionQuery])
-
-  const TEAM_OPTION: MentionUser = { _id: 'team', name: 'team' }
-
-  const filteredUsers: MentionUser[] = mentionQuery !== null
-    ? [
-        ...('team'.startsWith(mentionQuery.toLowerCase()) ? [TEAM_OPTION] : []),
-        ...allUsers.filter((u) => u.name.toLowerCase().startsWith(mentionQuery.toLowerCase())).slice(0, 5),
-      ]
-    : []
-
-  function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value
-    setText(val)
-    const cursor = e.target.selectionStart ?? val.length
-    const prefix = val.slice(0, cursor)
-    const atIndex = prefix.lastIndexOf('@')
-    if (atIndex !== -1) {
-      const afterAt = prefix.slice(atIndex + 1)
-      if (!/\s/.test(afterAt)) {
-        setMentionQuery(afterAt)
-        setMentionAnchorIndex(atIndex)
-        return
-      }
-    }
-    setMentionQuery(null)
-    setMentionAnchorIndex(-1)
-  }
-
-  const insertMention = useCallback(
-    (name: string) => {
-      const textarea = inputRef.current
-      if (!textarea) return
-      const cursor = textarea.selectionStart ?? text.length
-      const before = text.slice(0, mentionAnchorIndex)
-      const after = text.slice(cursor)
-      const newText = `${before}@${name} ${after}`
-      setText(newText)
-      setMentionQuery(null)
-      setMentionAnchorIndex(-1)
-      setTimeout(() => {
-        textarea.focus()
-        const newCursor = before.length + name.length + 2
-        textarea.setSelectionRange(newCursor, newCursor)
-      }, 0)
-    },
-    [text, mentionAnchorIndex]
-  )
+  }, [onClose])
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
@@ -328,7 +249,6 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
     onCountChange(next.length)
     setText('')
     setPendingFiles([])
-    setMentionQuery(null)
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     try {
       const res = await fetch(`/api/updates/${updateId}/comments`, {
@@ -467,7 +387,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                     ) : (
                       <>
                         {c.text && (
-                          <p className="text-sm text-slate-600 leading-relaxed">{renderTextWithMentions(c.text)}</p>
+                          <p className="text-sm text-slate-600 leading-relaxed">{c.text}</p>
                         )}
                         {c.attachments?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -517,38 +437,12 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
               )}
 
               <div className="relative">
-                {mentionQuery !== null && filteredUsers.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 mb-1 bg-card border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                    {filteredUsers.map((u) => (
-                      <button
-                        key={u._id}
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); insertMention(u.name) }}
-                        className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                      >
-                        {u._id === 'team' ? (
-                          <>
-                            <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold flex-shrink-0">@</span>
-                            <span className="font-medium text-blue-700">team</span>
-                            <span className="text-xs text-slate-400 ml-auto">notify everyone in domain</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-6 h-6 rounded-full bg-slate-200 text-xs flex items-center justify-center font-medium flex-shrink-0">{u.name[0].toUpperCase()}</span>
-                            {u.name}
-                          </>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 <textarea
                   ref={inputRef}
                   value={text}
-                  onChange={handleTextChange}
+                  onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
                       submit(e as unknown as React.FormEvent)
                     }

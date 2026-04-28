@@ -13,7 +13,9 @@ import { Navbar } from '@/components/layout/Navbar'
 import { UpdateTable } from '@/components/editor/UpdateTable'
 import { FilterBar } from '@/components/updates/FilterBar'
 import { EditorProductsList } from '@/components/editor/EditorProductsList'
+import { BlogTable } from '@/components/editor/BlogTable'
 import { Button } from '@/components/ui/button'
+import { BlogPost } from '@/models/BlogPost'
 
 const PAGE_SIZE = 20
 
@@ -37,7 +39,51 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
   await connectDB()
 
-  const activeTab = searchParams.tab === 'products' ? 'products' : 'updates'
+  // Auto-publish any updates whose scheduled time has passed
+  const nowForPublish = new Date()
+  await Update.updateMany(
+    { isPublished: false, scheduledAt: { $lte: nowForPublish } },
+    { $set: { isPublished: true } }
+  )
+
+  const activeTab = searchParams.tab === 'products' ? 'products' : searchParams.tab === 'blog' ? 'blog' : 'updates'
+
+  // Blog tab
+  if (activeTab === 'blog') {
+    const blogPosts = await BlogPost.find().sort({ publishedAt: -1 }).lean()
+    const serializedPosts = blogPosts.map((p) => ({
+      _id: p._id.toString(),
+      slug: p.slug,
+      title: p.title,
+      category: p.category,
+      authorName: p.authorName,
+      publishedAt: p.publishedAt.toISOString(),
+      status: (p.status || 'draft') as 'draft' | 'scheduled' | 'published',
+      isFeatured: p.isFeatured,
+      likeCount: p.likes?.length ?? 0,
+    }))
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="px-6 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
+            <Link href="/editor/blog/new">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                + New Post
+              </Button>
+            </Link>
+          </div>
+          <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
+            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Updates</Link>
+            <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Products</Link>
+            <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Blog</Link>
+          </div>
+          <BlogTable posts={serializedPosts} />
+        </main>
+      </div>
+    )
+  }
 
   // Products tab — just fetch products and return early
   if (activeTab === 'products') {
@@ -69,18 +115,9 @@ export default async function EditorPage({ searchParams }: PageProps) {
           </div>
           {/* Tab switcher */}
           <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
-            <Link
-              href="/editor"
-              className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-            >
-              Updates
-            </Link>
-            <Link
-              href="/editor?tab=products"
-              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900"
-            >
-              Products
-            </Link>
+            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Updates</Link>
+            <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Products</Link>
+            <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
           </div>
           {/* Products list */}
           <EditorProductsList initialProducts={serializedProducts} />
@@ -94,10 +131,18 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
   // Build query
   const query: Record<string, unknown> = {}
+  const andConditions: Record<string, unknown>[] = []
 
   // Status filter
-  if (searchParams.status === 'draft') query.isPublished = false
-  else if (searchParams.status === 'published') query.isPublished = true
+  if (searchParams.status === 'published') {
+    query.isPublished = true
+  } else if (searchParams.status === 'scheduled') {
+    query.isPublished = false
+    query.scheduledAt = { $exists: true, $ne: null }
+  } else if (searchParams.status === 'draft') {
+    query.isPublished = false
+    andConditions.push({ $or: [{ scheduledAt: { $exists: false } }, { scheduledAt: null }] })
+  }
 
   // Product / domain filter
   if (searchParams.product) {
@@ -125,11 +170,13 @@ export default async function EditorPage({ searchParams }: PageProps) {
   // Search filter
   if (searchParams.search) {
     const escaped = searchParams.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    query.$or = [
+    andConditions.push({ $or: [
       { title: { $regex: escaped, $options: 'i' } },
       { summary: { $regex: escaped, $options: 'i' } },
-    ]
+    ]})
   }
+
+  if (andConditions.length > 0) query.$and = andConditions
 
   // Available years
   const allDates = await Update.find({}, { date: 1 }).lean()
@@ -146,6 +193,8 @@ export default async function EditorPage({ searchParams }: PageProps) {
       .populate({ path: 'productId', populate: { path: 'domainId' } })
       .populate({ path: 'productIds', populate: { path: 'domainId' } })
       .populate('domainIds')
+      .populate('updatedBy', 'name email')
+      .populate('createdBy', 'name email')
       .sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
     Update.countDocuments(query),
   ])
@@ -182,12 +231,12 @@ export default async function EditorPage({ searchParams }: PageProps) {
     searchParams.domain ||
     searchParams.year ||
     searchParams.month ||
-    searchParams.search ||
-    searchParams.status
+    searchParams.search
   )
 
   type PopulatedProduct = { _id: { toString(): string }; name: string; color: string; domainId?: { name: string } }
   type PopulatedDomain = { _id: { toString(): string }; name: string }
+  type PopulatedUser = { _id: { toString(): string }; name?: string; email?: string }
 
   const serialized = (updates as Array<{
     _id: { toString(): string }
@@ -196,9 +245,12 @@ export default async function EditorPage({ searchParams }: PageProps) {
     date: Date
     isPublished: boolean
     scheduledAt?: Date
+    updatedAt: Date
     productId: unknown
     productIds: unknown[]
     domainIds: unknown[]
+    updatedBy?: PopulatedUser
+    createdBy?: PopulatedUser
   }>).map((u) => {
     // Merge legacy single fields with array fields, deduplicate by id
     const legacyProduct = u.productId as PopulatedProduct | null
@@ -215,6 +267,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
       ? allDomains.map((d) => d.name)
       : domainNamesFromProducts
 
+    const lastEditor = u.updatedBy ?? u.createdBy
     return {
       _id: u._id.toString(),
       title: u.title,
@@ -222,6 +275,8 @@ export default async function EditorPage({ searchParams }: PageProps) {
       date: u.date.toISOString(),
       isPublished: u.isPublished,
       scheduledAt: u.scheduledAt ? u.scheduledAt.toISOString() : null,
+      updatedAt: u.updatedAt.toISOString(),
+      lastUpdatedBy: lastEditor?.name || lastEditor?.email || null,
       products: allProducts.map((p) => ({
         _id: p._id.toString(),
         name: p.name,
@@ -247,19 +302,38 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
         {/* Tab switcher */}
         <div className="flex items-center gap-1 border-b border-slate-200 mb-6">
-          <Link
-            href="/editor"
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900"
-          >
-            Updates
-          </Link>
-          <Link
-            href="/editor?tab=products"
-            className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-          >
-            Products
-          </Link>
+          <Link href="/editor" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Updates</Link>
+          <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Products</Link>
+          <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
         </div>
+
+        {/* Status sub-tabs */}
+        {(() => {
+          const activeStatus = searchParams.status || 'all'
+          const statusTabs = [
+            { value: 'all', label: 'All', href: '/editor' },
+            { value: 'published', label: 'Published', href: '/editor?status=published' },
+            { value: 'scheduled', label: 'Scheduled', href: '/editor?status=scheduled' },
+            { value: 'draft', label: 'Draft', href: '/editor?status=draft' },
+          ]
+          return (
+            <div className="flex items-center gap-1 mb-6">
+              {statusTabs.map((tab) => (
+                <Link
+                  key={tab.value}
+                  href={tab.href}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                    activeStatus === tab.value
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </div>
+          )
+        })()}
 
         <Suspense>
           <FilterBar
@@ -267,7 +341,6 @@ export default async function EditorPage({ searchParams }: PageProps) {
             allDomains={allDomainOptions}
             availableYears={availableYears}
             currentSearch={searchParams.search || ''}
-            showStatus
           />
         </Suspense>
 

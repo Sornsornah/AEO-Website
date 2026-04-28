@@ -18,6 +18,7 @@ export interface IUpdate extends Document {
   isPublished: boolean
   scheduledAt?: Date
   createdBy?: Types.ObjectId
+  updatedBy?: Types.ObjectId
   createdAt: Date
   updatedAt: Date
 }
@@ -41,6 +42,7 @@ const UpdateSchema = new Schema<IUpdate>(
     isPublished: { type: Boolean, default: false },
     scheduledAt: { type: Date, required: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 )

@@ -1,13 +1,29 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
+import { UpdateCardPreview } from '@/components/editor/UpdateCardPreview'
 import { ImagePlus, X, Clock, ChevronDown, Check } from 'lucide-react'
 import { format } from 'date-fns'
+
+const SGT_OFFSET_MS = 8 * 60 * 60 * 1000
+
+function utcToSgtDatetimeLocal(utcIso: string): string {
+  const d = new Date(new Date(utcIso).getTime() + SGT_OFFSET_MS)
+  return d.toISOString().slice(0, 16)
+}
+
+function sgtToUtcIso(sgtLocal: string): string {
+  return new Date(new Date(sgtLocal + ':00Z').getTime() - SGT_OFFSET_MS).toISOString()
+}
+
+function sgtNowDatetimeLocal(): string {
+  return new Date(Date.now() + SGT_OFFSET_MS).toISOString().slice(0, 16)
+}
 
 interface MultiSelectOption {
   _id: string
@@ -136,6 +152,11 @@ interface UpdateFormProps {
 
 export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultValues = {} }: UpdateFormProps) {
   const router = useRouter()
+  const sortedDomains = [...allDomains].sort((a, b) => {
+    if (a.name.toLowerCase() === 'general') return -1
+    if (b.name.toLowerCase() === 'general') return 1
+    return a.name.localeCompare(b.name)
+  })
   const [title, setTitle] = useState(defaultValues.title || '')
   const [summary, setSummary] = useState(defaultValues.summary || '')
   const [domainIds, setDomainIds] = useState<string[]>(defaultValues.domainIds || [])
@@ -152,10 +173,12 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     ? 'schedule'
     : 'draft'
   const [publishState, setPublishState] = useState<'draft' | 'publish' | 'schedule'>(initialPublishState)
-  const [scheduledAt, setScheduledAt] = useState(defaultValues.scheduledAt || '')
-  const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? (mode === 'create' ? '- ' : ''))
-  const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? (mode === 'create' ? '- ' : ''))
-  const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints ?? (mode === 'create' ? '- ' : ''))
+  const [scheduledAt, setScheduledAt] = useState(
+    defaultValues.scheduledAt ? utcToSgtDatetimeLocal(defaultValues.scheduledAt) : ''
+  )
+  const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? '')
+  const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? '')
+  const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints ?? '')
   const [media, setMedia] = useState<string[]>(defaultValues.media || [])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -209,7 +232,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Please select at least one section.')
       return
     }
-    const hasContent = (s: string) => s.split('\n').some(l => l.replace(/^[-*•]\s*/, '').trim().length > 0)
+    const hasContent = (s: string) => s.split('\n').some(l => l.replace(/^(\d+\.|[-*•])\s*/, '').trim().length > 0)
     if (!hasContent(progressUpdates) && !hasContent(nextSteps) && !hasContent(learningPoints)) {
       setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
       return
@@ -240,7 +263,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           learningPoints,
           media,
           isPublished: publishState === 'publish',
-          scheduledAt: publishState === 'schedule' ? scheduledAt : null,
+          scheduledAt: publishState === 'schedule' ? sgtToUtcIso(scheduledAt) : null,
         }),
       })
 
@@ -259,8 +282,27 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     }
   }
 
+  const previewProducts = useMemo(() => {
+    const all = domainGroups.flatMap((g) => g.products)
+    return all.filter((p) => productIds.includes(p._id))
+  }, [domainGroups, productIds])
+
+  const previewDomains = useMemo(
+    () => allDomains.filter((d) => domainIds.includes(d._id)),
+    [allDomains, domainIds]
+  )
+
+  const previewTags = useMemo(
+    () => allTags.filter((t) => tagIds.includes(t._id)),
+    [allTags, tagIds]
+  )
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit}>
+      <div className="grid grid-cols-2 gap-8 items-start">
+        {/* ── Left: form inputs ── */}
+        <div className="space-y-6">
+
       {/* Title */}
       <div className="space-y-1.5">
         <Label htmlFor="title" className="text-sm font-medium text-slate-700">
@@ -283,7 +325,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
             Section <span className="text-red-500">*</span>
           </Label>
           <MultiSelect
-            options={allDomains}
+            options={sortedDomains}
             selected={domainIds}
             onChange={(ids) => {
               const nextDomainIds = ids
@@ -335,10 +377,10 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         />
       </div>
 
-      {/* Summary */}
+      {/* Additional Information */}
       <div className="space-y-1.5">
         <Label htmlFor="summary" className="text-sm font-medium text-slate-700">
-          Summary
+          Additional Information
         </Label>
         <textarea
           id="summary"
@@ -354,21 +396,21 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Key Milestones</Label>
         <p className="text-xs text-slate-400">What was accomplished this period</p>
-        <MarkdownEditor value={progressUpdates} onChange={setProgressUpdates} />
+        <MarkdownEditor value={progressUpdates} onChange={setProgressUpdates} forceOrderedList />
       </div>
 
       {/* Next Steps */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Next Steps</Label>
         <p className="text-xs text-slate-400">{"What's planned for the next period"}</p>
-        <MarkdownEditor value={nextSteps} onChange={setNextSteps} />
+        <MarkdownEditor value={nextSteps} onChange={setNextSteps} forceOrderedList />
       </div>
 
       {/* Learning Points */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Learning Points</Label>
         <p className="text-xs text-slate-400">Insights and lessons from this period</p>
-        <MarkdownEditor value={learningPoints} onChange={setLearningPoints} />
+        <MarkdownEditor value={learningPoints} onChange={setLearningPoints} forceOrderedList />
       </div>
 
       {/* Photos & Videos */}
@@ -451,8 +493,9 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
               className="h-8 text-sm w-auto"
-              min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+              min={sgtNowDatetimeLocal()}
             />
+            <span className="text-xs text-slate-400 font-medium">SGT</span>
           </div>
         )}
       </div>
@@ -480,6 +523,26 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           Cancel
         </Button>
       </div>
+
+        </div>{/* end left column */}
+
+        {/* ── Right: live preview ── */}
+        <div className="sticky top-20">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Live Preview</p>
+          <UpdateCardPreview
+            title={title}
+            summary={summary}
+            progressUpdates={progressUpdates}
+            nextSteps={nextSteps}
+            learningPoints={learningPoints}
+            media={media}
+            products={previewProducts}
+            domains={previewDomains}
+            tags={previewTags}
+          />
+        </div>
+
+      </div>{/* end grid */}
     </form>
   )
 }

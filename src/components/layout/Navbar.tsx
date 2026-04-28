@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils'
 import { NotificationBell } from './NotificationBell'
 
 const navLinks = [
+  { href: '/about', label: 'About Us' },
   { href: '/products', label: 'Products' },
+  { href: '/blog', label: 'Blog' },
   { href: '/updates', label: 'Internal Updates', restricted: true },
-  { href: '/about', label: 'About us' },
 ]
 
 function getInitials(name: string) {

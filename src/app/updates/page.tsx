@@ -18,6 +18,7 @@ interface PageProps {
     domain?: string
     product?: string
     view?: string
+    comments?: string
   }
 }
 
@@ -31,6 +32,12 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
   await connectDB()
   void Tag // ensure Tag schema is registered for populate('tagIds')
 
+  // Auto-publish any updates whose scheduled time has passed
+  await Update.updateMany(
+    { isPublished: false, scheduledAt: { $lte: new Date() } },
+    { $set: { isPublished: true } }
+  )
+
   const currentView = searchParams.view || 'all'
   const isWhatsNewView = currentView === 'new'
 
@@ -42,10 +49,13 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
   }
 
   // Build query
-  const query: Record<string, unknown> = { isPublished: true }
+  const now = new Date()
+  const andConditions: Record<string, unknown>[] = [
+    { $or: [{ isPublished: true }, { scheduledAt: { $lte: now } }] },
+  ]
 
   if (isWhatsNewView) {
-    query._id = { $nin: seenIds }
+    andConditions.push({ _id: { $nin: seenIds } })
   }
 
   if (searchParams.domain) {
@@ -53,14 +63,16 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     if (domain) {
       const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
       const ids = domainProducts.map((p) => p._id)
-      query.$or = [{ productId: { $in: ids } }, { productIds: { $in: ids } }]
+      andConditions.push({ $or: [{ productId: { $in: ids } }, { productIds: { $in: ids } }] })
     }
   } else if (searchParams.product) {
     const product = await Product.findOne({ slug: searchParams.product }).select('_id').lean()
     if (product) {
-      query.$or = [{ productId: product._id }, { productIds: product._id }]
+      andConditions.push({ $or: [{ productId: product._id }, { productIds: product._id }] })
     }
   }
+
+  const query: Record<string, unknown> = andConditions.length === 1 ? andConditions[0] : { $and: andConditions }
 
   // Fetch all domains, products, and updates
   const [allDomains, allProducts, updates] = await Promise.all([
@@ -158,6 +170,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
           activeDomain={searchParams.domain}
           products={allProductOptions}
           activeProduct={searchParams.product}
+          openComments={searchParams.comments}
         />
       </main>
     </div>

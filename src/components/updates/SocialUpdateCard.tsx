@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CommentButton } from './CommentButton'
 import { CommentSidePanel } from './CommentSidePanel'
 import ReactMarkdown from 'react-markdown'
@@ -30,6 +30,7 @@ interface SocialUpdateCardProps {
     tags: { _id: string; name: string }[]
   }
   commentCount?: number
+  autoOpen?: boolean
 }
 
 function isVideo(url: string) {
@@ -43,18 +44,37 @@ const SECTIONS = [
 ]
 
 
-export function SocialUpdateCard({ update, commentCount = 0 }: SocialUpdateCardProps) {
+export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }: SocialUpdateCardProps) {
   const products: Product[] = update.productIds?.length
     ? update.productIds
     : update.productId?._id ? [update.productId] : []
-  const [commentPanelOpen, setCommentPanelOpen] = useState(false)
+  const [commentPanelOpen, setCommentPanelOpen] = useState(autoOpen)
   const [liveCount, setLiveCount] = useState(commentCount)
+  const cardRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (autoOpen && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [autoOpen])
+
+  useEffect(() => {
+    function handleOpen(e: Event) {
+      const detail = (e as CustomEvent<{ updateId: string }>).detail
+      if (detail?.updateId === update._id) {
+        setCommentPanelOpen(true)
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+    window.addEventListener('openUpdateComments', handleOpen)
+    return () => window.removeEventListener('openUpdateComments', handleOpen)
+  }, [update._id])
 
   const hasTags = update.domains.length > 0 || products.length > 0 || update.tags.length > 0
 
   return (
     <>
-      <article className="bg-card border border-slate-200 rounded-xl p-5 hover:shadow-sm transition-shadow">
+      <article ref={cardRef} className="bg-card border border-slate-200 rounded-xl p-5 hover:shadow-sm transition-shadow">
         {/* Bubble tags: domains + product + tags — above title */}
         {hasTags && (
           <div className="flex flex-wrap gap-1.5 mb-3">

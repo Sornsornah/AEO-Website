@@ -40,6 +40,7 @@ interface UpdatesPageClientProps {
   activeDomain?: string
   products: { name: string; slug: string }[]
   activeProduct?: string
+  openComments?: string
 }
 
 function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem[] }[] {
@@ -59,6 +60,7 @@ export function UpdatesPageClient({
   activeDomain,
   products,
   activeProduct,
+  openComments,
 }: UpdatesPageClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -197,6 +199,7 @@ export function UpdatesPageClient({
                     key={update._id}
                     update={update}
                     commentCount={commentCounts[update._id] ?? 0}
+                    autoOpen={openComments === update._id}
                   />
                 ))}
               </div>

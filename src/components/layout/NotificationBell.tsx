@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Bell } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Notification {
   _id: string
-  type: 'mention' | 'team_mention' | 'product_team'
+  type: 'comment'
   fromUserName: string
   updateId: string
   updateTitle: string
@@ -23,18 +23,18 @@ function NotificationItem({
   onClose: () => void
 }) {
   const router = useRouter()
+  const pathname = usePathname()
 
   function handleClick() {
-    router.push(`/updates/${notification.updateId}`)
+    if (pathname === '/updates') {
+      window.dispatchEvent(new CustomEvent('openUpdateComments', { detail: { updateId: notification.updateId } }))
+    } else {
+      router.push(`/updates?comments=${notification.updateId}`)
+    }
     onClose()
   }
 
-  const message =
-    notification.type === 'mention'
-      ? `${notification.fromUserName} mentioned you in "${notification.updateTitle}"`
-      : notification.type === 'team_mention'
-      ? `${notification.fromUserName} mentioned @team in "${notification.updateTitle}"`
-      : `${notification.fromUserName} commented on "${notification.updateTitle}"`
+  const message = `${notification.fromUserName} commented on "${notification.updateTitle}"`
 
   return (
     <button
