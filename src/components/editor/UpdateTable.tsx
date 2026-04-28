@@ -30,6 +30,8 @@ interface UpdateRow {
   date: string
   isPublished: boolean
   scheduledAt?: string | null
+  updatedAt?: string
+  lastUpdatedBy?: string | null
   products: Product[]
   domainNames: string[]
 }
@@ -104,6 +106,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Status</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Last Updated</TableHead>
             <TableHead className="w-24" />
           </TableRow>
         </TableHeader>
@@ -158,6 +161,20 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                   </div>
                 ) : (
                   <Badge variant="secondary" className="text-xs">Draft</Badge>
+                )}
+              </TableCell>
+              <TableCell>
+                {update.lastUpdatedBy ? (
+                  <div>
+                    <p className="text-xs text-slate-700 font-medium">{update.lastUpdatedBy}</p>
+                    {update.updatedAt && (
+                      <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
+                        {format(new Date(update.updatedAt), 'MMM d, yyyy')}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-slate-300">—</span>
                 )}
               </TableCell>
               <TableCell>

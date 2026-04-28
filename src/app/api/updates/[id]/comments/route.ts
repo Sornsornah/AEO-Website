@@ -6,7 +6,6 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Comment } from '@/models/Comment'
 import { Notification } from '@/models/Notification'
-import { User } from '@/models/User'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
 import { Product } from '@/models/Product'
@@ -33,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
 type NotificationPayload = {
   userId: Types.ObjectId
-  type: 'mention' | 'team_mention' | 'product_team'
+  type: 'comment'
   fromUserId: Types.ObjectId
   fromUserName: string
   commentId: Types.ObjectId
@@ -58,25 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   await connectDB()
 
-  // Check for @team mention
-  const hasTeamMention = /@team\b/i.test(trimmedText)
-
   const fromObjId = new Types.ObjectId(session.user.id)
-
-  // Find mentioned users by matching @FullName (handles multi-word names)
-  const allUsers = await User.find({
-    isWhitelisted: true,
-    _id: { $ne: fromObjId },
-  })
-    .select('_id name')
-    .lean()
-
-  const mentionedUsers = allUsers.filter((u) => {
-    const escaped = (u.name as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return new RegExp('@' + escaped + '(?=\\s|$|[^a-zA-Z0-9])', 'i').test(trimmedText)
-  })
-
-  const mentionedUserIds = mentionedUsers.map((u) => u._id.toString())
 
   const comment = await Comment.create({
     updateId: params.id,
@@ -84,113 +65,64 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     userName: session.user.name,
     text: trimmedText,
     attachments: safeAttachments,
-    mentions: mentionedUserIds,
+    mentions: [],
   })
 
-  const notifications: NotificationPayload[] = []
   const commentObjId = comment._id as Types.ObjectId
   const updateObjId = new Types.ObjectId(params.id)
 
-  // @Name → notify that specific user
-  if (mentionedUsers.length > 0) {
-    const update = await Update.findById(params.id).select('title').lean()
-    const updateTitle = (update?.title as string) || 'an update'
-
-    for (const u of mentionedUsers) {
-      notifications.push({
-        userId: u._id as Types.ObjectId,
-        type: 'mention',
-        fromUserId: fromObjId,
-        fromUserName: session.user.name,
-        commentId: commentObjId,
-        updateId: updateObjId,
-        updateTitle,
-      })
-    }
-  }
-
-  // @team → notify everyone in the update's domain(s)
-  if (hasTeamMention) {
-    const update = await Update.findById(params.id).select('title domainIds domainId').lean()
-    const updateTitle = (update?.title as string) || 'an update'
+  // Notify all domain members + product members associated with this update
+  const update = await Update.findById(params.id).select('title domainIds domainId productId productIds').lean()
+  if (update) {
+    const updateTitle = (update as { title?: string }).title || 'an update'
 
     const domainIds: Types.ObjectId[] = []
-    if (update) {
-      const rawDomainIds = (update as { domainIds?: unknown[] }).domainIds
-      const rawDomainId = (update as { domainId?: unknown }).domainId
-      if (Array.isArray(rawDomainIds) && rawDomainIds.length > 0) {
-        rawDomainIds.forEach((id) => domainIds.push(new Types.ObjectId(String(id))))
-      } else if (rawDomainId) {
-        domainIds.push(new Types.ObjectId(String(rawDomainId)))
-      }
+    const rawDomainIds = (update as { domainIds?: unknown[] }).domainIds
+    const rawDomainId = (update as { domainId?: unknown }).domainId
+    if (Array.isArray(rawDomainIds) && rawDomainIds.length > 0) {
+      rawDomainIds.forEach((id) => domainIds.push(new Types.ObjectId(String(id))))
+    } else if (rawDomainId) {
+      domainIds.push(new Types.ObjectId(String(rawDomainId)))
     }
+
+    const productIdSet = new Set<string>()
+    const rawProductId = (update as { productId?: unknown }).productId
+    const rawProductIds = (update as { productIds?: unknown[] }).productIds || []
+    if (rawProductId) productIdSet.add(String(rawProductId))
+    for (const id of rawProductIds) if (id) productIdSet.add(String(id))
+
+    const notifiedIds = new Set<string>([session.user.id])
+    const notifications: NotificationPayload[] = []
 
     if (domainIds.length > 0) {
       const domains = await Domain.find({ _id: { $in: domainIds } }).select('members').lean()
-      // Exclude the commenter; do NOT exclude already-mentioned users (they get both notifications)
-      const excludeIds = new Set([session.user.id])
-      const seenIds = new Set<string>()
-
       for (const domain of domains) {
-        const members = (domain.members || []) as Types.ObjectId[]
-        for (const memberId of members) {
+        for (const memberId of (domain.members || []) as Types.ObjectId[]) {
           const memberStr = memberId.toString()
-          if (!excludeIds.has(memberStr) && !seenIds.has(memberStr)) {
-            seenIds.add(memberStr)
-            notifications.push({
-              userId: memberId,
-              type: 'team_mention',
-              fromUserId: fromObjId,
-              fromUserName: session.user.name,
-              commentId: commentObjId,
-              updateId: updateObjId,
-              updateTitle,
-            })
+          if (!notifiedIds.has(memberStr)) {
+            notifiedIds.add(memberStr)
+            notifications.push({ userId: memberId, type: 'comment', fromUserId: fromObjId, fromUserName: session.user.name, commentId: commentObjId, updateId: updateObjId, updateTitle })
           }
         }
       }
     }
-  }
 
-  // Product team → notify members of associated products
-  {
-    const update = await Update.findById(params.id).select('title productId productIds').lean()
-    if (update) {
-      const updateTitle = (update as { title?: string }).title || 'an update'
-      const rawProductId = (update as { productId?: unknown }).productId
-      const rawProductIds = (update as { productIds?: unknown[] }).productIds || []
-      const productIdSet = new Set<string>()
-      if (rawProductId) productIdSet.add(String(rawProductId))
-      for (const id of rawProductIds) if (id) productIdSet.add(String(id))
-
-      if (productIdSet.size > 0) {
-        const products = await Product.find({ _id: { $in: Array.from(productIdSet) } }).select('members').lean()
-        const alreadyNotified = new Set([session.user.id, ...notifications.map((n) => n.userId.toString())])
-        const seenIds = new Set<string>()
-        for (const product of products) {
-          const members = ((product as { members?: unknown[] }).members || []) as Types.ObjectId[]
-          for (const memberId of members) {
-            const memberStr = memberId.toString()
-            if (!alreadyNotified.has(memberStr) && !seenIds.has(memberStr)) {
-              seenIds.add(memberStr)
-              notifications.push({
-                userId: memberId,
-                type: 'product_team',
-                fromUserId: fromObjId,
-                fromUserName: session.user.name,
-                commentId: commentObjId,
-                updateId: updateObjId,
-                updateTitle,
-              })
-            }
+    if (productIdSet.size > 0) {
+      const products = await Product.find({ _id: { $in: Array.from(productIdSet) } }).select('members').lean()
+      for (const product of products) {
+        for (const memberId of ((product as { members?: unknown[] }).members || []) as Types.ObjectId[]) {
+          const memberStr = memberId.toString()
+          if (!notifiedIds.has(memberStr)) {
+            notifiedIds.add(memberStr)
+            notifications.push({ userId: memberId, type: 'comment', fromUserId: fromObjId, fromUserName: session.user.name, commentId: commentObjId, updateId: updateObjId, updateTitle })
           }
         }
       }
     }
-  }
 
-  if (notifications.length > 0) {
-    await Notification.insertMany(notifications)
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications)
+    }
   }
 
   return NextResponse.json({

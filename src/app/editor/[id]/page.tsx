@@ -85,11 +85,11 @@ export default async function EditUpdatePage({ params }: PageProps) {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="px-6 py-10">
-        <div className="mb-8">
+      <main className="px-8 py-8">
+        <div className="mb-6">
           <Link
             href="/editor"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-6"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-4"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose'
 
 export interface INotification extends Document {
   userId: Types.ObjectId
-  type: 'mention' | 'team_mention' | 'product_team'
+  type: 'comment'
   fromUserId: Types.ObjectId
   fromUserName: string
   commentId: Types.ObjectId
@@ -15,7 +15,7 @@ export interface INotification extends Document {
 const NotificationSchema = new Schema<INotification>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    type: { type: String, enum: ['mention', 'team_mention', 'product_team'], required: true },
+    type: { type: String, enum: ['comment'], required: true },
     fromUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     fromUserName: { type: String, required: true },
     commentId: { type: Schema.Types.ObjectId, ref: 'Comment', required: true },
