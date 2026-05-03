@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { Pencil, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface Product {
   _id: string
@@ -49,6 +50,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null)
 
   const changePage = useCallback((page: number) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -60,9 +62,8 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
     router.push(`${pathname}?${params.toString()}`)
   }, [router, pathname, searchParams])
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
-
+  async function confirmDelete(id: string) {
+    setDeleteConfirm(null)
     setDeletingId(id)
     try {
       const res = await fetch(`/api/updates/${id}`, { method: 'DELETE' })
@@ -187,7 +188,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(update._id, update.title)}
+                    onClick={() => setDeleteConfirm({ id: update._id, title: update.title })}
                     disabled={deletingId === update._id}
                     className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
                   >
@@ -228,6 +229,16 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete update?"
+        message={deleteConfirm ? `"${deleteConfirm.title}" will be permanently deleted. This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirm && confirmDelete(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   )
 }

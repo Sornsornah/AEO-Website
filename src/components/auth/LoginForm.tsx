@@ -28,7 +28,7 @@ export function LoginForm() {
     if (result?.error) {
       setError('This email is not authorised to access this app.')
     } else {
-      router.push('/updates')
+      router.push('/about')
       router.refresh()
     }
   }

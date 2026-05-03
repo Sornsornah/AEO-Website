@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-02T00:00:00.000Z",
+  "title": "Design System: UpdateCentral",
+  "extensions": {
+    "colorMeta": {
+      "page-base": {
+        "role": "neutral",
+        "displayName": "Near White",
+        "canonical": "oklch(99.2% 0.002 264)",
+        "tonalRamp": ["#0A0D14", "#1A2030", "#2E3A50", "#455570", "#5C7090", "#8EA0B8", "#C2D0DE", "#E8EDF3", "#F7F9FC", "#FDFDFD"]
+      },
+      "card-surface": {
+        "role": "neutral",
+        "displayName": "Card Surface",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": ["#0A0D14", "#1A2030", "#2E3A50", "#455570", "#5C7090", "#8EA0B8", "#C2D0DE", "#E8EDF3", "#F7F9FC", "#FFFFFF"]
+      },
+      "raised-surface": {
+        "role": "neutral",
+        "displayName": "Raised Surface",
+        "canonical": "oklch(96.8% 0.003 264)",
+        "tonalRamp": ["#0C0D11", "#1C1E26", "#30333E", "#474A57", "#606370", "#8B8E98", "#B8BAC2", "#D8D9DF", "#EBEBEE", "#F4F4F6"]
+      },
+      "warm-surface": {
+        "role": "neutral",
+        "displayName": "Warm Surface",
+        "canonical": "oklch(97.8% 0.008 75)",
+        "tonalRamp": ["#110D08", "#221A10", "#3A2C1C", "#574030", "#7A5A44", "#A88068", "#CEAD96", "#E2CFC0", "#F0E6DB", "#FAF7F3"]
+      },
+      "warm-card": {
+        "role": "neutral",
+        "displayName": "Warm Card",
+        "canonical": "oklch(94.2% 0.018 75)",
+        "tonalRamp": ["#110D08", "#221A10", "#3A2C1C", "#574030", "#7A5A44", "#A88068", "#CEAD96", "#DCCBB9", "#EAE0D4", "#F1EBE3"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(13.8% 0.032 264)",
+        "tonalRamp": ["#070E1D", "#101A2E", "#1A2A45", "#283D5E", "#3A5278", "#5E7AA0", "#90A8C4", "#BDD0E2", "#DEEAF4", "#F2F7FC"]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink Dark",
+        "canonical": "oklch(19.5% 0.040 264)",
+        "tonalRamp": ["#070E1D", "#101A2E", "#1A2A45", "#283D5E", "#3A5278", "#5E7AA0", "#90A8C4", "#BDD0E2", "#DEEAF4", "#F2F7FC"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "oklch(51.6% 0.032 243)",
+        "tonalRamp": ["#1A2030", "#28304A", "#384464", "#4E5E80", "#64748B", "#8898AC", "#ADBCCC", "#CDD8E3", "#E4ECF3", "#F5F8FB"]
+      },
+      "signal-blue": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(60.5% 0.198 255)",
+        "tonalRamp": ["#0A1E4A", "#0D2B6C", "#113B9A", "#1A52C8", "#3B82F6", "#6FA3F9", "#A0C4FB", "#C8DCFD", "#E4EFFE", "#F2F7FF"]
+      },
+      "signal-blue-fg": {
+        "role": "primary",
+        "displayName": "Signal Blue Foreground",
+        "canonical": "oklch(98.2% 0.008 255)",
+        "tonalRamp": ["#0A1E4A", "#1A3A7A", "#2A5AAA", "#4A80D4", "#7AA8F0", "#A4C4F8", "#C8DCFC", "#E0ECFE", "#F0F6FF", "#F8FAFC"]
+      },
+      "editorial-orange": {
+        "role": "secondary",
+        "displayName": "Editorial Orange",
+        "canonical": "oklch(55.6% 0.195 39)",
+        "tonalRamp": ["#3D1408", "#6B2210", "#9A3318", "#C44820", "#EA580C", "#F28040", "#F7A870", "#FAC9A2", "#FCE4CC", "#FEF2E6"]
+      },
+      "slate-border": {
+        "role": "neutral",
+        "displayName": "Slate Border",
+        "canonical": "oklch(91.4% 0.018 243)",
+        "tonalRamp": ["#1A2030", "#28304A", "#384464", "#4E5E80", "#6E7E94", "#9AAABB", "#BDD0E2", "#D8E4EE", "#E8F0F6", "#F4F8FC"]
+      },
+      "destructive": {
+        "role": "neutral",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(63.5% 0.220 28)",
+        "tonalRamp": ["#3D0808", "#6B1010", "#9A1818", "#C42020", "#EF4444", "#F47070", "#F8A0A0", "#FBCACA", "#FDE8E8", "#FEF5F5"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page-level headings. One per screen at most." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings, blog card titles." },
+      "title": { "displayName": "Title", "purpose": "Update card titles, product names, sub-section headings." },
+      "body": { "displayName": "Body", "purpose": "All prose — summaries, descriptions, update content. Max 65–75ch." },
+      "label": { "displayName": "Label", "purpose": "Badge text, metadata lines (date, read time), chip labels." }
+    },
+    "shadows": [
+      {
+        "name": "resting-flat",
+        "value": "none",
+        "purpose": "Cards, tiles, and rows at rest. A bordered surface without shadow is the correct default state."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05)",
+        "purpose": "Blog cards and product tiles on hover. Signals interactivity."
+      },
+      {
+        "name": "structural-overlay",
+        "value": "0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -4px rgba(0,0,0,0.10)",
+        "purpose": "Nav dropdown, select popovers, tooltip overlays. Communicates that the surface floats above the document."
+      }
+    ],
+    "motion": [
+      {
+        "name": "colors-default",
+        "value": "color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out",
+        "purpose": "Default state-change transition. Applied to buttons, nav links, badges, and all interactive text."
+      },
+      {
+        "name": "card-lift",
+        "value": "color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out",
+        "purpose": "Card hover transitions. Includes box-shadow so the hover lift feels smooth."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default action button. Signal blue. Use for primary submit, publish, and save actions.",
+      "html": "<button class=\"ds-btn-primary\">Publish Update</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #3B82F6; color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; transition: background-color 150ms ease-out; } .ds-btn-primary:hover { background: #2563EB; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #3B82F6; } .ds-btn-primary:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary low-emphasis action. Transparent background, muted text. Used for cancel, back, and secondary actions.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #64748B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-btn-ghost:hover { background: #F4F4F6; color: #070E1D; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #3B82F6; }"
+    },
+    {
+      "name": "Secondary Badge",
+      "kind": "chip",
+      "refersTo": "badge-secondary",
+      "description": "Muted status chip. Used for Draft status, update counts, secondary metadata labels.",
+      "html": "<span class=\"ds-badge-secondary\">Draft</span>",
+      "css": ".ds-badge-secondary { display: inline-flex; align-items: center; background: #F4F4F6; color: #141C2E; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.75rem; font-weight: 500; padding: 2px 10px; border-radius: 9999px; border: none; white-space: nowrap; }"
+    },
+    {
+      "name": "Outline Tag Pill",
+      "kind": "chip",
+      "refersTo": "badge-secondary",
+      "description": "Blog post tag. Deliberately quiet — present but not competing with content.",
+      "html": "<span class=\"ds-tag-pill\">product-strategy</span>",
+      "css": ".ds-tag-pill { display: inline-flex; align-items: center; background: #FFFFFF; color: #64748B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.625rem; font-weight: 400; padding: 2px 8px; border-radius: 9999px; border: 1px solid #E2E8F0; white-space: nowrap; }"
+    },
+    {
+      "name": "Nav Link Active",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Active state for the primary navigation pill. High-contrast ink background makes the current page immediately obvious.",
+      "html": "<div class=\"ds-nav-container\"><a href=\"#\" class=\"ds-nav-link\">Products</a><a href=\"#\" class=\"ds-nav-link ds-nav-link--active\">Blog</a><a href=\"#\" class=\"ds-nav-link\">About Us</a></div>",
+      "css": ".ds-nav-container { display: flex; align-items: center; gap: 4px; } .ds-nav-link { display: inline-flex; align-items: center; padding: 6px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 400; border-radius: 9999px; color: #64748B; text-decoration: none; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-nav-link:hover { background: #F4F4F6; color: #070E1D; } .ds-nav-link--active { background: #070E1D; color: #FFFFFF; font-weight: 500; } .ds-nav-link--active:hover { background: #141C2E; color: #FFFFFF; }"
+    },
+    {
+      "name": "Blog Card",
+      "kind": "card",
+      "refersTo": "button-ghost",
+      "description": "Standard blog post card. Rounded-2xl, border, card-surface background. Hover lifts with shadow-md and darkens border. Orange hover on title.",
+      "html": "<a href=\"#\" class=\"ds-blog-card\"><div class=\"ds-blog-card__cover\"><span class=\"ds-blog-card__category\">Thought</span></div><div class=\"ds-blog-card__body\"><p class=\"ds-blog-card__meta\">Apr 28, 2026 &middot; 5 min read</p><h3 class=\"ds-blog-card__title\">Why AI adoption starts with trust, not tooling</h3><p class=\"ds-blog-card__excerpt\">The teams that get value from AI tools aren't the ones with the best models. They're the ones that built the habit first.</p><div class=\"ds-blog-card__tags\"><span class=\"ds-tag-pill\">ai-adoption</span><span class=\"ds-tag-pill\">culture</span></div></div></a>",
+      "css": ".ds-blog-card { display: flex; flex-direction: column; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; text-decoration: none; transition: border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-blog-card:hover { border-color: #CBD5E1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05); } .ds-blog-card__cover { aspect-ratio: 16/9; background: linear-gradient(135deg, #F97316, #DC2626); position: relative; } .ds-blog-card__category { position: absolute; top: 12px; left: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 4px 8px; border-radius: 9999px; background: rgba(255,237,213,0.9); color: #C2410C; backdrop-filter: blur(4px); } .ds-blog-card__body { padding: 16px; } .ds-blog-card__meta { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.75rem; color: #64748B; margin-bottom: 8px; } .ds-blog-card__title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 700; color: #070E1D; line-height: 1.4; margin-bottom: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; transition: color 150ms ease-out; } .ds-blog-card:hover .ds-blog-card__title { color: #EA580C; } .ds-blog-card__excerpt { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.75rem; color: #64748B; line-height: 1.6; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } .ds-blog-card__tags { display: flex; flex-wrap: wrap; gap: 4px; } .ds-tag-pill { display: inline-flex; align-items: center; background: #FFFFFF; color: #64748B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.625rem; padding: 2px 8px; border-radius: 9999px; border: 1px solid #E2E8F0; white-space: nowrap; }"
+    },
+    {
+      "name": "Update Feed Row",
+      "kind": "custom",
+      "refersTo": "button-ghost",
+      "description": "C-suite update feed item. Two-column layout: fixed 128px date column + flexible content. No card shell — border-bottom only. Deliberate contrast with blog card treatment.",
+      "html": "<div class=\"ds-update-row\"><div class=\"ds-update-row__date\">Apr 28, 2026</div><div class=\"ds-update-row__content\"><div class=\"ds-update-row__product\"><span class=\"ds-update-row__dot\" style=\"background:#6366F1\"></span><span class=\"ds-update-row__product-name\">AI Assistant</span></div><h3 class=\"ds-update-row__title\">Shipped document summarisation to 200 users</h3><p class=\"ds-update-row__summary\">Rolled out the summarisation feature to the pilot cohort. Median session length increased 18%.</p></div></div>",
+      "css": ".ds-update-row { display: flex; gap: 32px; padding: 32px 24px; border-bottom: 1px solid #F1F5F9; transition: background-color 150ms ease-out; cursor: pointer; margin: 0 -24px; border-radius: 8px; } .ds-update-row:hover { background: rgba(248,250,252,0.5); } .ds-update-row__date { width: 128px; flex-shrink: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; color: #64748B; font-weight: 500; padding-top: 2px; white-space: nowrap; } .ds-update-row__content { flex: 1; min-width: 0; } .ds-update-row__product { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; } .ds-update-row__dot { width: 6px; height: 6px; border-radius: 9999px; flex-shrink: 0; } .ds-update-row__product-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.75rem; color: #64748B; font-weight: 500; } .ds-update-row__title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 600; color: #070E1D; margin-bottom: 8px; transition: color 150ms ease-out; } .ds-update-row:hover .ds-update-row__title { color: #3B82F6; } .ds-update-row__summary { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; color: #64748B; line-height: 1.6; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "button-ghost",
+      "description": "Standard text input. Border-stroke style, rounded-md, blue focus ring.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field__label\" for=\"ds-input-example\">Update Title</label><input class=\"ds-input\" id=\"ds-input-example\" type=\"text\" placeholder=\"What was shipped?\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-field__label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; font-weight: 500; color: #141C2E; } .ds-input { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.875rem; color: #070E1D; background: #FDFDFD; border: 1px solid #E2E8F0; border-radius: 6px; padding: 9px 12px; width: 100%; height: 40px; outline: none; transition: border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-input::placeholder { color: #64748B; } .ds-input:focus { border-color: #3B82F6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Considered Press",
+    "overview": "UpdateCentral is an internal publisher, not an intranet. The AI Enablement Office uses it to make their work visible — products they've built, things they've learned, results they've delivered. The design's job is to make that work look as considered as it is. Every screen should feel like something a thoughtful PM produced, not something IT provisioned.\n\nThe aesthetic reference is Notion: clean typographic hierarchy, generous whitespace, surfaces that recede so content can lead. The palette is cool-neutral with two deliberate accent voices — signal blue for interaction, editorial orange for content discovery. Warm surface tokens appear in reading-heavy contexts to add a quiet sense of place without decorating the UI.\n\nThis system rejects corporate intranet conventions, SaaS landing clichés, and the heaviness of report templates. The platform is alive and edited. Design should feel the same.",
+    "keyCharacteristics": [
+      "Flat surfaces at rest; elevation reserved for interaction and structural overlays",
+      "Two accent voices (blue / orange) used in separate semantic roles, never combined on one element",
+      "Pill-shaped navigation with high-contrast active state (ink bg, white text)",
+      "System font stack — familiar, legible, weightless",
+      "Warm surface tokens as a layer reserved for long-form reading, not decorative surface variety",
+      "Rounded-2xl (16px) on content cards; rounded-full on interactive chips and nav links"
+    ],
+    "rules": [
+      {
+        "name": "The Two-Voice Rule",
+        "body": "Signal blue speaks for interaction (buttons, links, focus states). Editorial orange speaks for content discovery (CTA links, blog hover states, featured accents). They serve different semantic purposes and never appear together on the same element.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm Layer Rule",
+        "body": "Warm surface tokens (warm-surface, warm-card) belong in reading-heavy contexts only. General UI surfaces stay in the cool neutral family. Mixing warm tokens into utility surfaces makes the UI feel inconsistent.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Serif Rule",
+        "body": "The system is sans-serif only. No serif typeface as display, body, or label text. This is a living platform, not a printed report.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "A card without a shadow is correct at rest. Shadows appear only as a response to state (hover, focus-within) or structural layering (popovers, dropdowns). Flat surfaces with clean borders are the premium choice here.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Use signal blue (#3B82F6) for all interactive controls — buttons, links, focus rings, active filter states.",
+      "Use editorial orange (#EA580C) for content-discovery signals — blog hover titles, CTA link text, featured post accents.",
+      "Use pill-shaped nav links with the high-contrast ink active state.",
+      "Keep update feed items as rows (border-bottom only), not cards.",
+      "Reserve warm surface tokens (#FAF7F3, #F1EBE3) for reading-heavy detail pages.",
+      "Apply rounded-2xl (16px) to blog cards and rounded-xl (12px) to product tiles.",
+      "Keep shadow-sm on cards at rest; only promote to shadow-md on hover.",
+      "Cap body prose at 65–75ch maximum line length on detail pages.",
+      "Use the system font stack as-is."
+    ],
+    "donts": [
+      "Don't use generic HR intranet patterns: gray sidebars, accordion navigation, icon-label grids.",
+      "Don't use Confluence-style layout: cramped line-height, full-width bordered callout boxes, sidebar-heavy navigation.",
+      "Don't use serif typefaces anywhere.",
+      "Don't use SaaS hero-section patterns: gradient background blobs, feature-grid cards, large centered CTAs on internal pages.",
+      "Don't use side-stripe borders (border-left/right > 1px as a colored accent).",
+      "Don't use gradient text (background-clip: text with a gradient).",
+      "Don't use orange (#EA580C) on interactive controls.",
+      "Don't use blue (#3B82F6) on blog card hover titles or CTA read-more links.",
+      "Don't add persistent shadows to static surfaces.",
+      "Don't use nested cards."
+    ]
+  }
+}

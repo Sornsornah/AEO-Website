@@ -10,6 +10,7 @@ import { Domain } from '@/models/Domain'
 import { UserSeenUpdate } from '@/models/UserSeenUpdate'
 import { Comment } from '@/models/Comment'
 import { Tag } from '@/models/Tag'
+import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/Navbar'
 import { UpdatesPageClient } from '@/components/updates/UpdatesPageClient'
 
@@ -29,6 +30,7 @@ function toMarkdownString(val: string | string[] | undefined): string {
 
 export default async function UpdatesPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions)
+  if (!session || session.user.role !== 'admin') redirect('/about')
   await connectDB()
   void Tag // ensure Tag schema is registered for populate('tagIds')
 

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status, isFeatured } = body
+  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status } = body
 
   if (!title || !excerpt || !category || !authorName) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -98,9 +98,7 @@ export async function POST(req: NextRequest) {
   const existing = await BlogPost.findOne({ slug }).lean()
   if (existing) slug = `${slug}-${Date.now()}`
 
-  if (isFeatured) {
-    await BlogPost.updateMany({ isFeatured: true }, { isFeatured: false })
-  }
+  const featuredUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
 
   const post = await BlogPost.create({
     title,
@@ -114,7 +112,8 @@ export async function POST(req: NextRequest) {
     publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
     readTime: computeReadTime(content || ''),
     status: status || 'draft',
-    isFeatured: !!isFeatured,
+    isFeatured: true,
+    featuredUntil,
   })
 
   return NextResponse.json({ _id: post._id.toString(), slug: post.slug })

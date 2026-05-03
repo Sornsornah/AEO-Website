@@ -102,9 +102,9 @@ export function UpdatesPageClient({
       {/* Page header */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="text-5xl font-bold text-slate-900 mb-2">Internal Updates</h1>
-          <p className="text-slate-500 text-sm whitespace-nowrap">
-            AEO&apos;s progress — what&apos;s shipped, what&apos;s next and what we&apos;ve learnt along the way
+          <h1 className="text-5xl font-bold text-[#1C1512] mb-2">Internal Updates</h1>
+          <p className="text-stone-500 text-sm whitespace-nowrap">
+            AEO&apos;s progress: what&apos;s shipped, what&apos;s next and what we&apos;ve learnt along the way
           </p>
         </div>
         <button
@@ -113,8 +113,8 @@ export function UpdatesPageClient({
             isFiltered
               ? 'bg-blue-600 text-white hover:bg-blue-700'
               : filterOpen
-              ? 'bg-slate-700 text-white'
-              : 'bg-slate-900 text-white hover:bg-slate-700'
+              ? 'bg-[#1C1512] text-white'
+              : 'bg-[#1C1512] text-white hover:opacity-90'
           }`}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -124,16 +124,16 @@ export function UpdatesPageClient({
 
       {/* Filter bar */}
       {filterOpen && (
-        <div className="flex items-end gap-3 mb-6 p-4 bg-surface-raised border border-slate-200 rounded-xl">
+        <div className="flex items-end gap-3 mb-6 p-4 bg-[#F2EDE6] border border-[#E8E0D6] rounded-xl">
           {/* Section dropdown */}
           <div className="flex-1">
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5">
               Section
             </label>
             <select
               value={activeDomain ?? ''}
               onChange={(e) => pushParams({ domain: e.target.value || null, product: null })}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-card text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer"
+              className="w-full px-3 py-2 text-sm border border-[#E8E0D6] rounded-lg bg-card text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-300 cursor-pointer"
             >
               <option value="">All sections</option>
               {sortedDomains.map((d) => (
@@ -144,13 +144,13 @@ export function UpdatesPageClient({
 
           {/* Product dropdown */}
           <div className="flex-1">
-            <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-[10px] font-semibold uppercase tracking-wider text-stone-400 mb-1.5">
               Product
             </label>
             <select
               value={activeProduct ?? ''}
               onChange={(e) => pushParams({ product: e.target.value || null, domain: null })}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-card text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer"
+              className="w-full px-3 py-2 text-sm border border-[#E8E0D6] rounded-lg bg-card text-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-300 cursor-pointer"
             >
               <option value="">All products</option>
               {products.map((p) => (
@@ -163,7 +163,7 @@ export function UpdatesPageClient({
           {isFiltered && (
             <button
               onClick={() => pushParams({ domain: null, product: null })}
-              className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              className="px-3 py-2 text-sm text-stone-500 hover:text-stone-700 transition-colors"
             >
               Clear
             </button>
@@ -174,9 +174,9 @@ export function UpdatesPageClient({
       {/* Feed */}
       {updates.length === 0 ? (
         <div className="text-center py-16">
-          <Inbox className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm font-medium">No updates found</p>
-          <p className="text-slate-300 text-xs mt-1">
+          <Inbox className="w-8 h-8 text-stone-300 mx-auto mb-3" />
+          <p className="text-stone-400 text-sm font-medium">No updates found</p>
+          <p className="text-stone-300 text-xs mt-1">
             {isFiltered ? 'Try clearing your filters' : 'Published updates will appear here'}
           </p>
         </div>
@@ -185,11 +185,11 @@ export function UpdatesPageClient({
           {monthGroups.map(({ month, items }) => (
             <section key={month}>
               <div className="flex items-center gap-4 mb-4">
-                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-widest flex-shrink-0">
+                <h2 className="text-base font-bold text-[#1C1512] uppercase tracking-widest flex-shrink-0">
                   {month}
                 </h2>
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-xs text-slate-400 flex-shrink-0">
+                <div className="flex-1 h-px bg-[#E8E0D6]" />
+                <span className="text-xs text-stone-400 flex-shrink-0">
                   {items.length} {items.length === 1 ? 'update' : 'updates'}
                 </span>
               </div>

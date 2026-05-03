@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { Pencil, Trash2, Star, Heart } from 'lucide-react'
 import { CATEGORY_LABELS, CATEGORY_BADGE_COLORS } from '@/components/blog/blogUtils'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { BlogCategory } from '@/models/BlogPost'
 
 interface BlogRow {
@@ -17,6 +18,7 @@ interface BlogRow {
   publishedAt: string
   status: 'draft' | 'scheduled' | 'published'
   isFeatured: boolean
+  featuredUntil: string | null
   likeCount: number
 }
 
@@ -24,9 +26,10 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
   const router = useRouter()
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
   const [featuringSlug, setFeaturingSlug] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ slug: string; title: string } | null>(null)
 
-  async function handleDelete(slug: string, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
+  async function confirmDelete(slug: string) {
+    setDeleteConfirm(null)
     setDeletingSlug(slug)
     try {
       const res = await fetch(`/api/blog/${slug}`, { method: 'DELETE' })
@@ -109,18 +112,28 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
                 </span>
               </td>
               <td className="px-4 py-3">
-                <button
-                  onClick={() => handleFeature(post.slug)}
-                  disabled={featuringSlug === post.slug}
-                  title={post.isFeatured ? 'Unfeature' : 'Set as featured'}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    post.isFeatured
-                      ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
-                      : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
-                  }`}
-                >
-                  <Star className={`w-4 h-4 ${post.isFeatured ? 'fill-amber-400' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleFeature(post.slug)}
+                    disabled={featuringSlug === post.slug}
+                    title={post.isFeatured ? 'Unfeature' : 'Set as featured'}
+                    className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                      post.isFeatured
+                        ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
+                    }`}
+                  >
+                    <Star className={`w-4 h-4 ${post.isFeatured ? 'fill-amber-400' : ''}`} />
+                  </button>
+                  {post.isFeatured && post.featuredUntil && (
+                    <span
+                      className="text-[10px] text-amber-600 leading-tight"
+                      title={`Until ${format(new Date(post.featuredUntil), 'MMM d, yyyy h:mm a')}`}
+                    >
+                      ends {formatDistanceToNow(new Date(post.featuredUntil), { addSuffix: true })}
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1 justify-end">
@@ -132,7 +145,7 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
                     <Pencil className="w-4 h-4" />
                   </Link>
                   <button
-                    onClick={() => handleDelete(post.slug, post.title)}
+                    onClick={() => setDeleteConfirm({ slug: post.slug, title: post.title })}
                     disabled={deletingSlug === post.slug}
                     className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                     title="Delete"
@@ -145,6 +158,16 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
           ))}
         </tbody>
       </table>
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete post?"
+        message={deleteConfirm ? `"${deleteConfirm.title}" will be permanently deleted. This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirm && confirmDelete(deleteConfirm.slug)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   )
 }

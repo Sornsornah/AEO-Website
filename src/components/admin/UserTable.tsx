@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Users } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDateShort } from '@/lib/utils'
@@ -19,15 +19,38 @@ interface UserRow {
   createdAt: string
 }
 
+interface ProductRow {
+  _id: string
+  name: string
+  members: { _id: string; name: string }[]
+}
+
+interface DomainRow {
+  _id: string
+  name: string
+  members: { _id: string; name: string; email: string }[]
+}
+
 const roleColors: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700 border-purple-100',
   viewer: 'bg-slate-50 text-slate-600 border-slate-200',
 }
 
-export function UserTable({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
+export function UserTable({
+  users,
+  products,
+  domains,
+  currentUserId,
+}: {
+  users: UserRow[]
+  products: ProductRow[]
+  domains: DomainRow[]
+  currentUserId: string
+}) {
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
 
   async function toggleWhitelist(user: UserRow) {
     setLoadingId(user._id)
@@ -90,72 +113,122 @@ export function UserTable({ users, currentUserId }: { users: UserRow[]; currentU
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Role</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-28">Access</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Added</TableHead>
-            <TableHead className="w-16" />
+            <TableHead className="w-20" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.map((user) => {
             const isSelf = user._id === currentUserId
             const isLoading = loadingId === user._id
+            const isExpanded = expandedUserId === user._id
+
+            const userSections = domains.filter((d) => d.members.some((m) => m._id === user._id))
+            const userProducts = products.filter((p) => p.members.some((m) => m._id === user._id))
 
             return (
-              <TableRow key={user._id} className="hover:bg-slate-50/50">
-                <TableCell>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{user.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {isSelf ? (
-                    <Badge className={`text-xs capitalize ${roleColors[user.role]}`}>
-                      {user.role}
-                    </Badge>
-                  ) : (
-                    <Select
-                      value={user.role}
-                      onValueChange={(v) => changeRole(user._id, v)}
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-7 w-28 text-xs border-slate-200">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={user.isWhitelisted}
-                      onCheckedChange={() => toggleWhitelist(user)}
-                      disabled={isLoading || isSelf}
-                    />
-                    <span className={`text-xs ${user.isWhitelisted ? 'text-green-600' : 'text-slate-400'}`}>
-                      {user.isWhitelisted ? 'Allowed' : 'Blocked'}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-slate-500 whitespace-nowrap">
-                  {formatDateShort(user.createdAt)}
-                </TableCell>
-                <TableCell>
-                  {!isSelf && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteUser(user)}
-                      disabled={deletingId === user._id}
-                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
-                    >
-                      {deletingId === user._id ? '…' : <Trash2 size={14} />}
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
+              <>
+                <TableRow key={user._id} className="hover:bg-slate-50/50">
+                  <TableCell>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {isSelf ? (
+                      <Badge className={`text-xs capitalize ${roleColors[user.role]}`}>
+                        {user.role}
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={user.role}
+                        onValueChange={(v) => changeRole(user._id, v)}
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="h-7 w-28 text-xs border-slate-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={user.isWhitelisted}
+                        onCheckedChange={() => toggleWhitelist(user)}
+                        disabled={isLoading || isSelf}
+                      />
+                      <span className={`text-xs ${user.isWhitelisted ? 'text-green-600' : 'text-slate-400'}`}>
+                        {user.isWhitelisted ? 'Allowed' : 'Blocked'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-500 whitespace-nowrap">
+                    {formatDateShort(user.createdAt)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedUserId(isExpanded ? null : user._id)}
+                        className={`h-7 w-7 p-0 transition-colors ${isExpanded ? 'text-slate-700 bg-slate-100' : 'text-slate-400 hover:text-slate-700'}`}
+                        title="View memberships"
+                      >
+                        <Users size={14} />
+                      </Button>
+                      {!isSelf && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteUser(user)}
+                          disabled={deletingId === user._id}
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+                        >
+                          {deletingId === user._id ? '…' : <Trash2 size={14} />}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+
+                {isExpanded && (
+                  <TableRow key={`${user._id}-memberships`} className="bg-slate-50/60 border-t border-slate-100">
+                    <TableCell colSpan={5} className="py-3 px-4">
+                      <div className="flex gap-8 text-sm">
+                        <div className="min-w-[160px]">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Sections</p>
+                          {userSections.length > 0 ? (
+                            <ul className="space-y-0.5">
+                              {userSections.map((s) => (
+                                <li key={s._id} className="text-slate-700 text-xs">{s.name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">Not in any section</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Products</p>
+                          {userProducts.length > 0 ? (
+                            <ul className="space-y-0.5">
+                              {userProducts.map((p) => (
+                                <li key={p._id} className="text-slate-700 text-xs">{p.name}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-400 italic">Not in any product</p>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
             )
           })}
         </TableBody>

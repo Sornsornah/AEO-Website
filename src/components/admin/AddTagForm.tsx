@@ -13,6 +13,12 @@ export function AddTagForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  function handleClose() {
+    setOpen(false)
+    setName('')
+    setError('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -29,8 +35,7 @@ export function AddTagForm() {
         setError(data.error || 'Failed to create tag')
         return
       }
-      setName('')
-      setOpen(false)
+      handleClose()
       router.refresh()
     } catch {
       setError('An unexpected error occurred.')
@@ -39,40 +44,50 @@ export function AddTagForm() {
     }
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <Button
         type="button"
-        variant="outline"
-        size="sm"
         onClick={() => setOpen(true)}
-        className="h-8 text-sm"
+        className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm"
       >
-        + Add tag
+        + Add Tag
       </Button>
-    )
-  }
 
-  return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2">
-      <div className="space-y-1">
-        <Label htmlFor="tag-name" className="text-xs text-slate-500">Tag name</Label>
-        <Input
-          id="tag-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Infrastructure"
-          className="h-8 text-sm w-44"
-          autoFocus
-        />
-      </div>
-      <Button type="submit" disabled={loading} size="sm" className="h-8 bg-slate-900 text-white hover:bg-slate-800">
-        {loading ? 'Saving...' : 'Save'}
-      </Button>
-      <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => { setOpen(false); setError('') }}>
-        Cancel
-      </Button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </form>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">Add Tag</h3>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tag-name" className="text-xs font-medium text-slate-600">
+                  Tag name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="tag-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Infrastructure"
+                  className="h-9 text-sm"
+                  autoFocus
+                />
+              </div>
+              {error && <p className="text-xs text-red-600">{error}</p>}
+              <div className="flex gap-2 pt-1">
+                <Button type="submit" disabled={loading} className="bg-slate-900 text-white hover:bg-slate-800 h-8 px-4 text-sm">
+                  {loading ? 'Saving...' : 'Save'}
+                </Button>
+                <Button type="button" variant="ghost" onClick={handleClose} className="h-8 px-3 text-sm text-slate-500">
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

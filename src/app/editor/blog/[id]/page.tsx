@@ -39,12 +39,13 @@ export default async function EditBlogPostPage({ params }: PageProps) {
     publishedAt: raw.publishedAt.toISOString(),
     status: (raw.status || 'draft') as 'draft' | 'scheduled' | 'published',
     isFeatured: raw.isFeatured,
+    featuredUntil: raw.featuredUntil ? raw.featuredUntil.toISOString() : null,
   }
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="px-6 py-10 max-w-5xl mx-auto">
+      <main className="px-6 py-10">
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit Blog Post</h1>
         <BlogPostForm initialData={post} users={users} />
       </main>

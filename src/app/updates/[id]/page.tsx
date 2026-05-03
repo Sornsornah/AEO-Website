@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -16,16 +16,12 @@ interface PageProps {
 
 export default async function UpdateDetailPage({ params }: PageProps) {
   const session = await getServerSession(authOptions)
+  if (!session || session.user.role !== 'admin') redirect('/about')
 
   await connectDB()
   const update = await Update.findById(params.id).populate('productId').populate('productIds').lean()
 
   if (!update) notFound()
-
-  // Viewers can only see published updates
-  if (session?.user?.role === 'viewer' && !update.isPublished) {
-    notFound()
-  }
 
   function toMarkdownString(val: unknown): string {
     if (Array.isArray(val)) return (val as string[]).map((s) => `- ${s}`).join('\n')
@@ -81,7 +77,7 @@ export default async function UpdateDetailPage({ params }: PageProps) {
         <div className="mb-8">
           <Link
             href="/updates"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-6"
+            className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-600 transition-colors mb-6"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

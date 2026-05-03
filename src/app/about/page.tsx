@@ -9,7 +9,7 @@ const GOALS = [
   {
     title: 'Build a reusable AI platform',
     description:
-      'Develop shared infrastructure, APIs, and libraries that teams can build on — so every new product ships faster than the last.',
+      'Develop shared infrastructure, APIs, and libraries that teams can build on, so every new product ships faster than the last.',
   },
   {
     title: 'Cultivate an AI-ready workforce',
@@ -24,7 +24,7 @@ const GOALS = [
   {
     title: 'Measure and communicate impact',
     description:
-      'Track outcomes — time saved, decisions improved, satisfaction scores — and share results openly so stakeholders can see the value we deliver.',
+      'Track outcomes (time saved, decisions improved, satisfaction scores) and share results openly so stakeholders can see the value we deliver.',
   },
 ]
 
@@ -39,52 +39,52 @@ export default function AboutPage() {
 
         {/* Header */}
         <div className="mb-16">
-          <p className="text-xs font-semibold tracking-[0.2em] text-amber-700 uppercase mb-3">
-            — Who we are —
+          <p className="text-xs font-semibold tracking-[0.2em] text-orange-700 uppercase mb-3">
+Who we are
           </p>
-          <h1 className="text-4xl font-bold text-slate-900 mb-4 leading-tight">
+          <h1 className="text-5xl font-bold text-[#1C1512] mb-4 leading-tight tracking-tight">
             AI Enablement Office
           </h1>
-          <p className="text-base text-slate-500 leading-relaxed max-w-xl">
+          <p className="text-base text-stone-500 leading-relaxed max-w-xl">
             We are a cross-functional team within CPF dedicated to bringing practical, responsible AI to every corner of the organisation.
           </p>
         </div>
 
         {/* Vision */}
         <section className="mb-14">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600 mb-4">Vision</p>
-          <blockquote className="border-l-4 border-indigo-500 pl-6">
-            <p className="text-2xl font-semibold text-slate-900 leading-snug">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-4">Vision</p>
+          <div className="bg-[#F5EFE6] border border-[#E8E0D6] rounded-2xl px-8 py-8">
+            <p className="text-2xl font-semibold text-[#1C1512] leading-snug">
               A CPF where every officer is empowered by AI to serve members better, decide faster, and work with greater purpose.
             </p>
-          </blockquote>
+          </div>
         </section>
 
         {/* Mission */}
         <section className="mb-14">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600 mb-4">Mission</p>
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-            <p className="text-base text-slate-700 leading-relaxed">
-              We partner with CPF divisions to design, build, and scale AI products that are <strong className="text-slate-900">useful</strong>, <strong className="text-slate-900">trustworthy</strong>, and <strong className="text-slate-900">sustainable</strong>. By combining deep domain knowledge with engineering and AI expertise, we turn ambitious ideas into working tools — and ensure those tools keep improving long after launch.
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-4">Mission</p>
+          <div className="bg-[#FDFCFB] border border-[#E8E0D6] rounded-2xl p-8 shadow-sm">
+            <p className="text-base text-stone-700 leading-relaxed">
+              We partner with CPF divisions to design, build, and scale AI products that are <strong className="text-[#1C1512]">useful</strong>, <strong className="text-[#1C1512]">trustworthy</strong>, and <strong className="text-[#1C1512]">sustainable</strong>. By combining deep domain knowledge with engineering and AI expertise, we turn ambitious ideas into working tools, and ensure those tools keep improving long after launch.
             </p>
           </div>
         </section>
 
         {/* Goals */}
         <section>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-600 mb-6">Goals</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-6">Goals</p>
           <div className="space-y-4">
             {GOALS.map((goal, i) => (
               <div
                 key={i}
-                className="flex gap-5 bg-white border border-slate-200 rounded-xl px-6 py-5 shadow-sm"
+                className="flex gap-5 bg-[#FDFCFB] border border-[#E8E0D6] rounded-xl px-6 py-5 shadow-sm"
               >
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-orange-100 text-orange-700 text-xs font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900 mb-1">{goal.title}</p>
-                  <p className="text-sm text-slate-500 leading-relaxed">{goal.description}</p>
+                  <p className="text-sm font-semibold text-[#1C1512] mb-1">{goal.title}</p>
+                  <p className="text-sm text-stone-500 leading-relaxed">{goal.description}</p>
                 </div>
               </div>
             ))}

@@ -16,14 +16,12 @@ export async function POST(_req: NextRequest, { params }: { params: { slug: stri
   const post = await BlogPost.findOne({ slug: params.slug })
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  post.isFeatured = !post.isFeatured
   if (post.isFeatured) {
-    post.isFeatured = false
-    await post.save()
-    return NextResponse.json({ isFeatured: false })
+    post.featuredUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+  } else {
+    post.featuredUntil = undefined
   }
-
-  await BlogPost.updateMany({ isFeatured: true }, { isFeatured: false })
-  post.isFeatured = true
   await post.save()
-  return NextResponse.json({ isFeatured: true })
+  return NextResponse.json({ isFeatured: post.isFeatured })
 }

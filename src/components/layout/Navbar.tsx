@@ -11,7 +11,7 @@ const navLinks = [
   { href: '/about', label: 'About Us' },
   { href: '/products', label: 'Products' },
   { href: '/blog', label: 'Blog' },
-  { href: '/updates', label: 'Internal Updates', restricted: true },
+  { href: '/updates', label: 'Internal Updates', adminOnly: true },
 ]
 
 function getInitials(name: string) {
@@ -42,15 +42,15 @@ export function Navbar() {
   const initials = session?.user?.name ? getInitials(session.user.name) : '?'
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+    <header className="sticky top-0 z-50 w-full border-b border-[#E8E0D6] bg-[#FDFCFB]/95 backdrop-blur supports-[backdrop-filter]:bg-[#FDFCFB]/80">
       <div className="w-full px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/updates" className="flex items-center gap-2">
-            <span className="font-semibold text-slate-900 text-sm">AEO: AI Enablement Office</span>
+          <Link href={session?.user?.role === 'admin' ? '/updates' : '/about'} className="flex items-center gap-2">
+            <span className="font-semibold text-[#1C1512] text-sm tracking-tight">AEO: AI Enablement Office</span>
           </Link>
 
           <nav className="flex items-center gap-1">
-            {navLinks.map((link) => {
+            {navLinks.filter((link) => !('adminOnly' in link && link.adminOnly) || session?.user?.role === 'admin').map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + '/')
               return (
                 <Link
@@ -59,21 +59,11 @@ export function Navbar() {
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full transition-colors',
                     isActive
-                      ? 'bg-slate-900 text-white font-medium'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                      ? 'bg-[#1C1512] text-white font-medium'
+                      : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
                   )}
                 >
                   {link.label}
-                  {'restricted' in link && link.restricted && (
-                    <span className={cn(
-                      'text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full',
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : 'bg-amber-100 text-amber-700'
-                    )}>
-                      Restricted
-                    </span>
-                  )}
                 </Link>
               )
             })}
@@ -95,10 +85,10 @@ export function Navbar() {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-sm font-medium text-slate-900 truncate">{session.user.name}</p>
-                      <p className="text-xs text-slate-400 capitalize mt-0.5">{session.user.role}</p>
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-[#E8E0D6] rounded-xl shadow-lg z-50 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-stone-100">
+                      <p className="text-sm font-medium text-stone-900 truncate">{session.user.name}</p>
+                      <p className="text-xs text-stone-400 capitalize mt-0.5">{session.user.role}</p>
                     </div>
 
                     {session.user.role === 'admin' && (
@@ -106,24 +96,24 @@ export function Navbar() {
                         <Link
                           href="/editor"
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                         >
                           Editor
                         </Link>
                         <Link
                           href="/admin"
                           onClick={() => setDropdownOpen(false)}
-                          className="flex items-center px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                          className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                         >
                           Admin
                         </Link>
                       </>
                     )}
 
-                    <div className="border-t border-slate-100">
+                    <div className="border-t border-stone-100">
                       <button
                         onClick={() => signOut({ callbackUrl: '/login' })}
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                        className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 hover:text-stone-700 transition-colors"
                       >
                         Sign out
                       </button>

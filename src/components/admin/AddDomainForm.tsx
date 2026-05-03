@@ -65,7 +65,7 @@ export function AddDomainForm({ users }: { users: UserOption[] }) {
         onClick={() => setOpen(true)}
         className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm"
       >
-        + Add Domain
+        + Add Section
       </Button>
 
       {open && (
@@ -74,10 +74,10 @@ export function AddDomainForm({ users }: { users: UserOption[] }) {
             className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">Add New Domain</h3>
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">Add New Section</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Domain Name</Label>
+                <Label className="text-xs font-medium text-slate-600">Section Name</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -168,7 +168,7 @@ export function AddDomainForm({ users }: { users: UserOption[] }) {
                   disabled={loading}
                   className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-4 text-sm"
                 >
-                  {loading ? 'Creating...' : 'Create Domain'}
+                  {loading ? 'Creating...' : 'Create Section'}
                 </Button>
                 <Button
                   type="button"

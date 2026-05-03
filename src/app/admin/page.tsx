@@ -8,8 +8,24 @@ import { User } from '@/models/User'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
 import { Tag } from '@/models/Tag'
+import { BlogCategory } from '@/models/BlogCategory'
+import { BlogPost } from '@/models/BlogPost'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminTabs } from '@/components/admin/AdminTabs'
+
+const SEED_CATEGORIES = [
+  { name: 'Thought Pieces', slug: 'thought-pieces', color: '#f97316', purpose: 'Opinion and perspective pieces that challenge assumptions or share points of view.' },
+  { name: 'Learning Journey', slug: 'learning-journey', color: '#6366f1', purpose: 'Personal accounts of learning something new — documenting the process and insights.' },
+  { name: 'Case Studies', slug: 'case-studies', color: '#10b981', purpose: 'In-depth looks at real problems, solutions, and outcomes from projects or initiatives.' },
+  { name: 'How-To Guides', slug: 'how-to-guides', color: '#f59e0b', purpose: 'Step-by-step practical guides for getting things done.' },
+  { name: 'News & Announcements', slug: 'news-announcements', color: '#8b5cf6', purpose: 'Updates, releases, and noteworthy events from the team.' },
+]
+
+const SLUG_MIGRATION_MAP: Record<string, string> = {
+  thought: 'thought-pieces',
+  'field-notes': 'case-studies',
+  'deep-dive': 'how-to-guides',
+}
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions)
@@ -17,12 +33,25 @@ export default async function AdminPage() {
 
   await connectDB()
 
-  const [users, products, domains, tags] = await Promise.all([
+  const [users, products, domains, tags, existingCategories] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
-    Product.find().sort({ name: 1 }).lean(),
+    Product.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Tag.find().sort({ name: 1 }).lean(),
+    BlogCategory.find().sort({ name: 1 }).lean(),
   ])
+
+  // First-time seeding + migration of old blog post category slugs
+  if (existingCategories.length === 0) {
+    await BlogCategory.insertMany(SEED_CATEGORIES)
+    for (const [oldSlug, newSlug] of Object.entries(SLUG_MIGRATION_MAP)) {
+      await BlogPost.updateMany({ category: oldSlug }, { $set: { category: newSlug } })
+    }
+  }
+
+  const blogCategories = existingCategories.length > 0
+    ? existingCategories
+    : await BlogCategory.find().sort({ name: 1 }).lean()
 
   const productCountByDomain: Record<string, number> = {}
   for (const p of products) {
@@ -37,6 +66,15 @@ export default async function AdminPage() {
     role: u.role as 'viewer' | 'admin',
     isWhitelisted: u.isWhitelisted,
     createdAt: u.createdAt.toISOString(),
+  }))
+
+  const serializedProducts = products.map((p) => ({
+    _id: p._id.toString(),
+    name: p.name,
+    members: ((p.members as unknown) as { _id: { toString(): string }; name: string }[] || []).map((m) => ({
+      _id: m._id.toString(),
+      name: m.name,
+    })),
   }))
 
   const serializedDomains = domains.map((d) => ({
@@ -58,6 +96,14 @@ export default async function AdminPage() {
     slug: t.slug,
   }))
 
+  const serializedBlogCategories = blogCategories.map((c) => ({
+    _id: c._id.toString(),
+    name: c.name,
+    slug: c.slug,
+    purpose: c.purpose,
+    color: c.color,
+  }))
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -69,8 +115,10 @@ export default async function AdminPage() {
 
         <AdminTabs
           users={serializedUsers}
+          products={serializedProducts}
           domains={serializedDomains}
           tags={serializedTags}
+          blogCategories={serializedBlogCategories}
           currentUserId={session.user.id}
         />
       </main>

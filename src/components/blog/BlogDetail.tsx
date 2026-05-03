@@ -6,11 +6,12 @@ import { format } from 'date-fns'
 import { Heart, Bookmark, Share2, Clock, ArrowLeft } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import {
-  CATEGORY_LABELS,
-  CATEGORY_BADGE_COLORS,
-  CATEGORY_GRADIENTS,
+  getCategoryDisplay,
+  hexToBadgeStyle,
+  hexToGradient,
   getInitials,
   type BlogPostSummary,
+  type CategoriesMap,
 } from './blogUtils'
 import { BlogCard } from './BlogCard'
 import { BlogComments, type BlogCommentData } from './BlogComments'
@@ -22,17 +23,18 @@ interface BlogDetailProps {
   initialComments: BlogCommentData[]
   currentUserId?: string
   isAdmin?: boolean
+  categoriesMap?: CategoriesMap
 }
 
-export function BlogDetail({ post, related, isLoggedIn, initialComments, currentUserId, isAdmin }: BlogDetailProps) {
+export function BlogDetail({ post, related, isLoggedIn, initialComments, currentUserId, isAdmin, categoriesMap = {} }: BlogDetailProps) {
   const [liked, setLiked] = useState(post.liked)
   const [likeCount, setLikeCount] = useState(post.likeCount)
   const [saved, setSaved] = useState(post.saved)
   const [sharing, setSharing] = useState(false)
 
-  const badgeColor = CATEGORY_BADGE_COLORS[post.category]
-  const gradient = CATEGORY_GRADIENTS[post.category]
-  const label = CATEGORY_LABELS[post.category]
+  const { name: label, color } = getCategoryDisplay(post.category, categoriesMap)
+  const badgeStyle = hexToBadgeStyle(color)
+  const gradient = hexToGradient(color)
 
   const handleLike = useCallback(async () => {
     if (!isLoggedIn) return
@@ -79,7 +81,7 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       {/* Back */}
       <Link
         href="/blog"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-8"
+        className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-stone-600 transition-colors mb-8"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to the journal
@@ -87,10 +89,13 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
 
       {/* Meta */}
       <div className="flex items-center gap-2 mb-4">
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${badgeColor}`}>
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
+          style={badgeStyle}
+        >
           {label}
         </span>
-        <span className="text-xs text-slate-400 flex items-center gap-1.5">
+        <span className="text-xs text-stone-400 flex items-center gap-1.5">
           {format(new Date(post.publishedAt), 'MMM dd, yyyy')}
           <span>·</span>
           <Clock className="w-3 h-3" />
@@ -99,23 +104,33 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       </div>
 
       {/* Title */}
-      <h1 className="text-4xl font-bold text-slate-900 leading-tight mb-3">
+      <h1 className="text-4xl font-bold text-[#1C1512] leading-tight mb-3">
         {post.title}
       </h1>
 
       {/* Excerpt */}
-      <p className="text-lg text-slate-500 italic leading-relaxed mb-6">
+      <p className="text-lg text-stone-500 italic leading-relaxed mb-6">
         {post.excerpt}
       </p>
 
+      {/* Cover image */}
+      <div className="mb-8 rounded-2xl overflow-hidden aspect-[16/9]">
+        {post.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full" style={{ background: gradient }} />
+        )}
+      </div>
+
       {/* Author + actions */}
-      <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-200">
+      <div className="flex items-center justify-between mb-8 pb-8 border-b border-[#E8E0D6]">
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-full bg-orange-100 text-orange-700 text-sm font-bold flex items-center justify-center flex-shrink-0">
             {getInitials(post.authorName)}
           </span>
           <div>
-            <p className="text-sm font-semibold text-slate-900">{post.authorName}</p>
+            <p className="text-sm font-semibold text-[#1C1512]">{post.authorName}</p>
           </div>
         </div>
 
@@ -126,7 +141,7 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${
               liked
                 ? 'bg-red-50 text-red-500 hover:bg-red-100'
-                : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'
             }`}
           >
             <Heart className={`w-4 h-4 ${liked ? 'fill-red-500' : ''}`} />
@@ -139,7 +154,7 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors ${
               saved
                 ? 'bg-blue-50 text-blue-500 hover:bg-blue-100'
-                : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600'
             }`}
           >
             <Bookmark className={`w-4 h-4 ${saved ? 'fill-blue-500' : ''}`} />
@@ -148,7 +163,7 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
 
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
           >
             <Share2 className="w-4 h-4" />
             <span className="text-xs font-medium">{sharing ? 'Copied!' : 'Share'}</span>
@@ -156,28 +171,25 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
         </div>
       </div>
 
-      {/* Cover image */}
-      <div className="mb-10 rounded-2xl overflow-hidden aspect-[16/9]">
-        {post.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${gradient}`} />
-        )}
-      </div>
-
       {/* Content */}
-      <div className="prose prose-slate prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-orange-400 prose-blockquote:text-slate-500 prose-blockquote:not-italic">
-        <ReactMarkdown>{post.content}</ReactMarkdown>
-      </div>
+      {post.content.trim().startsWith('<') ? (
+        <div
+          className="prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
+      ) : (
+        <div className="prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline">
+          <ReactMarkdown>{post.content}</ReactMarkdown>
+        </div>
+      )}
 
       {/* Tags */}
       {post.tags.length > 0 && (
-        <div className="flex items-center gap-2 mb-10 pb-10 border-b border-slate-200">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tags</span>
+        <div className="flex items-center gap-2 mb-10 pb-10 border-b border-[#E8E0D6]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Tags</span>
           <div className="flex flex-wrap gap-1.5">
             {post.tags.map((tag) => (
-              <span key={tag} className="text-xs px-2.5 py-1 rounded-full border border-slate-200 text-slate-500 bg-card">
+              <span key={tag} className="text-xs px-2.5 py-1 rounded-full border border-[#E8E0D6] text-stone-500 bg-card">
                 {tag}
               </span>
             ))}
@@ -186,20 +198,20 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       )}
 
       {/* Author */}
-      <div className="bg-card rounded-2xl border border-slate-200 p-6 mb-12">
+      <div className="bg-card rounded-2xl border border-[#E8E0D6] p-6 mb-12">
         <div className="flex items-center gap-4">
           <span className="w-12 h-12 rounded-full bg-orange-100 text-orange-700 font-bold flex items-center justify-center flex-shrink-0">
             {getInitials(post.authorName)}
           </span>
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Written by</p>
-            <p className="font-bold text-slate-900">{post.authorName}</p>
+            <p className="text-xs text-stone-400 uppercase tracking-widest mb-1">Written by</p>
+            <p className="font-bold text-[#1C1512]">{post.authorName}</p>
           </div>
         </div>
       </div>
 
       {/* Comments */}
-      <div className="mb-12 pt-10 border-t border-slate-200">
+      <div className="mb-12 pt-10 border-t border-[#E8E0D6]">
         <BlogComments
           slug={post.slug}
           initialComments={initialComments}
@@ -211,11 +223,11 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
 
       {/* Keep reading */}
       {related.length > 0 && (
-        <div className="pt-10 border-t border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900 mb-5">Keep reading</h2>
+        <div className="pt-10 border-t border-[#E8E0D6]">
+          <h2 className="text-lg font-bold text-[#1C1512] mb-5">Keep reading</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {related.map((p) => (
-              <BlogCard key={p._id} post={p} />
+              <BlogCard key={p._id} post={p} categoriesMap={categoriesMap} />
             ))}
           </div>
         </div>

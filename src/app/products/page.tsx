@@ -11,7 +11,7 @@ export default async function ProductsPage() {
   await getServerSession(authOptions)
   await connectDB()
 
-  const products = await Product.find().sort({ order: 1, name: 1 }).lean()
+  const products = await Product.find({ isHidden: { $ne: true } }).sort({ order: 1, name: 1 }).lean()
 
   const serialized = (products as Array<{
     _id: { toString(): string }

@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99.2%;        /* #fdfdfd */
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;               /* #ffffff — cards sit above page bg */
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --background: 220 8% 98.5%;         /* cool off-white #F8F9FA */
+    --foreground: 25 20% 10%;           /* warm ink #1C1512 */
+    --card: 0 0% 100%;                  /* white #FFFFFF */
+    --card-foreground: 25 20% 10%;
+    --popover: 36 20% 99%;
+    --popover-foreground: 25 20% 10%;
+    --primary: 221.2 83.2% 53.3%;       /* keep signal blue */
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --secondary: 36 20% 93%;            /* warm raised surface */
+    --secondary-foreground: 25 20% 15%;
+    --muted: 36 20% 93%;
+    --muted-foreground: 25 10% 45%;
+    --accent: 36 20% 93%;
+    --accent-foreground: 25 20% 15%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 13% 89%;              /* cool slate border #E2E8F0 */
+    --input: 220 13% 89%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
 
     /* Custom surface tokens */
-    --surface-raised: #f4f4f6;
-    --surface-warm: #faf7f3;
-    --surface-warm-card: #f1ebe3;
+    --surface-raised: #F2EDE6;
+    --surface-warm: #F5EFE6;
+    --surface-warm-card: #EDE4D8;
   }
 }
 
@@ -46,22 +46,35 @@
 .prose h1 { @apply text-2xl font-bold mt-8 mb-4; }
 .prose h2 { @apply text-xl font-semibold mt-6 mb-3; }
 .prose h3 { @apply text-lg font-semibold mt-5 mb-2; }
-.prose p { @apply mb-4 leading-7 text-slate-600; }
+.prose p { @apply mb-4 leading-7 text-stone-600; }
 .prose ul { @apply list-disc pl-6 mb-4 space-y-1; }
 .prose ol { @apply list-decimal pl-6 mb-4 space-y-1; }
 .prose ol ol { list-style-type: lower-alpha; }
 .prose ol ol ol { list-style-type: lower-roman; }
-.prose li { @apply text-slate-600 leading-7; }
-.prose strong { @apply font-semibold text-slate-900; }
-.prose code { @apply bg-slate-100 px-1.5 py-0.5 rounded text-sm font-mono text-slate-800; }
-.prose pre { @apply bg-slate-100 p-4 rounded-lg mb-4 overflow-x-auto; }
+.prose li { @apply text-stone-600 leading-7; }
+.prose strong { @apply font-semibold text-stone-900; }
+.prose code { @apply bg-stone-100 px-1.5 py-0.5 rounded text-sm font-mono text-stone-800; }
+.prose pre { @apply bg-stone-100 p-4 rounded-lg mb-4 overflow-x-auto; }
 .prose pre code { @apply bg-transparent p-0; }
-.prose blockquote { @apply border-l-4 border-slate-200 pl-4 italic text-slate-500 my-4; }
+.prose blockquote { @apply border-l-4 border-stone-300 pl-4 text-stone-500 my-4 not-italic bg-transparent; }
 .prose a { @apply text-blue-600 underline underline-offset-2 hover:opacity-80; }
-.prose hr { @apply border-slate-200 my-6; }
+.prose hr { @apply border-stone-200 my-6; }
+
+@keyframes blog-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
 }
