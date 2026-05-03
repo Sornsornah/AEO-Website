@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
-import { ExternalLink, Globe, FileText } from 'lucide-react'
+import { ExternalLink, Globe, FileText, Mail } from 'lucide-react'
 
 const markdownComponents: Components = {
   a: ({ href, children }) => {
@@ -27,12 +27,14 @@ interface UseCase {
   image?: string
   functionTag?: string
   department?: string
+  isDraft?: boolean
 }
 
 interface SimpleProductUpdate {
   title: string
   content: string
   date: string
+  isDraft?: boolean
 }
 
 interface ProductDetailProps {
@@ -48,6 +50,7 @@ interface ProductDetailProps {
     status: 'live' | 'beta' | 'coming_soon'
     websiteUrl?: string
     deckUrl?: string
+    contactUsUrl?: string
     productManagers: TeamMember[]
     developers: TeamMember[]
     overviewContent?: string
@@ -113,8 +116,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
       <div className="relative bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
         {useCase.image && (
           <div className="relative h-48 overflow-hidden rounded-t-2xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={useCase.image} alt={useCase.title} className="w-full h-full object-cover" />
+            <Image src={useCase.image} alt={useCase.title} fill className="object-cover" />
           </div>
         )}
         <div className="p-6">
@@ -123,7 +125,7 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
               {useCase.functionTag && (
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 mb-1">{useCase.functionTag}</p>
               )}
-              <h2 className="text-lg font-bold text-slate-900">{useCase.title}</h2>
+              <h2 className="text-lg font-bold text-[#1C1512]">{useCase.title}</h2>
             </div>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 ml-4 flex-shrink-0">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -132,7 +134,11 @@ function UseCaseModal({ useCase, onClose }: { useCase: UseCase; onClose: () => v
             </button>
           </div>
           <div className="prose prose-sm max-w-none text-slate-600 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed">
-            <ReactMarkdown components={markdownComponents}>{useCase.content}</ReactMarkdown>
+            {useCase.content.trim().startsWith('<') ? (
+              <div dangerouslySetInnerHTML={{ __html: useCase.content }} />
+            ) : (
+              <ReactMarkdown components={markdownComponents}>{useCase.content}</ReactMarkdown>
+            )}
           </div>
         </div>
       </div>
@@ -171,7 +177,7 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
-            <h1 className="text-2xl font-bold text-slate-900">{product.name}</h1>
+            <h1 className="text-2xl font-bold text-[#1C1512]">{product.name}</h1>
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
               {status.label}
@@ -180,14 +186,14 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
           {product.shortDescription && (
             <p className="text-sm text-slate-500 leading-relaxed mb-3 max-w-2xl">{product.shortDescription}</p>
           )}
-          {(product.websiteUrl || product.deckUrl) && (
-            <div className="flex items-center gap-2">
+          {(product.websiteUrl || product.deckUrl || product.contactUsUrl) && (
+            <div className="flex items-center gap-2 flex-wrap">
               {product.websiteUrl && (
                 <a
                   href={product.websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-900 bg-slate-900 text-white text-sm font-medium hover:bg-slate-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1C1512] bg-[#1C1512] text-white text-sm font-medium hover:bg-[#2d2420] transition-colors"
                 >
                   <Globe className="w-3.5 h-3.5" />
                   Visit website
@@ -199,10 +205,21 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                   href={product.deckUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 hover:text-slate-900 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 hover:text-[#1C1512] transition-colors"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   View deck
+                </a>
+              )}
+              {product.contactUsUrl && (
+                <a
+                  href={product.contactUsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 hover:text-[#1C1512] transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Contact us
                 </a>
               )}
             </div>
@@ -228,8 +245,8 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
               onClick={() => setTab(t)}
               className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 tab === t
-                  ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  ? 'border-[#1C1512] text-[#1C1512]'
+                  : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
               }`}
             >
               {labels[t]}
@@ -248,7 +265,7 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                 <div className="space-y-3">
                   {product.highlightStats.map((s, i) => (
                     <div key={i}>
-                      <p className="text-xl font-bold text-slate-900">{s.value}</p>
+                      <p className="text-xl font-bold text-[#1C1512]">{s.value}</p>
                       <p className="text-xs text-slate-500">{s.label}</p>
                     </div>
                   ))}
@@ -257,19 +274,15 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
             </div>
           )}
 
-          {product.uiScreenshot && (
-            <div className="rounded-xl overflow-hidden border border-slate-200 mb-8">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={product.uiScreenshot} alt={`${product.name} UI`} className="w-full object-cover" />
-            </div>
-          )}
-
           {product.overviewContent ? (
             <div
-              className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mt-6 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_p]:leading-relaxed [&_h2]:[color:var(--product-color)]"
-              style={{ '--product-color': product.color } as React.CSSProperties}
+              className="prose prose-sm max-w-none text-slate-600 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:leading-relaxed"
             >
-              <ReactMarkdown components={markdownComponents}>{product.overviewContent}</ReactMarkdown>
+              {product.overviewContent.trim().startsWith('<') ? (
+                <div dangerouslySetInnerHTML={{ __html: product.overviewContent }} />
+              ) : (
+                <ReactMarkdown components={markdownComponents}>{product.overviewContent}</ReactMarkdown>
+              )}
             </div>
           ) : (
             <p className="text-sm text-slate-400 py-8 text-center">No overview content yet.</p>
@@ -300,8 +313,8 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                   onClick={() => setActiveTag(null)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     activeTag === null
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-[#1C1512] text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
                   All
@@ -330,23 +343,32 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                   <button
                     key={i}
                     onClick={() => setOpenUseCase(uc)}
-                    className="w-full text-left border border-slate-200 rounded-xl p-5 bg-card hover:shadow-sm transition-shadow"
+                    className={`w-full text-left border rounded-xl p-5 bg-card hover:shadow-sm transition-shadow ${uc.isDraft ? 'border-amber-200' : 'border-slate-200'}`}
                   >
                     <div className="flex items-start justify-between gap-4 mb-2">
-                      {uc.department ? (
-                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: product.color }}>
-                          {uc.department}
-                        </p>
-                      ) : <span />}
+                      <div className="flex items-center gap-2">
+                        {uc.department && (
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: product.color }}>
+                            {uc.department}
+                          </p>
+                        )}
+                        {uc.isDraft && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-700">
+                            Draft
+                          </span>
+                        )}
+                      </div>
                       {uc.functionTag && (
                         <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
                           {uc.functionTag}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{uc.title}</h3>
+                    <h3 className="text-lg font-bold text-[#1C1512] mb-1.5 leading-snug">{uc.title}</h3>
                     <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
-                      {uc.content.replace(/[#*`[\]]/g, '').slice(0, 200)}
+                      {uc.content.trim().startsWith('<')
+                        ? uc.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+                        : uc.content.replace(/[#*`[\]]/g, '').slice(0, 200)}
                     </p>
                     <p className="text-xs text-slate-400 mt-3">More details</p>
                   </button>
@@ -372,13 +394,22 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                       <div className="w-3.5 h-3.5 rounded-full border-2 border-background ring-2 z-10" style={{ backgroundColor: product.color }} />
                     </div>
                     <div className="flex-1 min-w-0 pb-2">
-                      <div className="mb-2">
+                      <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-sm font-bold uppercase tracking-wide leading-snug" style={{ color: product.color }}>
                           {update.title}
                         </h3>
+                        {update.isDraft && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-700 flex-shrink-0">
+                            Draft
+                          </span>
+                        )}
                       </div>
-                      <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-slate-500 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500">
-                        <ReactMarkdown components={markdownComponents}>{update.content}</ReactMarkdown>
+                      <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-slate-500 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0">
+                        {update.content.trim().startsWith('<') ? (
+                          <div dangerouslySetInnerHTML={{ __html: update.content }} />
+                        ) : (
+                          <ReactMarkdown components={markdownComponents}>{update.content}</ReactMarkdown>
+                        )}
                       </div>
                     </div>
                   </div>

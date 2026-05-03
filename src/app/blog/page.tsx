@@ -3,11 +3,14 @@ export const dynamic = 'force-dynamic'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
+import { ExternalArticle } from '@/models/ExternalArticle'
+import { BlogCategory } from '@/models/BlogCategory'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Navbar } from '@/components/layout/Navbar'
 import { BlogPageClient } from '@/components/blog/BlogPageClient'
-import type { BlogPostSummary } from '@/components/blog/blogUtils'
+import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
+import type { ExternalArticleEntry } from '@/components/blog/ExternalArticlesSidebar'
 import { Types } from 'mongoose'
 
 export default async function BlogPage() {
@@ -15,6 +18,12 @@ export default async function BlogPage() {
   await connectDB()
 
   const now = new Date()
+  // Auto-unfeature expired posts
+  await BlogPost.updateMany(
+    { isFeatured: true, featuredUntil: { $exists: true, $lte: now } },
+    { $set: { isFeatured: false }, $unset: { featuredUntil: '' } }
+  )
+
   const rawPosts = await BlogPost.find({
     $or: [{ status: 'published' }, { status: 'scheduled', publishedAt: { $lte: now } }],
   }).sort({ publishedAt: -1 }).lean()
@@ -46,12 +55,30 @@ export default async function BlogPage() {
     commentCount: commentCountMap.get(p._id.toString()) ?? 0,
   }))
 
-  const featured = posts.find((p) => p.isFeatured) ?? null
+  const featured = posts.filter((p) => p.isFeatured)
+
+  const [rawExternal, rawCategories] = await Promise.all([
+    ExternalArticle.find().sort({ order: 1, createdAt: -1 }).lean(),
+    BlogCategory.find().lean(),
+  ])
+
+  const externalArticles: ExternalArticleEntry[] = rawExternal.map((a) => ({
+    _id: a._id.toString(),
+    title: a.title,
+    description: a.description,
+    url: a.url,
+    category: a.category,
+    order: a.order,
+  }))
+
+  const categoriesMap: CategoriesMap = Object.fromEntries(
+    rawCategories.map((c) => [c.slug, { name: c.name, color: c.color }])
+  )
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <BlogPageClient posts={posts} featured={featured} isLoggedIn={!!session} />
+      <BlogPageClient posts={posts} featured={featured} isLoggedIn={!!session} externalArticles={externalArticles} categoriesMap={categoriesMap} />
     </div>
   )
 }

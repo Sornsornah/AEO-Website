@@ -48,6 +48,7 @@ export interface IProduct extends Document {
   domainId?: Types.ObjectId
   websiteUrl?: string
   deckUrl?: string
+  contactUsUrl?: string
   logoUrl?: string
   members: Types.ObjectId[]
   // New fields
@@ -68,6 +69,7 @@ export interface IProduct extends Document {
   roadmap: IRoadmapItem[]
   useCases: IUseCase[]
   productUpdates: IProductUpdate[]
+  isHidden: boolean
   order: number
   createdAt: Date
   updatedAt: Date
@@ -87,6 +89,7 @@ const ProductSchema = new Schema<IProduct>(
     domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: false },
     websiteUrl: { type: String, trim: true },
     deckUrl: { type: String, trim: true },
+    contactUsUrl: { type: String, trim: true },
     logoUrl: { type: String, trim: true },
     members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     // New fields
@@ -107,6 +110,7 @@ const ProductSchema = new Schema<IProduct>(
     roadmap: [{ quarter: { type: String }, description: { type: String }, _id: false }],
     useCases: [{ title: { type: String }, content: { type: String }, image: { type: String }, functionTag: { type: String }, department: { type: String }, isDraft: { type: Boolean, default: false }, _id: false }],
     productUpdates: [{ title: { type: String }, content: { type: String }, date: { type: Date }, _id: false }],
+    isHidden: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
   },
   { timestamps: true }

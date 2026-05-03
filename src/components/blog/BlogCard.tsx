@@ -4,34 +4,39 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ArrowUpRight, Clock, Bookmark, Heart, MessageCircle } from 'lucide-react'
 import {
-  CATEGORY_LABELS,
-  CATEGORY_GRADIENTS,
-  CATEGORY_BADGE_COLORS,
+  getCategoryDisplay,
+  hexToBadgeStyle,
+  hexToGradient,
   type BlogPostSummary,
+  type CategoriesMap,
 } from './blogUtils'
 
 interface BlogCardProps {
   post: BlogPostSummary
   onSave?: (e: React.MouseEvent) => void
+  categoriesMap?: CategoriesMap
 }
 
-export function BlogCard({ post, onSave }: BlogCardProps) {
-  const gradient = CATEGORY_GRADIENTS[post.category]
-  const badgeColor = CATEGORY_BADGE_COLORS[post.category]
-  const label = CATEGORY_LABELS[post.category]
+export function BlogCard({ post, onSave, categoriesMap = {} }: BlogCardProps) {
+  const { name: label, color } = getCategoryDisplay(post.category, categoriesMap)
+  const badgeStyle = hexToBadgeStyle(color)
+  const gradient = hexToGradient(color)
 
   return (
     <Link href={`/blog/${post.slug}`} className="group block">
-      <div className="bg-card rounded-2xl overflow-hidden border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all">
+      <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all">
         {/* Cover */}
         <div className="relative aspect-[16/9] overflow-hidden">
           {post.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
           ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${gradient}`} />
+            <div className="w-full h-full" style={{ background: gradient }} />
           )}
-          <span className={`absolute top-3 left-3 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${badgeColor} backdrop-blur-sm`}>
+          <span
+            className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full backdrop-blur-sm"
+            style={badgeStyle}
+          >
             {label}
           </span>
           {onSave && (

@@ -7,9 +7,10 @@ import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import type { BlogStatus } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
+import { BlogCategory } from '@/models/BlogCategory'
 import { Navbar } from '@/components/layout/Navbar'
 import { BlogDetail } from '@/components/blog/BlogDetail'
-import type { BlogPostSummary } from '@/components/blog/blogUtils'
+import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
 
 interface PageProps {
   params: { slug: string }
@@ -31,10 +32,15 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const userId = session?.user?.id
 
-  const [commentCount, rawComments] = await Promise.all([
+  const [commentCount, rawComments, rawCategories] = await Promise.all([
     BlogComment.countDocuments({ postId: raw._id }),
     BlogComment.find({ postId: raw._id }).sort({ createdAt: 1 }).lean(),
+    BlogCategory.find().lean(),
   ])
+
+  const categoriesMap: CategoriesMap = Object.fromEntries(
+    rawCategories.map((c) => [c.slug, { name: c.name, color: c.color }])
+  )
 
   const comments = rawComments.map((c) => ({
     _id: c._id.toString(),
@@ -104,6 +110,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         initialComments={comments}
         currentUserId={session?.user?.id}
         isAdmin={session?.user?.role === 'admin'}
+        categoriesMap={categoriesMap}
       />
     </div>
   )

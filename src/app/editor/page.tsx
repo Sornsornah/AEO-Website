@@ -14,14 +14,17 @@ import { UpdateTable } from '@/components/editor/UpdateTable'
 import { FilterBar } from '@/components/updates/FilterBar'
 import { EditorProductsList } from '@/components/editor/EditorProductsList'
 import { BlogTable } from '@/components/editor/BlogTable'
+import { ExternalArticlesTable } from '@/components/editor/ExternalArticlesTable'
 import { Button } from '@/components/ui/button'
 import { BlogPost } from '@/models/BlogPost'
+import { ExternalArticle } from '@/models/ExternalArticle'
 
 const PAGE_SIZE = 20
 
 interface PageProps {
   searchParams: {
     tab?: string
+    subtab?: string
     product?: string
     domain?: string
     year?: string
@@ -39,17 +42,24 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
   await connectDB()
 
-  // Auto-publish any updates whose scheduled time has passed
   const nowForPublish = new Date()
+  // Auto-publish scheduled updates
   await Update.updateMany(
     { isPublished: false, scheduledAt: { $lte: nowForPublish } },
     { $set: { isPublished: true } }
+  )
+  // Auto-unfeature expired blog posts
+  await BlogPost.updateMany(
+    { isFeatured: true, featuredUntil: { $exists: true, $lte: nowForPublish } },
+    { $set: { isFeatured: false }, $unset: { featuredUntil: '' } }
   )
 
   const activeTab = searchParams.tab === 'products' ? 'products' : searchParams.tab === 'blog' ? 'blog' : 'updates'
 
   // Blog tab
   if (activeTab === 'blog') {
+    const blogSubtab = searchParams.subtab === 'external' ? 'external' : 'posts'
+
     const blogPosts = await BlogPost.find().sort({ publishedAt: -1 }).lean()
     const serializedPosts = blogPosts.map((p) => ({
       _id: p._id.toString(),
@@ -60,26 +70,71 @@ export default async function EditorPage({ searchParams }: PageProps) {
       publishedAt: p.publishedAt.toISOString(),
       status: (p.status || 'draft') as 'draft' | 'scheduled' | 'published',
       isFeatured: p.isFeatured,
+      featuredUntil: p.featuredUntil ? p.featuredUntil.toISOString() : null,
       likeCount: p.likes?.length ?? 0,
     }))
+
+    const rawExternal = await ExternalArticle.find().sort({ order: 1, createdAt: -1 }).lean()
+    const serializedExternal = rawExternal.map((a) => ({
+      _id: a._id.toString(),
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      category: a.category,
+      order: a.order,
+    }))
+
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
-            <Link href="/editor/blog/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-                + New Post
-              </Button>
-            </Link>
+            <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
+            {blogSubtab === 'posts' && (
+              <Link href="/editor/blog/new">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                  + New Post
+                </Button>
+              </Link>
+            )}
           </div>
-          <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
+
+          {/* Main tabs */}
+          <div className="flex items-center gap-1 border-b border-slate-200 mb-6">
             <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Updates</Link>
             <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Products</Link>
             <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Blog</Link>
           </div>
-          <BlogTable posts={serializedPosts} />
+
+          {/* Blog subtabs */}
+          <div className="flex items-center gap-1 mb-6">
+            <Link
+              href="/editor?tab=blog"
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                blogSubtab === 'posts'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Posts
+            </Link>
+            <Link
+              href="/editor?tab=blog&subtab=external"
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                blogSubtab === 'external'
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              Articles to Check Out
+            </Link>
+          </div>
+
+          {blogSubtab === 'posts' ? (
+            <BlogTable posts={serializedPosts} />
+          ) : (
+            <ExternalArticlesTable articles={serializedExternal} />
+          )}
         </main>
       </div>
     )
@@ -96,6 +151,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
       color: string
       logoUrl?: string
       status?: string
+      isHidden?: boolean
     }>).map((p) => ({
       _id: p._id.toString(),
       name: p.name,
@@ -104,6 +160,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
       color: p.color,
       logoUrl: p.logoUrl,
       status: p.status || 'live',
+      isHidden: p.isHidden || false,
     }))
 
     return (
@@ -111,7 +168,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
         <Navbar />
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
+            <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
           </div>
           {/* Tab switcher */}
           <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
@@ -292,7 +349,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
 
       <main className="px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Editor Dashboard</h1>
+          <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
           <Link href="/editor/new">
             <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
               + New Update

@@ -7,8 +7,10 @@ import { DomainTable } from './DomainTable'
 import { AddDomainForm } from './AddDomainForm'
 import { TagTable } from './TagTable'
 import { AddTagForm } from './AddTagForm'
+import { BlogCategoryTable } from './BlogCategoryTable'
+import { AddBlogCategoryForm } from './AddBlogCategoryForm'
 
-type Tab = 'users' | 'domains' | 'tags'
+type Tab = 'users' | 'domains' | 'tags' | 'blog-categories'
 
 interface SerializedUser {
   _id: string
@@ -17,6 +19,12 @@ interface SerializedUser {
   role: 'viewer' | 'admin'
   isWhitelisted: boolean
   createdAt: string
+}
+
+interface SerializedProduct {
+  _id: string
+  name: string
+  members: { _id: string; name: string }[]
 }
 
 interface SerializedDomain {
@@ -34,20 +42,31 @@ interface SerializedTag {
   slug: string
 }
 
+interface SerializedBlogCategory {
+  _id: string
+  name: string
+  slug: string
+  purpose?: string
+  color: string
+}
+
 interface AdminTabsProps {
   users: SerializedUser[]
+  products: SerializedProduct[]
   domains: SerializedDomain[]
   tags: SerializedTag[]
+  blogCategories: SerializedBlogCategory[]
   currentUserId: string
 }
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'users', label: 'Users' },
   { id: 'domains', label: 'Sections' },
-  { id: 'tags', label: 'Tags' },
+  { id: 'tags', label: 'Update Tags' },
+  { id: 'blog-categories', label: 'Blog Categories' },
 ]
 
-export function AdminTabs({ users, domains, tags, currentUserId }: AdminTabsProps) {
+export function AdminTabs({ users, products, domains, tags, blogCategories, currentUserId }: AdminTabsProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
@@ -79,7 +98,7 @@ export function AdminTabs({ users, domains, tags, currentUserId }: AdminTabsProp
             </div>
             <AddUserForm />
           </div>
-          <UserTable users={users} currentUserId={currentUserId} />
+          <UserTable users={users} products={products} domains={domains} currentUserId={currentUserId} />
         </section>
       )}
 
@@ -96,16 +115,29 @@ export function AdminTabs({ users, domains, tags, currentUserId }: AdminTabsProp
         </section>
       )}
 
-{tab === 'tags' && (
+      {tab === 'tags' && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Tags</h2>
+              <h2 className="text-base font-semibold text-slate-900">Update Tags</h2>
               <p className="text-xs text-slate-400 mt-0.5">Labels for categorizing updates</p>
             </div>
             <AddTagForm />
           </div>
           <TagTable tags={tags} />
+        </section>
+      )}
+
+      {tab === 'blog-categories' && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Blog Categories</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Categories for blog posts with display colour</p>
+            </div>
+            <AddBlogCategoryForm />
+          </div>
+          <BlogCategoryTable categories={blogCategories} />
         </section>
       )}
     </div>

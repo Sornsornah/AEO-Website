@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from 'mongoose'
 
-export type BlogCategory = 'thought' | 'learning-journey' | 'field-notes' | 'deep-dive'
+export type BlogCategory = string
 export type BlogStatus = 'draft' | 'scheduled' | 'published'
 
 export interface IBlogPost extends Document {
@@ -16,6 +16,7 @@ export interface IBlogPost extends Document {
   readTime: number
   status: BlogStatus
   isFeatured: boolean
+  featuredUntil?: Date
   likes: Types.ObjectId[]
   savedBy: Types.ObjectId[]
   createdAt: Date
@@ -29,11 +30,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
     excerpt: { type: String, required: true, trim: true },
     content: { type: String, default: '' },
     coverImage: { type: String },
-    category: {
-      type: String,
-      enum: ['thought', 'learning-journey', 'field-notes', 'deep-dive'],
-      required: true,
-    },
+    category: { type: String, required: true },
     tags: [{ type: String, trim: true }],
     authorName: { type: String, required: true, trim: true },
     publishedAt: { type: Date, required: true },
@@ -44,6 +41,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
       default: 'draft',
     },
     isFeatured: { type: Boolean, default: false },
+    featuredUntil: { type: Date },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     savedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },

@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
-  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status, isFeatured } = body
+  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status, isFeatured, featuredUntil } = body
 
   if (title !== undefined) post.title = title
   if (excerpt !== undefined) post.excerpt = excerpt
@@ -73,6 +73,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   if (isFeatured !== undefined) {
     if (isFeatured) await BlogPost.updateMany({ _id: { $ne: post._id }, isFeatured: true }, { isFeatured: false })
     post.isFeatured = isFeatured
+  }
+  if ('featuredUntil' in body) {
+    post.featuredUntil = featuredUntil ? new Date(featuredUntil) : undefined
   }
 
   await post.save()

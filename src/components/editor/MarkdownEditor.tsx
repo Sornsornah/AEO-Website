@@ -8,10 +8,16 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import { marked } from 'marked'
 import TurndownService from 'turndown'
+import { sanitizeMarkdown } from '@/lib/sanitizeMarkdown'
 import { Link2, Link2Off, Indent, Outdent } from 'lucide-react'
-import { sinkListItem, liftListItem } from 'prosemirror-schema-list'
+import { sinkListItem, liftListItem, splitListItem } from 'prosemirror-schema-list'
 
 const turndown = new TurndownService({ bulletListMarker: '-', headingStyle: 'atx' })
+turndown.keep(['u'])
+turndown.addRule('strikethrough', {
+  filter: ['s', 'del'],
+  replacement: (content) => `~~${content}~~`,
+})
 
 interface MarkdownEditorProps {
   value: string
@@ -30,18 +36,17 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
   onChangeRef.current = onChange
   const forceOrderedListRef = useRef(forceOrderedList)
   forceOrderedListRef.current = forceOrderedList
-  // Must be declared before useEditor so onUpdate can update it via closure
   const lastMarkdown = useRef(value)
   const isApplyingFix = useRef(false)
   const fixTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [linkPopover, setLinkPopover] = useState(false)
-  const [linkUrl, setLinkUrl] = useState('')
-  const [linkText, setLinkText] = useState('')
+  const editorRef = useRef<Editor | null>(null)
+  // Populated by LinkBubble so Cmd+K and the toolbar button can open it
+  const openLinkBubbleRef = useRef<(() => void) | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false, code: false, heading: forceOrderedList ? false : undefined }),
       Underline,
       Placeholder.configure({ placeholder: '- ' }),
       Link.configure({ openOnClick: false, autolink: true }),
@@ -50,15 +55,14 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
     onUpdate({ editor }) {
       if (isApplyingFix.current) return
       const html = editor.getHTML()
-      const md = htmlToMarkdown(html)
+      let md = htmlToMarkdown(html)
+      if (forceOrderedListRef.current) {
+        md = md.split('\n').filter(line => !/^\d+\.\s*$/.test(line)).join('\n').trim()
+      }
       lastMarkdown.current = md
       onChangeRef.current(md)
 
       if (forceOrderedListRef.current) {
-        // Only fix when real (non-whitespace) text has escaped outside the ordered list.
-        // Ignoring empty/whitespace nodes prevents transient nodes created by input rules
-        // (e.g. StarterKit's list input rules firing on space) from triggering setContent,
-        // which would steal focus and make space presses scroll the page instead of type.
         let hasRealOutsideContent = false
         editor.state.doc.forEach((node) => {
           if (node.type.name !== 'orderedList' && node.textContent.trim()) {
@@ -72,8 +76,27 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
             isApplyingFix.current = true
             const fixed = fixToOrderedList(editor.getHTML())
             editor.commands.setContent(fixed)
-            editor.commands.focus('end')
-            const newMd = htmlToMarkdown(editor.getHTML())
+
+            const { doc } = editor.view.state
+            let cursorPos = -1
+            doc.forEach((topNode, topOffset) => {
+              if (topNode.type.name === 'orderedList') {
+                topNode.forEach((liNode, liOffset) => {
+                  liNode.forEach((pNode, pOffset) => {
+                    if (pNode.isTextblock) {
+                      cursorPos = topOffset + 1 + liOffset + 1 + pOffset + 1 + pNode.content.size
+                    }
+                  })
+                })
+              }
+            })
+            if (cursorPos >= 0) {
+              editor.commands.setTextSelection(cursorPos)
+            } else {
+              editor.commands.focus('end')
+            }
+
+            const newMd = htmlToMarkdown(editor.getHTML()).split('\n').filter(line => !/^\d+\.\s*$/.test(line)).join('\n').trim()
             lastMarkdown.current = newMd
             onChangeRef.current(newMd)
             isApplyingFix.current = false
@@ -83,9 +106,16 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 text-sm text-slate-800',
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through',
       },
       handleKeyDown(view, event) {
+        // Cmd+K / Ctrl+K — open link bubble
+        if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+          event.preventDefault()
+          openLinkBubbleRef.current?.()
+          return true
+        }
+
         if (!forceOrderedListRef.current) return false
 
         const { state, dispatch } = view
@@ -97,15 +127,39 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
             if (event.shiftKey) {
               liftListItem(listItemType)(state, dispatch)
             } else {
-              sinkListItem(listItemType)(state, dispatch)
+              if (state.selection.$from.depth < 7) {
+                sinkListItem(listItemType)(state, dispatch)
+              }
             }
           }
           return true
         }
 
         if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+          const { $from } = state.selection
+
+          let inListItem = false
+          for (let d = $from.depth; d > 0; d--) {
+            if ($from.node(d).type.name === 'listItem') { inListItem = true; break }
+          }
+
+          if (!inListItem) {
+            event.preventDefault()
+            setTimeout(() => {
+              const ed = editorRef.current
+              if (!ed) return
+              ed.chain().focus('end').run()
+              const { $from: $f } = ed.view.state.selection
+              let nowInList = false
+              for (let d = $f.depth; d > 0; d--) {
+                if ($f.node(d).type.name === 'listItem') { nowInList = true; break }
+              }
+              if (nowInList) ed.chain().splitListItem('listItem').run()
+            }, 0)
+            return true
+          }
+
           if (listItemType) {
-            const { $from } = state.selection
             const isInEmptyListItem =
               $from.depth >= 2 &&
               $from.parent.type.name === 'paragraph' &&
@@ -113,10 +167,13 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
               $from.node($from.depth - 1).type.name === 'listItem'
             if (isInEmptyListItem) {
               event.preventDefault()
-              return true  // eat Enter in empty list item — prevents exiting the list
+              return true
             }
+            event.preventDefault()
+            splitListItem(listItemType)(state, dispatch)
+            return true
           }
-          return false  // let TipTap's built-in splitListItem handle normal Enter
+          return false
         }
 
         if (event.key === 'Backspace') {
@@ -136,10 +193,8 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
     },
   })
 
-  // Sync external value changes — skipped for forceOrderedList editors because
-  // they initialize from the content prop and calling setContent on every onChange
-  // re-render causes the add-item loop (stale closure in useEditor's onUpdate means
-  // lastMarkdown.current updates don't reliably prevent the effect from running).
+  useEffect(() => { editorRef.current = editor }, [editor])
+
   useEffect(() => {
     if (!editor || forceOrderedList) return
     if (value === lastMarkdown.current) return
@@ -149,73 +204,35 @@ export function MarkdownEditor({ value, onChange, forceOrderedList = false }: Ma
     try { editor.commands.setTextSelection(Math.min(pos, editor.state.doc.content.size)) } catch {}
   }, [editor, value, forceOrderedList])
 
-  useEffect(() => {
-    if (!editor) return
-    const el = editor.view.dom
-    function handleClick(e: MouseEvent) {
-      if ((e.target as HTMLElement).closest('a[href]')) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-    }
-    el.addEventListener('click', handleClick)
-    return () => el.removeEventListener('click', handleClick)
-  }, [editor])
-
-  const openLinkPopover = useCallback(() => {
-    if (!editor) return
-    const existing = editor.getAttributes('link').href as string | undefined
-    setLinkUrl(existing || 'https://')
-    const { from, to } = editor.state.selection
-    setLinkText(editor.state.doc.textBetween(from, to))
-    setLinkPopover(true)
-  }, [editor])
-
-  const applyLink = useCallback(() => {
-    if (!editor) return
-    const url = linkUrl.trim()
-    if (url && url !== 'https://') {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-    } else {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run()
-    }
-    setLinkPopover(false)
-  }, [editor, linkUrl])
-
-  const removeLink = useCallback(() => {
-    if (!editor) return
-    editor.chain().focus().extendMarkRange('link').unsetLink().run()
-    setLinkPopover(false)
-  }, [editor])
-
   return (
-    <div className="rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-      <Toolbar
-        editor={editor}
-        onLinkClick={openLinkPopover}
-        linkPopover={linkPopover}
-        linkUrl={linkUrl}
-        linkText={linkText}
-        setLinkUrl={setLinkUrl}
-        onLinkApply={applyLink}
-        onLinkRemove={removeLink}
-        onLinkClose={() => setLinkPopover(false)}
-        forceOrderedList={forceOrderedList}
-      />
-      <div className="border-t border-slate-100">
-        <EditorContent editor={editor} />
+    <>
+      <div className="rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+        <Toolbar
+          editor={editor}
+          forceOrderedList={forceOrderedList}
+          onLinkClick={() => openLinkBubbleRef.current?.()}
+        />
+        <div className="border-t border-slate-100">
+          <EditorContent editor={editor} />
+        </div>
       </div>
-    </div>
+      {editor && (
+        <LinkBubble
+          editor={editor}
+          onRegisterOpen={(fn) => { openLinkBubbleRef.current = fn }}
+        />
+      )}
+    </>
   )
 }
 
 function markdownToHtml(md: string): string {
   if (!md) return ''
-  return marked.parse(md, { async: false }) as string
+  return marked.parse(sanitizeMarkdown(md), { async: false }) as string
 }
 
 function htmlToMarkdown(html: string): string {
-  return turndown.turndown(html).trim()
+  return sanitizeMarkdown(turndown.turndown(html).trim())
 }
 
 function fixToOrderedList(html: string): string {
@@ -223,40 +240,25 @@ function fixToOrderedList(html: string): string {
   const lines = md.split('\n').filter((l) => l.trim())
   if (!lines.length) return '<ol><li><p></p></li></ol>'
   const fixed = lines.map((l) => {
-    if (/^\d+\./.test(l)) return l
-    if (/^[*\-+] /.test(l)) return '1. ' + l.replace(/^[*\-+] /, '')
-    return '1. ' + l
+    if (/^\s*\d+\./.test(l)) return l
+    if (/^\s*[*\-+] /.test(l)) return l.replace(/^(\s*)[*\-+] /, '$11. ')
+    const escaped = l.replace(/^(#{1,6}) /, (_, hashes) =>
+      hashes.split('').map(() => '\\#').join('') + ' '
+    )
+    return '1. ' + escaped
   }).join('\n')
   return markdownToHtml(fixed) || '<ol><li><p></p></li></ol>'
 }
 
+// ─── Toolbar ────────────────────────────────────────────────────────────────
+
 interface ToolbarProps {
   editor: Editor | null
-  onLinkClick: () => void
-  linkPopover: boolean
-  linkUrl: string
-  linkText: string
-  setLinkUrl: (v: string) => void
-  onLinkApply: () => void
-  onLinkRemove: () => void
-  onLinkClose: () => void
   forceOrderedList?: boolean
+  onLinkClick: () => void
 }
 
-function Toolbar({ editor, onLinkClick, linkPopover, linkUrl, linkText, setLinkUrl, onLinkApply, onLinkRemove, onLinkClose, forceOrderedList }: ToolbarProps) {
-  const popoverRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!linkPopover) return
-    function handleMouseDown(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onLinkClose()
-      }
-    }
-    document.addEventListener('mousedown', handleMouseDown)
-    return () => document.removeEventListener('mousedown', handleMouseDown)
-  }, [linkPopover, onLinkClose])
-
+function Toolbar({ editor, forceOrderedList, onLinkClick }: ToolbarProps) {
   if (!editor) return null
 
   const btn = (label: React.ReactNode, title: string, active: boolean, onClick: () => void) => (
@@ -278,7 +280,7 @@ function Toolbar({ editor, onLinkClick, linkPopover, linkUrl, linkText, setLinkU
   const isLinkActive = editor.isActive('link')
 
   return (
-    <div className="flex items-center gap-0.5 px-2 py-1.5 relative">
+    <div className="flex items-center gap-0.5 px-2 py-1.5">
       {btn(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
       {btn(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
       {btn(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
@@ -289,7 +291,7 @@ function Toolbar({ editor, onLinkClick, linkPopover, linkUrl, linkText, setLinkU
         type="button"
         title="Indent (Tab)"
         onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().sinkListItem('listItem').run() }}
-        disabled={!editor.can().sinkListItem('listItem')}
+        disabled={!editor.can().sinkListItem('listItem') || editor.state.selection.$from.depth >= 7}
         className="px-2 py-1 rounded transition-colors text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <Indent size={13} />
@@ -304,11 +306,10 @@ function Toolbar({ editor, onLinkClick, linkPopover, linkUrl, linkText, setLinkU
         <Outdent size={13} />
       </button>
       <div className="w-px h-4 bg-slate-200 mx-1" />
-
       {/* Link button */}
       <button
         type="button"
-        title="Insert link"
+        title="Insert link (⌘K)"
         onMouseDown={(e) => { e.preventDefault(); onLinkClick() }}
         className={`px-2 py-1 rounded transition-colors flex items-center gap-1 text-xs ${
           isLinkActive
@@ -319,54 +320,353 @@ function Toolbar({ editor, onLinkClick, linkPopover, linkUrl, linkText, setLinkU
         <Link2 size={12} />
         Link
       </button>
+    </div>
+  )
+}
 
-      {/* Link popover */}
-      {linkPopover && (
-        <div ref={popoverRef} className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-2.5 min-w-[280px]">
-          {linkText && (
-            <p className="text-xs text-slate-500 mb-2 truncate">
-              Text: <span className="font-medium text-slate-700">{linkText}</span>
-            </p>
-          )}
-          <div className="flex items-center gap-1.5">
+// ─── Link bubble ─────────────────────────────────────────────────────────────
+
+interface LinkBubbleProps {
+  editor: Editor
+  onRegisterOpen: (fn: () => void) => void
+}
+
+type BubbleMode = 'hidden' | 'toolbar' | 'input' | 'hover'
+
+const BUBBLE_MARGIN = 8
+
+function clampBubblePos(rawLeft: number, rawTop: number, bubbleEl: HTMLDivElement | null) {
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const bw = bubbleEl?.offsetWidth ?? 360
+  const bh = bubbleEl?.offsetHeight ?? 40
+
+  const left = Math.max(bw / 2 + BUBBLE_MARGIN, Math.min(vw - bw / 2 - BUBBLE_MARGIN, rawLeft))
+  const showBelow = rawTop - bh - BUBBLE_MARGIN < 0
+  const top = showBelow ? rawTop + 28 : rawTop - BUBBLE_MARGIN
+
+  return { left, top, showBelow }
+}
+
+function LinkBubble({ editor, onRegisterOpen }: LinkBubbleProps) {
+  const [mode, setMode] = useState<BubbleMode>('hidden')
+  const [inputUrl, setInputUrl] = useState('')
+  const [rawPos, setRawPos] = useState({ top: 0, left: 0 })
+  // Force re-render when editor marks change (so B/I/U/S active states stay current)
+  const [, forceUpdate] = useState(0)
+  const savedRawPos = useRef({ top: 0, left: 0 })
+  const bubbleRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const modeRef = useRef<BubbleMode>('hidden')
+  modeRef.current = mode
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hoveredLinkPosRef = useRef<number | null>(null)
+  const hoveredHrefRef = useRef('')
+
+  const scheduleHide = useCallback(() => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+    hoverTimeoutRef.current = setTimeout(() => {
+      if (modeRef.current === 'hover') setMode('hidden')
+    }, 150)
+  }, [])
+
+  const cancelHide = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+  }, [])
+
+  const computeRawPos = useCallback(() => {
+    const { selection } = editor.state
+    const { from, to } = selection
+    try {
+      const s = editor.view.coordsAtPos(from)
+      const e2 = editor.view.coordsAtPos(to)
+      return { top: Math.min(s.top, e2.top), left: (s.left + e2.right) / 2 }
+    } catch {
+      return null
+    }
+  }, [editor])
+
+  const enterInput = useCallback(() => {
+    // If in hover mode, move cursor into the link first so extendMarkRange works
+    if (modeRef.current === 'hover' && hoveredLinkPosRef.current !== null) {
+      editor.commands.setTextSelection(hoveredLinkPosRef.current)
+    }
+    const p = computeRawPos() ?? savedRawPos.current
+    setRawPos(p)
+    savedRawPos.current = p
+    const href = modeRef.current === 'hover'
+      ? hoveredHrefRef.current
+      : (editor.getAttributes('link').href as string | undefined) ?? ''
+    setInputUrl(href)
+    setMode('input')
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [editor, computeRawPos])
+
+  const removeLink = useCallback(() => {
+    if (modeRef.current === 'hover' && hoveredLinkPosRef.current !== null) {
+      editor.commands.setTextSelection(hoveredLinkPosRef.current)
+    }
+    editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    setMode('hidden')
+  }, [editor])
+
+  const applyLink = useCallback(() => {
+    const url = inputUrl.trim()
+    if (url) {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+    } else {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    }
+    setMode('hidden')
+  }, [editor, inputUrl])
+
+  // Register open fn for Cmd+K and toolbar button
+  useEffect(() => {
+    onRegisterOpen(enterInput)
+  }, [onRegisterOpen, enterInput])
+
+  // Re-render on transactions so formatting active states stay fresh
+  useEffect(() => {
+    function onTransaction() {
+      if (modeRef.current !== 'hidden') forceUpdate(n => n + 1)
+    }
+    editor.on('transaction', onTransaction)
+    return () => { editor.off('transaction', onTransaction) }
+  }, [editor])
+
+  // Show bubble on text selection or cursor-in-link
+  useEffect(() => {
+    function onSelectionUpdate() {
+      const { selection } = editor.state
+      const isLink = editor.isActive('link')
+      const hasSelection = !selection.empty
+
+      if (!hasSelection && !isLink) {
+        if (modeRef.current !== 'input') setMode('hidden')
+        return
+      }
+      const p = computeRawPos()
+      if (p) { setRawPos(p); savedRawPos.current = p }
+      if (modeRef.current !== 'input') setMode('toolbar')
+    }
+    editor.on('selectionUpdate', onSelectionUpdate)
+    return () => { editor.off('selectionUpdate', onSelectionUpdate) }
+  }, [editor, computeRawPos])
+
+  // Hover over link → show bubble; leave link → schedule hide
+  useEffect(() => {
+    const el = editor.view.dom
+
+    function onMouseOver(e: MouseEvent) {
+      const linkEl = (e.target as HTMLElement).closest('a[href]')
+      if (!linkEl) return
+      // Don't override an active selection or input
+      if (modeRef.current === 'toolbar' || modeRef.current === 'input') return
+      cancelHide()
+      const rect = linkEl.getBoundingClientRect()
+      const p = { top: rect.top, left: rect.left + rect.width / 2 }
+      setRawPos(p)
+      savedRawPos.current = p
+      hoveredHrefRef.current = (linkEl as HTMLAnchorElement).href || linkEl.getAttribute('href') || ''
+      const coords = { left: rect.left + 2, top: rect.top + rect.height / 2 }
+      const pmPos = editor.view.posAtCoords(coords)
+      hoveredLinkPosRef.current = pmPos?.pos ?? null
+      setMode('hover')
+    }
+
+    function onMouseOut(e: MouseEvent) {
+      if (modeRef.current !== 'hover') return
+      const linkEl = (e.target as HTMLElement).closest('a[href]')
+      if (!linkEl) return
+      const related = e.relatedTarget as HTMLElement | null
+      if (related && linkEl.contains(related)) return
+      scheduleHide()
+    }
+
+    el.addEventListener('mouseover', onMouseOver)
+    el.addEventListener('mouseout', onMouseOut)
+    return () => {
+      el.removeEventListener('mouseover', onMouseOver)
+      el.removeEventListener('mouseout', onMouseOut)
+    }
+  }, [editor, cancelHide, scheduleHide])
+
+  // Intercept link clicks: prevent navigation, show bubble instead
+  useEffect(() => {
+    const el = editor.view.dom
+    function handleClick(e: MouseEvent) {
+      const link = (e.target as HTMLElement).closest('a[href]')
+      if (!link) return
+      e.preventDefault()
+      setTimeout(() => {
+        if (editor.isActive('link')) {
+          const p = computeRawPos()
+          if (p) { setRawPos(p); savedRawPos.current = p }
+          if (modeRef.current !== 'input') setMode('toolbar')
+        }
+      }, 0)
+    }
+    el.addEventListener('click', handleClick)
+    return () => el.removeEventListener('click', handleClick)
+  }, [editor, computeRawPos])
+
+  // Hide when editor loses focus (unless focus went to bubble)
+  useEffect(() => {
+    function onBlur() {
+      setTimeout(() => {
+        if (!bubbleRef.current?.contains(document.activeElement)) {
+          setMode('hidden')
+        }
+      }, 50)
+    }
+    editor.on('blur', onBlur)
+    return () => { editor.off('blur', onBlur) }
+  }, [editor])
+
+  // Hide on click outside both editor and bubble
+  useEffect(() => {
+    if (mode === 'hidden') return
+    function onMouseDown(e: MouseEvent) {
+      const t = e.target as Node
+      if (!bubbleRef.current?.contains(t) && !editor.view.dom.contains(t)) {
+        setMode('hidden')
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [mode, editor])
+
+  if (mode === 'hidden') return null
+
+  const isLink = editor.isActive('link')
+  const existingHref = editor.getAttributes('link').href as string | undefined
+  const activeRawPos = mode === 'input' ? savedRawPos.current : rawPos
+  const { left, top, showBelow } = clampBubblePos(activeRawPos.left, activeRawPos.top, bubbleRef.current)
+
+  // Which view to render
+  const showLinkView = mode === 'hover' || (mode === 'toolbar' && editor.state.selection.empty && isLink)
+  const showFormatBar = mode === 'toolbar' && !editor.state.selection.empty
+  const displayHref = mode === 'hover' ? hoveredHrefRef.current : existingHref
+
+  const fmtBtn = (label: React.ReactNode, title: string, active: boolean, onClick: () => void) => (
+    <button
+      key={title}
+      type="button"
+      title={title}
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      className={`px-1.5 py-0.5 rounded transition-colors text-xs ${
+        active ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      }`}
+    >
+      {label}
+    </button>
+  )
+
+  return (
+    <div
+      ref={bubbleRef}
+      style={{
+        position: 'fixed',
+        top,
+        left,
+        transform: showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+        zIndex: 9999,
+      }}
+      className="bg-white border border-slate-200 rounded-lg shadow-lg flex items-center gap-0.5 px-2 py-1.5 text-xs"
+      onMouseEnter={cancelHide}
+      onMouseLeave={() => { if (modeRef.current === 'hover') scheduleHide() }}
+    >
+      {mode === 'input' ? (
+        <>
+          <Link2 size={12} className="text-slate-400 flex-shrink-0 mr-0.5" />
           <input
-            autoFocus
+            ref={inputRef}
             type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); onLinkApply() }
-              if (e.key === 'Escape') onLinkClose()
+              if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+              if (e.key === 'Escape') { setMode('hidden'); editor.commands.focus() }
             }}
-            placeholder="https://example.com"
-            className="text-xs border border-slate-200 rounded px-2 py-1 w-56 focus:outline-none focus:ring-1 focus:ring-slate-300"
+            placeholder="Paste link"
+            className="text-xs border border-slate-200 rounded px-2 py-1 w-44 focus:outline-none focus:ring-1 focus:ring-slate-300"
           />
           <button
             type="button"
-            onMouseDown={(e) => { e.preventDefault(); onLinkApply() }}
-            className="px-2.5 py-1 text-xs bg-slate-900 text-white rounded hover:bg-slate-700 transition-colors"
+            onMouseDown={(e) => { e.preventDefault(); applyLink() }}
+            className="ml-0.5 px-2 py-1 bg-slate-900 text-white rounded hover:bg-slate-700 transition-colors text-xs"
           >
             Apply
           </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); onLinkClose() }}
-            className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-          >
-            Cancel
-          </button>
-          {isLinkActive && (
+          {(isLink || !!inputUrl) && (
             <button
               type="button"
               title="Remove link"
-              onMouseDown={(e) => { e.preventDefault(); onLinkRemove() }}
-              className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+              onMouseDown={(e) => { e.preventDefault(); removeLink() }}
+              className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 transition-colors"
             >
-              <Link2Off size={13} />
+              <Link2Off size={12} />
             </button>
           )}
-          </div>
-        </div>
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); setMode('hidden'); editor.commands.focus() }}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-100 transition-colors"
+          >
+            ✕
+          </button>
+        </>
+      ) : showLinkView ? (
+        <>
+          <Link2 size={12} className="text-blue-500 flex-shrink-0" />
+          <span className="text-slate-600 max-w-[160px] truncate mx-1">{displayHref}</span>
+          <div className="w-px h-3.5 bg-slate-200 mx-0.5" />
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); enterInput() }}
+            className="px-1.5 py-0.5 text-slate-600 hover:text-slate-900 rounded hover:bg-slate-100 transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            title="Remove link"
+            onMouseDown={(e) => { e.preventDefault(); removeLink() }}
+            className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 transition-colors"
+          >
+            <Link2Off size={12} />
+          </button>
+        </>
+      ) : showFormatBar ? (
+        <>
+          {fmtBtn(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
+          {fmtBtn(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
+          {fmtBtn(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
+          {fmtBtn(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
+          <div className="w-px h-3.5 bg-slate-200 mx-0.5" />
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); enterInput() }}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${
+              isLink ? 'bg-slate-200 text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <Link2 size={12} />
+            Link
+          </button>
+        </>
+      ) : (
+        // Fallback: plain link button (empty selection, no active link — shouldn't normally show)
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); enterInput() }}
+          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 px-1 py-0.5 rounded hover:bg-slate-100 transition-colors"
+        >
+          <Link2 size={12} />
+          Link
+        </button>
       )}
     </div>
   )

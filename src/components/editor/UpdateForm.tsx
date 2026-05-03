@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { UpdateCardPreview } from '@/components/editor/UpdateCardPreview'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ImagePlus, X, Clock, ChevronDown, Check } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -184,6 +185,26 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const isDirty = useRef(false)
+  const mounted = useRef(false)
+  const [leaveModal, setLeaveModal] = useState(false)
+
+  useEffect(() => {
+    if (mounted.current) isDirty.current = true
+    else mounted.current = true
+  }, [title, summary, domainIds, productIds, tagIds, date, publishState, scheduledAt, progressUpdates, nextSteps, learningPoints, media])
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (isDirty.current) e.preventDefault() }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
+  function handleCancel() {
+    if (isDirty.current) setLeaveModal(true)
+    else router.push('/editor')
+  }
+
   const availableProducts = domainIds.length > 0
     ? domainGroups.filter((g) => domainIds.includes(g._id)).flatMap((g) => g.products)
     : domainGroups.flatMap((g) => g.products)
@@ -273,6 +294,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         return
       }
 
+      isDirty.current = false
       router.push('/editor')
       router.refresh()
     } catch {
@@ -517,7 +539,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.push('/editor')}
+          onClick={handleCancel}
           className="h-10 px-4 text-slate-600"
         >
           Cancel
@@ -543,6 +565,16 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         </div>
 
       </div>{/* end grid */}
+      <ConfirmDialog
+        open={leaveModal}
+        title="Unsaved changes"
+        message="You have unsaved changes. If you leave now, your changes will be lost."
+        confirmLabel="Discard changes"
+        cancelLabel="Continue editing"
+        variant="danger"
+        onConfirm={() => { isDirty.current = false; router.push('/editor') }}
+        onCancel={() => setLeaveModal(false)}
+      />
     </form>
   )
 }

@@ -27,6 +27,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (body.domainId !== undefined) updateData.domainId = body.domainId || null
   if (body.websiteUrl !== undefined) updateData.websiteUrl = body.websiteUrl || null
   if (body.deckUrl !== undefined) updateData.deckUrl = body.deckUrl || null
+  if (body.contactUsUrl !== undefined) updateData.contactUsUrl = body.contactUsUrl || null
   if (body.logoUrl !== undefined) updateData.logoUrl = body.logoUrl || null
   if (body.members !== undefined) updateData.members = Array.isArray(body.members) ? body.members : []
   // New fields
@@ -48,6 +49,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  return NextResponse.json(product)
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  await connectDB()
+  const body = await req.json()
+  const updateData: Record<string, unknown> = {}
+  if (body.isHidden !== undefined) updateData.isHidden = body.isHidden
+
+  const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
+  if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(product)
 }
 

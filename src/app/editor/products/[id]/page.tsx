@@ -54,6 +54,7 @@ export default async function EditProductPage({ params }: Props) {
     uiScreenshot: p.uiScreenshot || '',
     websiteUrl: p.websiteUrl || '',
     deckUrl: p.deckUrl || '',
+    contactUsUrl: (p as typeof p & { contactUsUrl?: string }).contactUsUrl || '',
     productManagers: p.productManagers || [],
     developers: p.developers || [],
     overviewContent: p.overviewContent || '',
@@ -83,7 +84,7 @@ export default async function EditProductPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="px-6 py-10 max-w-3xl mx-auto">
+      <main className="px-6 py-10">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-8">
           <Link href="/editor?tab=products" className="hover:text-slate-600 transition-colors">Products</Link>
@@ -91,7 +92,7 @@ export default async function EditProductPage({ params }: Props) {
           <span className="text-slate-600">{p.name}</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
-        <ProductDetailForm productId={p._id.toString()} defaultValues={defaultValues} whitelistedUsers={serializedWhitelistedUsers} />
+        <ProductDetailForm productId={p._id.toString()} productSlug={p.slug} defaultValues={defaultValues} whitelistedUsers={serializedWhitelistedUsers} />
       </main>
     </div>
   )
