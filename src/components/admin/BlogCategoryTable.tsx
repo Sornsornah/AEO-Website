@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -139,9 +139,8 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
         </thead>
         <tbody>
           {categories.map((cat, i) => (
-            <>
+            <Fragment key={cat._id}>
               <tr
-                key={cat._id}
                 className={`${i < categories.length - 1 || editingId === cat._id ? 'border-b border-slate-100' : ''} ${editingId === cat._id ? 'bg-slate-50/60' : 'hover:bg-slate-50/50'}`}
               >
                 <td className="px-4 py-3">
@@ -173,7 +172,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
                 </td>
               </tr>
               {editingId === cat._id && (
-                <tr key={`${cat._id}-edit`} className="border-b border-slate-100 bg-slate-50/60">
+                <tr className="border-b border-slate-100 bg-slate-50/60">
                   <td colSpan={4} className="px-4 py-4">
                     <div className="grid grid-cols-2 gap-4 max-w-xl">
                       <div className="space-y-1">
@@ -199,7 +198,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
                   </td>
                 </tr>
               )}
-            </>
+            </Fragment>
           ))}
         </tbody>
       </table>
