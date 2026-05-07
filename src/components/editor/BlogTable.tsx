@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format } from 'date-fns'
 import { Pencil, Trash2, Star, Heart } from 'lucide-react'
-import { CATEGORY_LABELS, CATEGORY_BADGE_COLORS } from '@/components/blog/blogUtils'
+import { getCategoryDisplay, hexToBadgeStyle, type CategoriesMap } from '@/components/blog/blogUtils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { BlogCategory } from '@/models/BlogPost'
 
@@ -22,7 +22,10 @@ interface BlogRow {
   likeCount: number
 }
 
-export function BlogTable({ posts }: { posts: BlogRow[] }) {
+export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories: { slug: string; name: string; color: string }[] }) {
+  const categoriesMap: CategoriesMap = Object.fromEntries(
+    categories.map((c) => [c.slug, { name: c.name, color: c.color }])
+  )
   const router = useRouter()
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
   const [featuringSlug, setFeaturingSlug] = useState<string | null>(null)
@@ -86,9 +89,14 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
                 </Link>
               </td>
               <td className="px-4 py-3">
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${CATEGORY_BADGE_COLORS[post.category]}`}>
-                  {CATEGORY_LABELS[post.category]}
-                </span>
+                {(() => {
+                  const { name, color } = getCategoryDisplay(post.category, categoriesMap)
+                  return (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={hexToBadgeStyle(color)}>
+                      {name}
+                    </span>
+                  )
+                })()}
               </td>
               <td className="px-4 py-3 text-slate-500 hidden md:table-cell">{post.authorName}</td>
               <td className="px-4 py-3 text-slate-400 text-xs hidden lg:table-cell">
@@ -112,28 +120,18 @@ export function BlogTable({ posts }: { posts: BlogRow[] }) {
                 </span>
               </td>
               <td className="px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleFeature(post.slug)}
-                    disabled={featuringSlug === post.slug}
-                    title={post.isFeatured ? 'Unfeature' : 'Set as featured'}
-                    className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                      post.isFeatured
-                        ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
-                        : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
-                    }`}
-                  >
-                    <Star className={`w-4 h-4 ${post.isFeatured ? 'fill-amber-400' : ''}`} />
-                  </button>
-                  {post.isFeatured && post.featuredUntil && (
-                    <span
-                      className="text-[10px] text-amber-600 leading-tight"
-                      title={`Until ${format(new Date(post.featuredUntil), 'MMM d, yyyy h:mm a')}`}
-                    >
-                      ends {formatDistanceToNow(new Date(post.featuredUntil), { addSuffix: true })}
-                    </span>
-                  )}
-                </div>
+                <button
+                  onClick={() => handleFeature(post.slug)}
+                  disabled={featuringSlug === post.slug}
+                  title={post.isFeatured ? 'Unfeature' : 'Set as featured'}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    post.isFeatured
+                      ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                      : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50'
+                  }`}
+                >
+                  <Star className={`w-4 h-4 ${post.isFeatured ? 'fill-amber-400' : ''}`} />
+                </button>
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1 justify-end">

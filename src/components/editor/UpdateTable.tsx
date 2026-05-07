@@ -15,7 +15,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Pencil, Trash2 } from 'lucide-react'
-import { format } from 'date-fns'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface Product {
@@ -118,10 +117,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                 {formatMonthYear(update.date)}
               </TableCell>
               <TableCell>
-                <div>
-                  <p className="text-sm font-medium text-slate-900 line-clamp-1">{update.title}</p>
-                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{update.summary}</p>
-                </div>
+                <p className="text-sm font-medium text-slate-900 line-clamp-1">{update.title}</p>
               </TableCell>
               <TableCell>
                 {update.domainNames.length > 0 ? (
@@ -154,26 +150,14 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                 {update.isPublished ? (
                   <Badge className="bg-green-50 text-green-700 border-green-100 text-xs hover:bg-green-50">Published</Badge>
                 ) : update.scheduledAt ? (
-                  <div>
-                    <Badge className="bg-amber-50 text-amber-700 border-amber-100 text-xs hover:bg-amber-50 whitespace-nowrap">Scheduled</Badge>
-                    <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
-                      {format(new Date(update.scheduledAt), 'MMM d, h:mm a')}
-                    </p>
-                  </div>
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-100 text-xs hover:bg-amber-50 whitespace-nowrap">Scheduled</Badge>
                 ) : (
                   <Badge variant="secondary" className="text-xs">Draft</Badge>
                 )}
               </TableCell>
               <TableCell>
                 {update.lastUpdatedBy ? (
-                  <div>
-                    <p className="text-xs text-slate-700 font-medium">{update.lastUpdatedBy}</p>
-                    {update.updatedAt && (
-                      <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">
-                        {format(new Date(update.updatedAt), 'MMM d, yyyy')}
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-xs text-slate-700 font-medium">{update.lastUpdatedBy}</p>
                 ) : (
                   <span className="text-slate-300">—</span>
                 )}

@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ImagePlus, X, Plus, Trash2, FileEdit } from 'lucide-react'
+import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ProductDetailClient } from '@/components/products/ProductDetailClient'
@@ -17,16 +18,14 @@ interface TeamMember { name: string; email: string }
 interface HighlightStat { value: string; label: string }
 interface UseCase { title: string; content: string; image: string; functionTag: string; isDraft: boolean }
 interface ProductUpdate { title: string; content: string; date: string; isDraft: boolean }
-interface WhitelistedUser { _id: string; name: string; email: string }
 
-type Tab = 'card' | 'overview' | 'usecases' | 'content' | 'team'
+type Tab = 'card' | 'overview' | 'usecases' | 'content'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'card', label: 'Card information' },
   { id: 'overview', label: 'Overview' },
   { id: 'usecases', label: 'Use cases' },
   { id: 'content', label: 'Updates' },
-  { id: 'team', label: 'Team' },
 ]
 
 interface ProductDetailFormProps {
@@ -49,9 +48,7 @@ interface ProductDetailFormProps {
     highlightStats: HighlightStat[]
     useCases: UseCase[]
     productUpdates: ProductUpdate[]
-    memberIds: string[]
   }
-  whitelistedUsers: WhitelistedUser[]
 }
 
 const PRESET_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6']
@@ -80,117 +77,12 @@ function RepeatableRow({ children, onRemove }: { children: React.ReactNode; onRe
   )
 }
 
-function TeamTab({
-  whitelistedUsers,
-  memberIds,
-  setMemberIds,
-}: {
-  whitelistedUsers: WhitelistedUser[]
-  memberIds: string[]
-  setMemberIds: React.Dispatch<React.SetStateAction<string[]>>
-}) {
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [])
-
-  const members = whitelistedUsers.filter((u) => memberIds.includes(u._id))
-  const nonMembers = whitelistedUsers.filter((u) => !memberIds.includes(u._id))
-
-  const filtered = query.trim()
-    ? nonMembers.filter(
-        (u) =>
-          u.name.toLowerCase().includes(query.toLowerCase()) ||
-          u.email.toLowerCase().includes(query.toLowerCase())
-      )
-    : nonMembers
-
-  return (
-    <div className="space-y-4">
-      <p className="text-xs text-slate-400 -mt-2">Team members are notified when a comment is posted on an update linked to this product.</p>
-
-      {/* Search + dropdown */}
-      <div ref={containerRef} className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search users to add…"
-          className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300"
-        />
-        {open && filtered.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-            {filtered.map((u) => (
-              <button
-                key={u._id}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setMemberIds((prev) => [...prev, u._id])
-                  setQuery('')
-                  setOpen(false)
-                }}
-                className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-slate-50 text-left transition-colors"
-              >
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-slate-500">
-                  {u.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{u.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{u.email}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-        {open && query.trim() !== '' && filtered.length === 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg px-4 py-3 text-sm text-slate-400">
-            No users found.
-          </div>
-        )}
-      </div>
-
-      {/* Current members */}
-      {members.length > 0 ? (
-        <div className="space-y-2">
-          {members.map((u) => (
-            <div key={u._id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-xl bg-white">
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-xs font-semibold text-blue-700">
-                {u.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{u.name}</p>
-                <p className="text-xs text-slate-400 truncate">{u.email}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMemberIds((prev) => prev.filter((id) => id !== u._id))}
-                className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
-                aria-label={`Remove ${u.name}`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-slate-400 text-sm py-6 text-center">No team members added yet.</p>
-      )}
-    </div>
-  )
+// Normalize Tiptap's empty-paragraph output so an untouched editor isn't dirty
+function normHtml(s: string) {
+  return (!s || s === '<p></p>' || s === '<p><br class="ProseMirror-trailingBreak"></p>') ? '' : s
 }
 
-export function ProductDetailForm({ productId, productSlug, defaultValues, whitelistedUsers }: ProductDetailFormProps) {
+export function ProductDetailForm({ productId, productSlug, defaultValues }: ProductDetailFormProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('card')
 
@@ -210,30 +102,57 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
   const [highlightStats, setHighlightStats] = useState<HighlightStat[]>(defaultValues.highlightStats)
   const [useCases, setUseCases] = useState<UseCase[]>(defaultValues.useCases)
   const [productUpdates, setProductUpdates] = useState<ProductUpdate[]>(defaultValues.productUpdates)
-  const [memberIds, setMemberIds] = useState<string[]>(defaultValues.memberIds)
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showPublished, setShowPublished] = useState(false)
 
-  const isDirty = useRef(false)
-  const mounted = useRef(false)
-  const [leaveModal, setLeaveModal] = useState(false)
+  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ message: string; action: () => void } | null>(null)
 
-  useEffect(() => {
-    if (mounted.current) isDirty.current = true
-    else mounted.current = true
-  }, [name, description, shortDescription, status, color, logoUrl, uiScreenshot, websiteUrl, deckUrl, contactUsUrl, productManagers, developers, overviewContent, highlightStats, useCases, productUpdates, memberIds])
+  // --- Dirty detection via value comparison ---
+
+  function makeSnapshot(overrides?: { useCases?: UseCase[]; productUpdates?: ProductUpdate[] }): string {
+    return JSON.stringify({
+      name, description, shortDescription, status, color,
+      logoUrl: logoUrl || '',
+      uiScreenshot: uiScreenshot || '',
+      websiteUrl: websiteUrl || '',
+      deckUrl: deckUrl || '',
+      contactUsUrl: contactUsUrl || '',
+      productManagers, developers,
+      overviewContent: normHtml(overviewContent),
+      highlightStats,
+      useCases: overrides?.useCases ?? useCases,
+      productUpdates: overrides?.productUpdates ?? productUpdates,
+    })
+  }
+
+  // Baseline is captured from initial state (== defaultValues) on first render
+  const baseline = useRef<string>(makeSnapshot())
+
+  function isFormDirty(): boolean {
+    return makeSnapshot() !== baseline.current
+  }
+
+  // Keep a ref so event handlers (beforeunload, navigation guard) always read latest state
+  const isFormDirtyRef = useRef(isFormDirty)
+  isFormDirtyRef.current = isFormDirty
+
+  useNavigationGuard({
+    when: () => isFormDirtyRef.current(),
+    onBlock: (continueNav) => setPendingNav(() => continueNav),
+  })
 
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => { if (isDirty.current) e.preventDefault() }
+    const handler = (e: BeforeUnloadEvent) => { if (isFormDirtyRef.current()) e.preventDefault() }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
 
   function handleCancel() {
-    if (isDirty.current) setLeaveModal(true)
+    if (isFormDirty()) setPendingNav(() => () => router.push('/editor?tab=products'))
     else router.push('/editor?tab=products')
   }
 
@@ -248,15 +167,18 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
     setActiveUcIndex(-1)
     setUcDraft({ title: '', content: '', image: '', functionTag: '', isDraft: false })
   }
-  function saveUcAccordion() {
+  async function saveUcAccordion(isDraft: boolean) {
     if (!ucDraft) return
-    if (activeUcIndex === -1) {
-      setUseCases((prev) => [...prev, ucDraft])
-    } else if (activeUcIndex !== null) {
-      setUseCases((prev) => prev.map((uc, i) => i === activeUcIndex ? ucDraft : uc))
+    const entry = { ...ucDraft, isDraft }
+    const next = activeUcIndex === -1
+      ? [...useCases, entry]
+      : useCases.map((uc, i) => i === activeUcIndex ? entry : uc)
+    setUseCases(next)
+    const ok = await submitForm({ useCases: next })
+    if (ok) {
+      setActiveUcIndex(null)
+      setUcDraft(null)
     }
-    setActiveUcIndex(null)
-    setUcDraft(null)
   }
 
   // Accordion state for product updates
@@ -270,15 +192,18 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
     setActivePuIndex(-1)
     setPuDraft({ title: '', content: '', date: '', isDraft: false })
   }
-  function savePuAccordion() {
+  async function savePuAccordion(isDraft: boolean) {
     if (!puDraft) return
-    if (activePuIndex === -1) {
-      setProductUpdates((prev) => [...prev, puDraft])
-    } else if (activePuIndex !== null) {
-      setProductUpdates((prev) => prev.map((u, i) => i === activePuIndex ? puDraft : u))
+    const entry = { ...puDraft, isDraft }
+    const next = activePuIndex === -1
+      ? [...productUpdates, entry]
+      : productUpdates.map((u, i) => i === activePuIndex ? entry : u)
+    setProductUpdates(next)
+    const ok = await submitForm({ productUpdates: next })
+    if (ok) {
+      setActivePuIndex(null)
+      setPuDraft(null)
     }
-    setActivePuIndex(null)
-    setPuDraft(null)
   }
 
   async function uploadFile(file: File, field: string): Promise<string> {
@@ -308,8 +233,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
     e.target.value = ''
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitForm(overrides?: { useCases?: UseCase[]; productUpdates?: ProductUpdate[] }): Promise<boolean> {
     setError('')
     setLoading(true)
     try {
@@ -321,22 +245,36 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
           logoUrl: logoUrl || null, uiScreenshot: uiScreenshot || null,
           websiteUrl: websiteUrl || null, deckUrl: deckUrl || null, contactUsUrl: contactUsUrl || null,
           productManagers, developers,
-          overviewContent, highlightStats, useCases, productUpdates,
-          members: memberIds,
+          overviewContent, highlightStats,
+          useCases: overrides?.useCases ?? useCases,
+          productUpdates: overrides?.productUpdates ?? productUpdates,
         }),
       })
       if (!res.ok) {
         const data = await res.json()
         setError(data.error || 'Failed to save')
-        return
+        return false
       }
-      isDirty.current = false
-      router.push('/editor?tab=products')
+      baseline.current = makeSnapshot(overrides)
       router.refresh()
+      setShowPublished(true)
+      setTimeout(() => setShowPublished(false), 3000)
+      return true
     } catch {
       setError('An unexpected error occurred.')
+      return false
     } finally {
       setLoading(false)
+    }
+  }
+
+  function handleTabClick(tabId: Tab) {
+    if (tabId === activeTab) return
+    const leavingGuarded = activeTab === 'card' || activeTab === 'overview'
+    if (leavingGuarded && isFormDirty()) {
+      setPendingNav(() => () => setActiveTab(tabId))
+    } else {
+      setActiveTab(tabId)
     }
   }
 
@@ -383,16 +321,16 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-8 items-start">
+    <form onSubmit={(e) => e.preventDefault()} className="flex gap-8 items-start">
       {/* ── Left: editor ── */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pb-8">
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabClick(tab.id)}
             className={cn(
               'px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
               activeTab === tab.id
@@ -527,6 +465,17 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
             />
           </div>
+
+          {/* Inline save row */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            {error && <p className="text-sm text-red-600 mr-auto">{error}</p>}
+            <Button type="button" variant="ghost" onClick={handleCancel} className="h-9 px-4 text-slate-600">
+              Cancel
+            </Button>
+            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-5">
+              {loading ? 'Publishing...' : 'Publish changes'}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -635,12 +584,24 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
               </div>
             </div>
           </section>
+
+          {/* Inline save row */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            {error && <p className="text-sm text-red-600 mr-auto">{error}</p>}
+            <Button type="button" variant="ghost" onClick={handleCancel} className="h-9 px-4 text-slate-600">
+              Cancel
+            </Button>
+            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-5">
+              {loading ? 'Publishing...' : 'Publish changes'}
+            </Button>
+          </div>
         </div>
       )}
 
       {/* ── Use cases ── */}
       {activeTab === 'usecases' && (
         <div className="space-y-2">
+          {error && <p className="text-sm text-red-600">{error}</p>}
           {useCases.map((uc, i) => (
             <div key={i} className={cn('border rounded-xl bg-white overflow-hidden', activeUcIndex === i ? 'border-slate-400' : uc.isDraft ? 'border-amber-200' : 'border-slate-200')}>
               {/* Collapsed header */}
@@ -706,14 +667,14 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
                       </label>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <button type="button" onClick={() => setUcDraft((d) => d && ({ ...d, isDraft: !d.isDraft }))} className={cn('text-xs font-medium px-3 py-1.5 rounded-lg transition-colors', ucDraft.isDraft ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100')}>
-                      {ucDraft.isDraft ? 'Publish' : 'Save as draft'}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+                    <button type="button" disabled={loading} onClick={() => saveUcAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
+                      {loading ? 'Saving…' : 'Save as draft'}
                     </button>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
-                      <button type="button" onClick={saveUcAccordion} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors">Save</button>
-                    </div>
+                    <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                      {loading ? 'Saving…' : 'Publish'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -767,14 +728,14 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
                     </label>
                   )}
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                  <button type="button" onClick={() => setUcDraft((d) => d && ({ ...d, isDraft: !d.isDraft }))} className={cn('text-xs font-medium px-3 py-1.5 rounded-lg transition-colors', ucDraft.isDraft ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100')}>
-                    {ucDraft.isDraft ? 'Publish' : 'Save as draft'}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                  <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+                  <button type="button" disabled={loading} onClick={() => saveUcAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
+                    {loading ? 'Saving…' : 'Save as draft'}
                   </button>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
-                    <button type="button" onClick={saveUcAccordion} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors">Save</button>
-                  </div>
+                  <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    {loading ? 'Saving…' : 'Publish'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -789,6 +750,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
       {/* ── Updates ── */}
       {activeTab === 'content' && (
         <div className="space-y-2">
+          {error && <p className="text-sm text-red-600">{error}</p>}
           {productUpdates.map((u, i) => (
             <div key={i} className={cn('border rounded-xl bg-white overflow-hidden', activePuIndex === i ? 'border-slate-400' : u.isDraft ? 'border-amber-200' : 'border-slate-200')}>
               {/* Collapsed header */}
@@ -821,14 +783,14 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
                     <Label className="text-xs font-medium text-slate-500">Content</Label>
                     <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this update..." minHeight="160px" />
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                    <button type="button" onClick={() => setPuDraft((d) => d && ({ ...d, isDraft: !d.isDraft }))} className={cn('text-xs font-medium px-3 py-1.5 rounded-lg transition-colors', puDraft.isDraft ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100')}>
-                      {puDraft.isDraft ? 'Publish' : 'Save as draft'}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+                    <button type="button" disabled={loading} onClick={() => savePuAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
+                      {loading ? 'Saving…' : 'Save as draft'}
                     </button>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
-                      <button type="button" onClick={savePuAccordion} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors">Save</button>
-                    </div>
+                    <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                      {loading ? 'Saving…' : 'Publish'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -850,14 +812,14 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
                   <Label className="text-xs font-medium text-slate-500">Content</Label>
                   <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this update..." minHeight="160px" />
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                  <button type="button" onClick={() => setPuDraft((d) => d && ({ ...d, isDraft: !d.isDraft }))} className={cn('text-xs font-medium px-3 py-1.5 rounded-lg transition-colors', puDraft.isDraft ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100')}>
-                    {puDraft.isDraft ? 'Publish' : 'Save as draft'}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                  <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+                  <button type="button" disabled={loading} onClick={() => savePuAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
+                    {loading ? 'Saving…' : 'Save as draft'}
                   </button>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
-                    <button type="button" onClick={savePuAccordion} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors">Save</button>
-                  </div>
+                  <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    {loading ? 'Saving…' : 'Publish'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -869,27 +831,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
         </div>
       )}
 
-      {/* ── Team ── */}
-      {activeTab === 'team' && (
-        <TeamTab
-          whitelistedUsers={whitelistedUsers}
-          memberIds={memberIds}
-          setMemberIds={setMemberIds}
-        />
-      )}
-
-      {error && (
-        <p className="mt-8 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">{error}</p>
-      )}
-
-      <div className="flex gap-3 pt-8 pb-10">
-        <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-6">
-          {loading ? 'Saving...' : 'Save changes'}
-        </Button>
-        <Button type="button" variant="ghost" onClick={handleCancel} className="h-10 px-4 text-slate-600">
-          Cancel
-        </Button>
-      </div>
       </div>{/* end left column */}
 
       {/* ── Right: live preview ── */}
@@ -915,16 +856,32 @@ export function ProductDetailForm({ productId, productSlug, defaultValues, white
           )}
         </div>
       </div>
+
+      {/* Unsaved changes — three-way modal (card/overview tab switches and leave-page) */}
       <ConfirmDialog
-        open={leaveModal}
+        open={!!pendingNav}
         title="Unsaved changes"
-        message="You have unsaved changes. If you leave now, your changes will be lost."
-        confirmLabel="Discard changes"
-        cancelLabel="Continue editing"
-        variant="danger"
-        onConfirm={() => { isDirty.current = false; router.push('/editor?tab=products') }}
-        onCancel={() => setLeaveModal(false)}
+        message="You have unsaved changes. Save before continuing or discard them."
+        confirmLabel="Publish and continue"
+        tertiaryLabel="Discard changes"
+        cancelLabel="Stay here"
+        onConfirm={async () => {
+          const nav = pendingNav!
+          setPendingNav(null)
+          const ok = await submitForm()
+          if (ok) nav()
+        }}
+        onTertiary={() => { const nav = pendingNav!; setPendingNav(null); nav() }}
+        onCancel={() => setPendingNav(null)}
       />
+      {/* Published toast */}
+      {showPublished && (
+        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          Changes published
+        </div>
+      )}
+
       <ConfirmDialog
         open={!!deleteConfirm}
         title="Are you sure?"

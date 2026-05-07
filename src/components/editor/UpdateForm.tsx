@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MarkdownEditor } from '@/components/editor/MarkdownEditor'
 import { UpdateCardPreview } from '@/components/editor/UpdateCardPreview'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { ImagePlus, X, Clock, ChevronDown, Check } from 'lucide-react'
+import { Clock, ChevronDown, Check } from 'lucide-react'
+import { TiptapEditor } from '@/components/editor/TiptapEditor'
 import { format } from 'date-fns'
 
 const SGT_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -147,7 +149,6 @@ interface UpdateFormProps {
     progressUpdates?: string
     nextSteps?: string
     learningPoints?: string
-    media?: string[]
   }
 }
 
@@ -180,19 +181,18 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
   const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? '')
   const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? '')
   const [learningPoints, setLearningPoints] = useState<string>(defaultValues.learningPoints ?? '')
-  const [media, setMedia] = useState<string[]>(defaultValues.media || [])
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [saved, setSaved] = useState(false)
 
   const isDirty = useRef(false)
   const mounted = useRef(false)
-  const [leaveModal, setLeaveModal] = useState(false)
+  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null)
 
   useEffect(() => {
     if (mounted.current) isDirty.current = true
     else mounted.current = true
-  }, [title, summary, domainIds, productIds, tagIds, date, publishState, scheduledAt, progressUpdates, nextSteps, learningPoints, media])
+  }, [title, summary, domainIds, productIds, tagIds, date, publishState, scheduledAt, progressUpdates, nextSteps, learningPoints])
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => { if (isDirty.current) e.preventDefault() }
@@ -200,8 +200,13 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
 
+  useNavigationGuard({
+    when: () => isDirty.current,
+    onBlock: (continueNav) => setPendingNav(() => continueNav),
+  })
+
   function handleCancel() {
-    if (isDirty.current) setLeaveModal(true)
+    if (isDirty.current) setPendingNav(() => () => router.push('/editor'))
     else router.push('/editor')
   }
 
@@ -209,58 +214,25 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     ? domainGroups.filter((g) => domainIds.includes(g._id)).flatMap((g) => g.products)
     : domainGroups.flatMap((g) => g.products)
 
-  function isVideo(url: string) {
-    return /\.(mp4|webm|mov)$/i.test(url)
-  }
-
-  async function handleMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setUploading(true)
-    try {
-      const urls = await Promise.all(
-        files.map(async (file) => {
-          const fd = new FormData()
-          fd.append('file', file)
-          const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-          if (!res.ok) throw new Error('Upload failed')
-          const data = await res.json()
-          return data.url as string
-        })
-      )
-      setMedia((prev) => [...prev, ...urls])
-    } catch {
-      setError('One or more files failed to upload.')
-    } finally {
-      setUploading(false)
-      e.target.value = ''
-    }
-  }
-
-  function removeMedia(index: number) {
-    setMedia((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitForm(): Promise<boolean> {
     setError('')
 
     if (!title || !date) {
       setError('Please fill in all required fields.')
-      return
+      return false
     }
     if (domainIds.length === 0) {
       setError('Please select at least one section.')
-      return
+      return false
     }
     const hasContent = (s: string) => s.split('\n').some(l => l.replace(/^(\d+\.|[-*•])\s*/, '').trim().length > 0)
     if (!hasContent(progressUpdates) && !hasContent(nextSteps) && !hasContent(learningPoints)) {
       setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
-      return
+      return false
     }
     if (publishState === 'schedule' && !scheduledAt) {
       setError('Please select a date and time for scheduled publishing.')
-      return
+      return false
     }
 
     setLoading(true)
@@ -282,7 +254,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           progressUpdates,
           nextSteps,
           learningPoints,
-          media,
           isPublished: publishState === 'publish',
           scheduledAt: publishState === 'schedule' ? sgtToUtcIso(scheduledAt) : null,
         }),
@@ -291,16 +262,27 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       if (!res.ok) {
         const data = await res.json()
         setError(data.error || 'Failed to save update')
-        return
+        return false
       }
 
       isDirty.current = false
-      router.push('/editor')
+      setSaved(true)
       router.refresh()
+      return true
     } catch {
       setError('An unexpected error occurred.')
+      return false
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const ok = await submitForm()
+    if (ok) {
+      await new Promise((r) => setTimeout(r, 900))
+      router.push('/editor')
     }
   }
 
@@ -401,16 +383,12 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
 
       {/* Additional Information */}
       <div className="space-y-1.5">
-        <Label htmlFor="summary" className="text-sm font-medium text-slate-700">
-          Additional Information
-        </Label>
-        <textarea
-          id="summary"
+        <Label className="text-sm font-medium text-slate-700">Additional Information</Label>
+        <TiptapEditor
           value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          placeholder="A short plain-text description shown in the feed..."
-          rows={2}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+          onChange={setSummary}
+          placeholder="Add any additional context, images, or links..."
+          limitedToolbar
         />
       </div>
 
@@ -433,46 +411,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         <Label className="text-sm font-medium text-slate-700">Learning Points</Label>
         <p className="text-xs text-slate-400">Insights and lessons from this period</p>
         <MarkdownEditor value={learningPoints} onChange={setLearningPoints} forceOrderedList />
-      </div>
-
-      {/* Photos & Videos */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-slate-700">Photos & Videos</Label>
-        <p className="text-xs text-slate-400">Attach images or videos to this update</p>
-        {media.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {media.map((url, i) => (
-              <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
-                {isVideo(url) ? (
-                  <video src={url} className="w-full h-full object-cover" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeMedia(i)}
-                  className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white"
-                  aria-label="Remove"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 hover:text-slate-700 cursor-pointer transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-          <input
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            className="hidden"
-            onChange={handleMediaUpload}
-            disabled={uploading}
-          />
-          <ImagePlus className="w-4 h-4" />
-          {uploading ? 'Uploading...' : 'Add photos or videos'}
-        </label>
       </div>
 
       {/* Publish control */}
@@ -531,10 +469,10 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       <div className="flex gap-3 pt-2">
         <Button
           type="submit"
-          disabled={loading}
+          disabled={loading || saved}
           className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-6"
         >
-          {loading ? 'Saving...' : mode === 'create' ? 'Create Update' : 'Save Changes'}
+          {loading ? 'Saving...' : saved ? 'Saved!' : mode === 'create' ? 'Create Update' : 'Save Changes'}
         </Button>
         <Button
           type="button"
@@ -557,7 +495,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
             progressUpdates={progressUpdates}
             nextSteps={nextSteps}
             learningPoints={learningPoints}
-            media={media}
             products={previewProducts}
             domains={previewDomains}
             tags={previewTags}
@@ -566,15 +503,22 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
 
       </div>{/* end grid */}
       <ConfirmDialog
-        open={leaveModal}
+        open={!!pendingNav}
         title="Unsaved changes"
-        message="You have unsaved changes. If you leave now, your changes will be lost."
-        confirmLabel="Discard changes"
-        cancelLabel="Continue editing"
-        variant="danger"
-        onConfirm={() => { isDirty.current = false; router.push('/editor') }}
-        onCancel={() => setLeaveModal(false)}
+        message="You have unsaved changes that haven't been saved yet."
+        confirmLabel="Keep editing"
+        cancelLabel="Cancel changes"
+        onConfirm={() => setPendingNav(null)}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); run() }}
       />
+      <div
+        className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${
+          saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+        }`}
+      >
+        <Check size={14} className="text-emerald-400 flex-shrink-0" />
+        {mode === 'create' ? 'Update created' : 'Changes saved'}
+      </div>
     </form>
   )
 }

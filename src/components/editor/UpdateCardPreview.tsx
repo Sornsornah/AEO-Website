@@ -14,14 +14,9 @@ interface UpdateCardPreviewProps {
   progressUpdates: string
   nextSteps: string
   learningPoints: string
-  media: string[]
   products: Product[]
   domains: { _id: string; name: string }[]
   tags: { _id: string; name: string }[]
-}
-
-function isVideo(url: string) {
-  return /\.(mp4|webm|mov)$/i.test(url)
 }
 
 const SECTIONS = [
@@ -36,7 +31,6 @@ export function UpdateCardPreview({
   progressUpdates,
   nextSteps,
   learningPoints,
-  media,
   products,
   domains,
   tags,
@@ -80,10 +74,11 @@ export function UpdateCardPreview({
         <h2 className="text-base font-semibold text-slate-900 mb-2 leading-snug">{title}</h2>
       )}
 
-      {summary && (
-        <div className="text-sm text-slate-500 leading-relaxed mb-3 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline">
-          <ReactMarkdown>{summary}</ReactMarkdown>
-        </div>
+      {summary && summary !== '<p></p>' && (
+        <div
+          className="text-sm text-slate-500 leading-relaxed mb-3 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline [&_u]:underline [&_s]:line-through"
+          dangerouslySetInnerHTML={{ __html: summary }}
+        />
       )}
 
       <div className="space-y-2 mb-3">
@@ -102,26 +97,6 @@ export function UpdateCardPreview({
           )
         })}
       </div>
-
-      {media.length > 0 && (
-        <div className="flex gap-1.5 mb-3 overflow-hidden">
-          {media.slice(0, 4).map((url, i) => (
-            <div key={i} className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100">
-              {isVideo(url) ? (
-                <video src={url} className="w-full h-full object-cover" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt="" className="w-full h-full object-cover" />
-              )}
-              {i === 3 && media.length > 4 && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs font-semibold">
-                  +{media.length - 4}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
         <span className="text-xs text-slate-400 italic">Preview — comments hidden</span>
