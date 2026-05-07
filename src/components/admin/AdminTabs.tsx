@@ -9,8 +9,9 @@ import { TagTable } from './TagTable'
 import { AddTagForm } from './AddTagForm'
 import { BlogCategoryTable } from './BlogCategoryTable'
 import { AddBlogCategoryForm } from './AddBlogCategoryForm'
+import { LogsTable, LogEntry } from './LogsTable'
 
-type Tab = 'users' | 'domains' | 'tags' | 'blog-categories'
+type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'logs'
 
 interface SerializedUser {
   _id: string
@@ -57,6 +58,8 @@ interface AdminTabsProps {
   tags: SerializedTag[]
   blogCategories: SerializedBlogCategory[]
   currentUserId: string
+  initialLogs: LogEntry[]
+  initialLogsTotal: number
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -64,9 +67,10 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'domains', label: 'Sections' },
   { id: 'tags', label: 'Update Tags' },
   { id: 'blog-categories', label: 'Blog Categories' },
+  { id: 'logs', label: 'Logs' },
 ]
 
-export function AdminTabs({ users, products, domains, tags, blogCategories, currentUserId }: AdminTabsProps) {
+export function AdminTabs({ users, products, domains, tags, blogCategories, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
@@ -138,6 +142,16 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, curr
             <AddBlogCategoryForm />
           </div>
           <BlogCategoryTable categories={blogCategories} />
+        </section>
+      )}
+
+      {tab === 'logs' && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-slate-900">Activity Log</h2>
+            <p className="text-xs text-slate-400 mt-0.5">All content changes made by admins — click a row to see the diff</p>
+          </div>
+          <LogsTable initialLogs={initialLogs} initialTotal={initialLogsTotal} />
         </section>
       )}
     </div>
