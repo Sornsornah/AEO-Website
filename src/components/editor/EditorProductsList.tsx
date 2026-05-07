@@ -3,7 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { GripVertical, X, Eye, EyeOff } from 'lucide-react'
+import { GripVertical, X, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface EditorProduct {
   _id: string
@@ -40,6 +41,8 @@ export function EditorProductsList({ initialProducts }: { initialProducts: Edito
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [toast, setToast] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     if (!toast) return
@@ -104,6 +107,21 @@ export function EditorProductsList({ initialProducts }: { initialProducts: Edito
       setCreateError('An unexpected error occurred.')
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+    setDeleteConfirm(null)
+    if (res.status === 409) {
+      const data = await res.json()
+      setDeleteError(data.error ?? 'Cannot delete this product.')
+      return
+    }
+    if (res.ok) {
+      setProducts((prev) => prev.filter((p) => p._id !== id))
+      setSaved((prev) => prev.filter((p) => p._id !== id))
+      router.refresh()
     }
   }
 
@@ -248,6 +266,13 @@ export function EditorProductsList({ initialProducts }: { initialProducts: Edito
             >
               {p.isHidden ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
+            <button
+              onClick={() => { setDeleteConfirm({ id: p._id, name: p.name }); setDeleteError('') }}
+              className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="Delete product"
+            >
+              <Trash2 size={16} />
+            </button>
             <Link
               href={`/editor/products/${p._id}`}
               className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
@@ -262,6 +287,21 @@ export function EditorProductsList({ initialProducts }: { initialProducts: Edito
         )}
       </div>
 
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete product?"
+        message={deleteConfirm ? `"${deleteConfirm.name}" will be permanently deleted. This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+      {deleteError && (
+        <div className="fixed bottom-6 right-6 z-50 bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg">
+          {deleteError}
+        </div>
+      )}
       <div
         className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${
           toast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
