@@ -18,6 +18,7 @@ import { ExternalArticlesTable } from '@/components/editor/ExternalArticlesTable
 import { Button } from '@/components/ui/button'
 import { BlogPost } from '@/models/BlogPost'
 import { ExternalArticle } from '@/models/ExternalArticle'
+import { BlogCategory } from '@/models/BlogCategory'
 
 const PAGE_SIZE = 20
 
@@ -60,7 +61,15 @@ export default async function EditorPage({ searchParams }: PageProps) {
   if (activeTab === 'blog') {
     const blogSubtab = searchParams.subtab === 'external' ? 'external' : 'posts'
 
-    const blogPosts = await BlogPost.find().sort({ publishedAt: -1 }).lean()
+    const [blogPosts, rawCategories] = await Promise.all([
+      BlogPost.find().sort({ publishedAt: -1 }).lean(),
+      BlogCategory.find().lean(),
+    ])
+    const serializedCategories = rawCategories.map((c) => ({
+      slug: c.slug,
+      name: c.name,
+      color: c.color,
+    }))
     const serializedPosts = blogPosts.map((p) => ({
       _id: p._id.toString(),
       slug: p.slug,
@@ -80,8 +89,8 @@ export default async function EditorPage({ searchParams }: PageProps) {
       title: a.title,
       description: a.description,
       url: a.url,
-      category: a.category,
       order: a.order,
+      isHidden: (a as { isHidden?: boolean }).isHidden ?? false,
     }))
 
     return (
@@ -90,13 +99,6 @@ export default async function EditorPage({ searchParams }: PageProps) {
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
-            {blogSubtab === 'posts' && (
-              <Link href="/editor/blog/new">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-                  + New Post
-                </Button>
-              </Link>
-            )}
           </div>
 
           {/* Main tabs */}
@@ -106,32 +108,41 @@ export default async function EditorPage({ searchParams }: PageProps) {
             <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Blog</Link>
           </div>
 
-          {/* Blog subtabs */}
-          <div className="flex items-center gap-1 mb-6">
-            <Link
-              href="/editor?tab=blog"
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                blogSubtab === 'posts'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              Posts
-            </Link>
-            <Link
-              href="/editor?tab=blog&subtab=external"
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                blogSubtab === 'external'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              Articles to Check Out
-            </Link>
+          {/* Blog subtabs + New Post button */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-1">
+              <Link
+                href="/editor?tab=blog"
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                  blogSubtab === 'posts'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                Posts
+              </Link>
+              <Link
+                href="/editor?tab=blog&subtab=external"
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                  blogSubtab === 'external'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                Articles to Check Out
+              </Link>
+            </div>
+            {blogSubtab === 'posts' && (
+              <Link href="/editor/blog/new">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                  + New Post
+                </Button>
+              </Link>
+            )}
           </div>
 
           {blogSubtab === 'posts' ? (
-            <BlogTable posts={serializedPosts} />
+            <BlogTable posts={serializedPosts} categories={serializedCategories} />
           ) : (
             <ExternalArticlesTable articles={serializedExternal} />
           )}
@@ -350,11 +361,6 @@ export default async function EditorPage({ searchParams }: PageProps) {
       <main className="px-6 py-10">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
-          <Link href="/editor/new">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-              + New Update
-            </Button>
-          </Link>
         </div>
 
         {/* Tab switcher */}
@@ -364,7 +370,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
           <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
         </div>
 
-        {/* Status sub-tabs */}
+        {/* Status sub-tabs + New Update button */}
         {(() => {
           const activeStatus = searchParams.status || 'all'
           const statusTabs = [
@@ -374,20 +380,27 @@ export default async function EditorPage({ searchParams }: PageProps) {
             { value: 'draft', label: 'Draft', href: '/editor?status=draft' },
           ]
           return (
-            <div className="flex items-center gap-1 mb-6">
-              {statusTabs.map((tab) => (
-                <Link
-                  key={tab.value}
-                  href={tab.href}
-                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                    activeStatus === tab.value
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  {tab.label}
-                </Link>
-              ))}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-1">
+                {statusTabs.map((tab) => (
+                  <Link
+                    key={tab.value}
+                    href={tab.href}
+                    className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                      activeStatus === tab.value
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </div>
+              <Link href="/editor/new">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                  + New Update
+                </Button>
+              </Link>
             </div>
           )
         })()}

@@ -78,7 +78,6 @@ export default async function EditUpdatePage({ params }: PageProps) {
     learningPoints: (update.learningPoints as string | string[] | undefined) instanceof Array
       ? (update.learningPoints as string[]).join('\n')
       : (update.learningPoints as string | undefined) || '',
-    media: (update.media as string[] | undefined) || [],
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +11,7 @@ import { TiptapEditor } from '@/components/editor/TiptapEditor'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getCategoryDisplay, hexToBadgeStyle, hexToGradient, getInitials, type CategoriesMap } from '@/components/blog/blogUtils'
 import type { BlogStatus } from '@/models/BlogPost'
-import { ImagePlus, X, Clock } from 'lucide-react'
+import { ImagePlus, X, Clock, Check } from 'lucide-react'
 
 type BlogCategory = string
 
@@ -87,6 +88,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
 
   const isDirty = useRef(false)
   const mounted = useRef(false)
-  const [leaveModal, setLeaveModal] = useState(false)
+  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null)
 
   useEffect(() => {
     if (mounted.current) isDirty.current = true
@@ -113,6 +115,11 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
+
+  useNavigationGuard({
+    when: () => isDirty.current,
+    onBlock: (continueNav) => setPendingNav(() => continueNav),
+  })
 
   // Write preview HTML on every change, preserving existing video DOM nodes so they don't glitch
   useEffect(() => {
@@ -130,7 +137,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
   }, [content])
 
   function handleCancel() {
-    if (isDirty.current) setLeaveModal(true)
+    if (isDirty.current) setPendingNav(() => () => router.push('/editor?tab=blog'))
     else router.push('/editor?tab=blog')
   }
 
@@ -149,13 +156,12 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitForm(): Promise<boolean> {
     setError('')
 
     if (!title.trim() || !excerpt.trim() || !authorName.trim()) {
       setError('Title, excerpt, and author are required.')
-      return
+      return false
     }
 
     setSaving(true)
@@ -196,15 +202,26 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
       if (!res.ok) {
         const data = await res.json()
         setError(data.error || 'Something went wrong.')
-        return
+        return false
       }
       isDirty.current = false
-      router.push('/editor?tab=blog')
+      setSaved(true)
       router.refresh()
+      return true
     } catch {
       setError('An unexpected error occurred.')
+      return false
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const ok = await submitForm()
+    if (ok) {
+      await new Promise((r) => setTimeout(r, 900))
+      router.push('/editor?tab=blog')
     }
   }
 
@@ -291,12 +308,6 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
                 const file = e.target.files?.[0]
                 if (file) handleImageUpload(file)
               }}
-            />
-            <Input
-              value={coverImage}
-              onChange={(e) => setCoverImage(e.target.value)}
-              placeholder="or paste image URL..."
-              className="h-8 text-xs"
             />
           </div>
 
@@ -435,10 +446,10 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
           <div className="flex gap-2 pt-1">
             <Button
               type="submit"
-              disabled={saving}
+              disabled={saving || saved}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm"
             >
-              {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Post'}
+              {saving ? 'Saving...' : saved ? 'Saved!' : isEdit ? 'Save Changes' : 'Create Post'}
             </Button>
             <Button
               type="button"
@@ -534,15 +545,22 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
       </div>
 
       <ConfirmDialog
-        open={leaveModal}
+        open={!!pendingNav}
         title="Unsaved changes"
-        message="You have unsaved changes. If you leave now, your changes will be lost."
-        confirmLabel="Discard changes"
-        cancelLabel="Continue editing"
-        variant="danger"
-        onConfirm={() => { isDirty.current = false; router.push('/editor?tab=blog') }}
-        onCancel={() => setLeaveModal(false)}
+        message="You have unsaved changes that haven't been saved yet."
+        confirmLabel="Keep editing"
+        cancelLabel="Cancel changes"
+        onConfirm={() => setPendingNav(null)}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); run() }}
       />
+      <div
+        className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${
+          saved ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+        }`}
+      >
+        <Check size={14} className="text-emerald-400 flex-shrink-0" />
+        {isEdit ? 'Changes saved' : 'Post created'}
+      </div>
     </form>
   )
 }

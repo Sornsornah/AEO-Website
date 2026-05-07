@@ -30,9 +30,10 @@ interface TiptapEditorProps {
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: string
+  limitedToolbar?: boolean
 }
 
-export function TiptapEditor({ value, onChange, placeholder = 'Start writing...', minHeight = '120px' }: TiptapEditorProps) {
+export function TiptapEditor({ value, onChange, placeholder = 'Start writing...', minHeight = '120px', limitedToolbar = false }: TiptapEditorProps) {
   const lastHtml = useRef(value)
 
   const editor = useEditor({
@@ -54,7 +55,7 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through [&_pre]:bg-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_blockquote]:italic [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0',
+        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through [&_pre]:bg-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_blockquote]:italic [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:[line-height:1.25] [&_li]:[line-height:1.25] [&_h1]:[line-height:1.25] [&_h2]:[line-height:1.25] [&_h3]:[line-height:1.25]',
         style: `min-height: ${minHeight}`,
       },
     },
@@ -69,7 +70,7 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
 
   return (
     <div className="rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-      <Toolbar editor={editor} />
+      <Toolbar editor={editor} limited={limitedToolbar} />
       <div className="border-t border-slate-100">
         <EditorContent editor={editor} />
       </div>
@@ -77,7 +78,7 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
   )
 }
 
-function Toolbar({ editor }: { editor: Editor | null }) {
+function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?: boolean }) {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
@@ -155,16 +156,20 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         {btn(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
         {btn(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
         {btn(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
-        <div className="w-px h-4 bg-slate-200 mx-1" />
-        {btn('H1', 'Heading 1', editor.isActive('heading', { level: 1 }), () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-        {btn('H2', 'Heading 2', editor.isActive('heading', { level: 2 }), () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-        {btn('H3', 'Heading 3', editor.isActive('heading', { level: 3 }), () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-        <div className="w-px h-4 bg-slate-200 mx-1" />
-        {btn('• List', 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
-        {btn('1. List', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
-        <div className="w-px h-4 bg-slate-200 mx-1" />
-        {btn(<Code size={12} />, 'Code block', editor.isActive('codeBlock'), () => editor.chain().focus().toggleCodeBlock().run())}
-        {btn(<Quote size={12} />, 'Blockquote', editor.isActive('blockquote'), () => editor.chain().focus().toggleBlockquote().run())}
+        {!limited && (
+          <>
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            {btn('H1', 'Heading 1', editor.isActive('heading', { level: 1 }), () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+            {btn('H2', 'Heading 2', editor.isActive('heading', { level: 2 }), () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+            {btn('H3', 'Heading 3', editor.isActive('heading', { level: 3 }), () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            {btn('• List', 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
+            {btn('1. List', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            {btn(<Code size={12} />, 'Code block', editor.isActive('codeBlock'), () => editor.chain().focus().toggleCodeBlock().run())}
+            {btn(<Quote size={12} />, 'Blockquote', editor.isActive('blockquote'), () => editor.chain().focus().toggleBlockquote().run())}
+          </>
+        )}
         <div className="w-px h-4 bg-slate-200 mx-1" />
         <button
           type="button"

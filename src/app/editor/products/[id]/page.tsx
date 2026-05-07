@@ -6,7 +6,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
-import { User } from '@/models/User'
 import { Navbar } from '@/components/layout/Navbar'
 import { ProductDetailForm } from '@/components/editor/ProductDetailForm'
 
@@ -20,10 +19,7 @@ export default async function EditProductPage({ params }: Props) {
 
   await connectDB()
 
-  const [product, whitelistedUsers] = await Promise.all([
-    Product.findById(params.id).lean(),
-    User.find({ isWhitelisted: true }).select('_id name email').sort({ name: 1 }).lean(),
-  ])
+  const product = await Product.findById(params.id).lean()
   if (!product) notFound()
 
   const p = product as typeof product & {
@@ -72,14 +68,7 @@ export default async function EditProductPage({ params }: Props) {
       date: u.date ? new Date(u.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       isDraft: u.isDraft || false,
     })),
-    memberIds: ((p.members || []) as unknown as { toString(): string }[]).map((id) => id.toString()),
   }
-
-  const serializedWhitelistedUsers = whitelistedUsers.map((u) => ({
-    _id: (u._id as { toString(): string }).toString(),
-    name: u.name as string,
-    email: u.email as string,
-  }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,7 +81,7 @@ export default async function EditProductPage({ params }: Props) {
           <span className="text-slate-600">{p.name}</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
-        <ProductDetailForm productId={p._id.toString()} productSlug={p.slug} defaultValues={defaultValues} whitelistedUsers={serializedWhitelistedUsers} />
+        <ProductDetailForm productId={p._id.toString()} productSlug={p.slug} defaultValues={defaultValues} />
       </main>
     </div>
   )

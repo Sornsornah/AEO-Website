@@ -8,9 +8,11 @@ interface ConfirmDialogProps {
   message: string
   confirmLabel?: string
   cancelLabel?: string
+  tertiaryLabel?: string
   variant?: 'danger' | 'default'
   onConfirm: () => void
   onCancel: () => void
+  onTertiary?: () => void
 }
 
 export function ConfirmDialog({
@@ -19,9 +21,11 @@ export function ConfirmDialog({
   message,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
+  tertiaryLabel,
   variant = 'default',
   onConfirm,
   onCancel,
+  onTertiary,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (!open) return
@@ -48,6 +52,15 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </button>
+          {tertiaryLabel && onTertiary && (
+            <button
+              type="button"
+              onClick={onTertiary}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              {tertiaryLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}
