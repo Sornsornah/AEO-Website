@@ -7,6 +7,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Update } from '@/models/Update'
 import { slugify } from '@/lib/utils'
+import { computeDiff, writeLog, serializeProductSnapshot } from '@/lib/activityLog'
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -14,6 +15,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+
+  const before = await Product.findById(params.id).lean()
+  if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const body = await req.json()
   const { name, description, color } = body
 
@@ -49,6 +54,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const changes = computeDiff('product', before as Record<string, unknown>, product.toObject())
+  if (changes.length > 0) {
+    await writeLog({
+      userId: session.user.id,
+      userName: session.user.name ?? session.user.email ?? 'Unknown',
+      action: 'update',
+      entityType: 'product',
+      entityId: params.id,
+      entityTitle: product.name,
+      changes,
+      beforeSnapshot: serializeProductSnapshot(before as Record<string, unknown>),
+      afterSnapshot: serializeProductSnapshot(product.toObject()),
+    })
+  }
+
   return NextResponse.json(product)
 }
 
@@ -58,12 +78,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+  const before = await Product.findById(params.id).lean()
+  if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const body = await req.json()
   const updateData: Record<string, unknown> = {}
   if (body.isHidden !== undefined) updateData.isHidden = body.isHidden
 
   const product = await Product.findByIdAndUpdate(params.id, updateData, { new: true })
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const changes = computeDiff('product', before as Record<string, unknown>, product.toObject())
+  if (changes.length > 0) {
+    await writeLog({
+      userId: session.user.id,
+      userName: session.user.name ?? session.user.email ?? 'Unknown',
+      action: 'update',
+      entityType: 'product',
+      entityId: params.id,
+      entityTitle: product.name,
+      changes,
+      beforeSnapshot: serializeProductSnapshot(before as Record<string, unknown>),
+      afterSnapshot: serializeProductSnapshot(product.toObject()),
+    })
+  }
+
   return NextResponse.json(product)
 }
 
@@ -74,6 +113,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   await connectDB()
 
+  const product = await Product.findById(params.id).lean()
+  if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const updateCount = await Update.countDocuments({ productId: params.id })
   if (updateCount > 0) {
     return NextResponse.json(
@@ -82,8 +124,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     )
   }
 
-  const product = await Product.findByIdAndDelete(params.id)
-  if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  await Product.findByIdAndDelete(params.id)
+
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'delete',
+    entityType: 'product',
+    entityId: params.id,
+    entityTitle: (product as Record<string, unknown>).name as string,
+    changes: [],
+    beforeSnapshot: serializeProductSnapshot(product as Record<string, unknown>),
+  })
 
   return NextResponse.json({ success: true })
 }

@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
+import { computeDiff, writeLog, TRACKED_FIELDS, serializeBlogSnapshot } from '@/lib/activityLog'
 
 function computeReadTime(content: string): number {
   const words = content.trim().split(/\s+/).filter(Boolean).length
@@ -58,6 +59,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   const body = await req.json()
   const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status, isFeatured, featuredUntil } = body
 
+  const beforeSnapshot: Record<string, unknown> = {}
+  for (const field of TRACKED_FIELDS['blog']) {
+    beforeSnapshot[field] = (post as unknown as Record<string, unknown>)[field]
+  }
+
   if (title !== undefined) post.title = title
   if (excerpt !== undefined) post.excerpt = excerpt
   if (content !== undefined) {
@@ -79,6 +85,22 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   }
 
   await post.save()
+
+  const changes = computeDiff('blog', beforeSnapshot, post.toObject())
+  if (changes.length > 0) {
+    await writeLog({
+      userId: session.user.id,
+      userName: session.user.name ?? session.user.email ?? 'Unknown',
+      action: 'update',
+      entityType: 'blog',
+      entityId: post._id.toString(),
+      entityTitle: post.title,
+      changes,
+      beforeSnapshot: serializeBlogSnapshot(beforeSnapshot as Record<string, unknown>),
+      afterSnapshot: serializeBlogSnapshot(post.toObject()),
+    })
+  }
+
   return NextResponse.json({ slug: post.slug })
 }
 
@@ -88,7 +110,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: { slug: st
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   await connectDB()
-  const result = await BlogPost.deleteOne({ slug: params.slug })
-  if (result.deletedCount === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const post = await BlogPost.findOne({ slug: params.slug }).lean()
+  if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  await BlogPost.deleteOne({ slug: params.slug })
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'delete',
+    entityType: 'blog',
+    entityId: (post as Record<string, unknown>)._id as string,
+    entityTitle: (post as Record<string, unknown>).title as string,
+    changes: [],
+    beforeSnapshot: serializeBlogSnapshot(post as Record<string, unknown>),
+  })
   return NextResponse.json({ ok: true })
 }

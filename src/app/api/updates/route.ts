@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
+import { computeDiff, writeLog, serializeUpdateSnapshot } from '@/lib/activityLog'
 
 const PAGE_SIZE = 20
 
@@ -102,5 +103,18 @@ export async function POST(req: NextRequest) {
   })
 
   const populated = await Update.findById(update._id).populate('productId').populate('productIds').lean()
+
+  const changes = computeDiff('update', null, update.toObject())
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'create',
+    entityType: 'update',
+    entityId: update._id.toString(),
+    entityTitle: title,
+    changes,
+    afterSnapshot: serializeUpdateSnapshot(update.toObject()),
+  })
+
   return NextResponse.json(populated, { status: 201 })
 }

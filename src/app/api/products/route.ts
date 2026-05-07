@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { slugify } from '@/lib/utils'
+import { computeDiff, writeLog, serializeProductSnapshot } from '@/lib/activityLog'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -40,5 +41,18 @@ export async function POST(req: NextRequest) {
     logoUrl: logoUrl || undefined,
     members: Array.isArray(members) ? members : [],
   })
+
+  const changes = computeDiff('product', null, product.toObject())
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'create',
+    entityType: 'product',
+    entityId: product._id.toString(),
+    entityTitle: product.name,
+    changes,
+    afterSnapshot: serializeProductSnapshot(product.toObject()),
+  })
+
   return NextResponse.json(product, { status: 201 })
 }
