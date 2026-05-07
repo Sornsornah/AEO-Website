@@ -66,9 +66,12 @@ export function UpdateCard({ update, isNew = false, showStatus = false, isSaved 
           {update.title}
         </h2>
 
-        <p className="text-sm text-slate-500 leading-6 mb-3">
-          {update.summary}
-        </p>
+        {update.summary && update.summary !== '<p></p>' && (
+          <div
+            className="text-sm text-slate-500 leading-6 mb-3 prose prose-sm prose-slate max-w-none [&_u]:underline [&_s]:line-through prose-a:text-blue-600 prose-a:underline prose-p:my-0 prose-img:my-1"
+            dangerouslySetInnerHTML={{ __html: update.summary }}
+          />
+        )}
 
         {update.highlights && update.highlights.length > 0 && (
           <ul className="space-y-1">

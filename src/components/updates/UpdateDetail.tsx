@@ -49,7 +49,12 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
         </div>
 
         <h1 className="text-2xl font-bold text-slate-900 mb-3">{update.title}</h1>
-        <p className="text-base text-slate-500 leading-7">{update.summary}</p>
+        {update.summary && update.summary !== '<p></p>' && (
+          <div
+            className="text-base text-slate-500 leading-7 prose prose-base prose-slate max-w-none [&_u]:underline [&_s]:line-through prose-a:text-blue-600 prose-a:underline"
+            dangerouslySetInnerHTML={{ __html: update.summary }}
+          />
+        )}
       </div>
 
       {update.media?.length > 0 && (
