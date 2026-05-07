@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { GripVertical, Pencil, Trash2, Check, X, Plus, ExternalLink } from 'lucide-react'
+import { GripVertical, Pencil, Trash2, Check, X, Plus, ExternalLink, Eye, EyeOff } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface ArticleRow {
@@ -11,12 +11,13 @@ interface ArticleRow {
   description: string
   url: string
   order: number
+  isHidden: boolean
 }
 
 const emptyForm = { title: '', description: '', url: '' }
 
 function isSnapshot(a: ArticleRow[], b: ArticleRow[]) {
-  return a.length === b.length && a.every((item, i) => item._id === b[i]._id)
+  return a.length === b.length && a.every((item, i) => item._id === b[i]._id && item.isHidden === b[i].isHidden)
 }
 
 export function ExternalArticlesTable({ articles: initial }: { articles: ArticleRow[] }) {
@@ -41,7 +42,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
     return () => clearTimeout(t)
   }, [toast])
 
-  async function handleSaveOrder() {
+  async function handleSaveFormatting() {
     setSaving(true)
     try {
       await fetch('/api/blog/external-articles/reorder', {
@@ -49,6 +50,19 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: articles.map((a) => a._id) }),
       })
+      const visibilityChanges = articles.filter((a) => {
+        const s = saved.find((x) => x._id === a._id)
+        return s && s.isHidden !== a.isHidden
+      })
+      await Promise.all(
+        visibilityChanges.map((a) =>
+          fetch(`/api/blog/external-articles/${a._id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isHidden: a.isHidden }),
+          })
+        )
+      )
       setSaved([...articles])
       setToast(true)
       router.refresh()
@@ -68,7 +82,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
       })
       if (res.ok) {
         const { _id } = await res.json()
-        const newArticle = { ...addForm, _id, order: 0 }
+        const newArticle = { ...addForm, _id, order: 0, isHidden: false }
         // Prepend so the newest appears at the top
         setArticles((prev) => [newArticle, ...prev])
         setSaved((prev) => [newArticle, ...prev])
@@ -113,6 +127,10 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
       setSaved((prev) => prev.filter((a) => a._id !== id))
       router.refresh()
     }
+  }
+
+  function handleToggleHidden(id: string, currentlyHidden: boolean) {
+    setArticles((prev) => prev.map((a) => a._id === id ? { ...a, isHidden: !currentlyHidden } : a))
   }
 
   // Drag-to-reorder (same pattern as EditorProductsList)
@@ -162,11 +180,11 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
     <div>
       <div className="flex items-center justify-end gap-3 mb-4">
         <button
-          onClick={handleSaveOrder}
+          onClick={handleSaveFormatting}
           disabled={!isDirty || saving}
           className="text-sm font-medium h-9 px-4 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-slate-300 text-slate-700 hover:bg-slate-50 enabled:hover:border-slate-400"
         >
-          {saving ? 'Saving…' : 'Save order'}
+          {saving ? 'Saving…' : 'Save formatting'}
         </button>
         <button
           onClick={() => { setShowAdd(true); setEditingId(null) }}
@@ -241,7 +259,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
             <div
               key={article._id}
               className={`flex items-start gap-3 p-4 border rounded-xl select-none transition-opacity duration-100 bg-white ${
-                draggingId === article._id ? 'opacity-40 border-blue-300' : 'border-slate-200'
+                draggingId === article._id ? 'opacity-40 border-blue-300' : article.isHidden ? 'opacity-50 border-slate-200' : 'border-slate-200'
               }`}
             >
               <button
@@ -315,6 +333,13 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
               {editingId !== article._id && (
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
+                    onClick={() => handleToggleHidden(article._id, article.isHidden)}
+                    className={`p-1.5 rounded-lg transition-colors ${article.isHidden ? 'text-slate-300 hover:text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+                    title={article.isHidden ? 'Show article' : 'Hide article'}
+                  >
+                    {article.isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
                     onClick={() => startEdit(article)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                     title="Edit"
@@ -352,7 +377,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
           toast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
         }`}
       >
-        Order saved
+        Formatting saved
       </div>
     </div>
   )
