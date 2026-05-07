@@ -110,9 +110,12 @@ export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }:
         <h2 className="text-base font-semibold text-slate-900 mb-2 leading-snug">
           {update.title}
         </h2>
-        <div className="text-sm text-slate-500 leading-relaxed mb-3 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline">
-          <ReactMarkdown>{update.summary}</ReactMarkdown>
-        </div>
+        {update.summary && update.summary !== '<p></p>' && (
+          <div
+            className="text-sm text-slate-500 leading-relaxed mb-3 prose prose-sm prose-slate max-w-none prose-a:text-blue-600 prose-a:underline [&_u]:underline [&_s]:line-through"
+            dangerouslySetInnerHTML={{ __html: update.summary }}
+          />
+        )}
 
         {/* Structured sections */}
         <div className="space-y-2 mb-3">

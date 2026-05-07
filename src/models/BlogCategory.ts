@@ -19,7 +19,5 @@ const BlogCategorySchema = new Schema<IBlogCategory>(
   { timestamps: true }
 )
 
-BlogCategorySchema.index({ slug: 1 })
-
 export const BlogCategory =
   mongoose.models.BlogCategory || mongoose.model<IBlogCategory>('BlogCategory', BlogCategorySchema)

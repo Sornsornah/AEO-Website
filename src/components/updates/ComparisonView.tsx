@@ -42,7 +42,7 @@ export function ComparisonView({ current, prev }: ComparisonViewProps) {
     : current.productId ? [current.productId] : []
 
   const titleChanged = current.title.trim() !== prev.title.trim()
-  const summaryChanged = current.summary.trim() !== prev.summary.trim()
+  const summaryChanged = current.summary !== prev.summary
 
   function isVideo(url: string) {
     return /\.(mp4|webm|mov)$/i.test(url)
@@ -70,9 +70,17 @@ export function ComparisonView({ current, prev }: ComparisonViewProps) {
         )}
 
         {/* Summary */}
-        <p className="text-base text-slate-500 leading-7 mt-3">{current.summary}</p>
-        {summaryChanged && (
-          <p className="text-sm text-slate-400 line-through leading-6 mt-1">{prev.summary}</p>
+        {current.summary && current.summary !== '<p></p>' && (
+          <div
+            className="text-base text-slate-500 leading-7 mt-3 prose prose-base prose-slate max-w-none [&_u]:underline [&_s]:line-through prose-a:text-blue-600 prose-a:underline"
+            dangerouslySetInnerHTML={{ __html: current.summary }}
+          />
+        )}
+        {summaryChanged && prev.summary && prev.summary !== '<p></p>' && (
+          <div
+            className="text-sm text-slate-400 leading-6 mt-1 line-through prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: prev.summary }}
+          />
         )}
       </div>
 
