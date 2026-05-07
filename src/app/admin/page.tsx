@@ -10,6 +10,7 @@ import { Domain } from '@/models/Domain'
 import { Tag } from '@/models/Tag'
 import { BlogCategory } from '@/models/BlogCategory'
 import { BlogPost } from '@/models/BlogPost'
+import { ActivityLog } from '@/models/ActivityLog'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminTabs } from '@/components/admin/AdminTabs'
 
@@ -33,12 +34,14 @@ export default async function AdminPage() {
 
   await connectDB()
 
-  const [users, products, domains, tags, existingCategories] = await Promise.all([
+  const [users, products, domains, tags, existingCategories, initialLogs, initialLogsTotal] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     Product.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Tag.find().sort({ name: 1 }).lean(),
     BlogCategory.find().sort({ name: 1 }).lean(),
+    ActivityLog.find().sort({ createdAt: -1 }).limit(50).lean(),
+    ActivityLog.countDocuments(),
   ])
 
   // First-time seeding + migration of old blog post category slugs
@@ -104,6 +107,59 @@ export default async function AdminPage() {
     color: c.color,
   }))
 
+  type IdNameMap = Record<string, string>
+
+  function toIdNameMap(docs: { _id: unknown; name: string }[]): IdNameMap {
+    const map: IdNameMap = {}
+    for (const d of docs) map[String(d._id)] = d.name
+    return map
+  }
+
+  function resolveArray(arr: unknown, nameMap: IdNameMap): string[] {
+    if (!Array.isArray(arr)) return []
+    return arr.map((item) => {
+      if (item === null || item === undefined) return ''
+      if (typeof item === 'object') {
+        const obj = item as Record<string, unknown>
+        if (typeof obj.name === 'string' && obj.name) return obj.name
+        if (obj._id) { const n = nameMap[String(obj._id)]; if (n) return n }
+      }
+      const id = String(item)
+      return nameMap[id] ?? id
+    }).filter(Boolean)
+  }
+
+  const productNames = toIdNameMap(products as { _id: unknown; name: string }[])
+  const domainNames = toIdNameMap(domains as { _id: unknown; name: string }[])
+  const tagNames = toIdNameMap(tags as { _id: unknown; name: string }[])
+  const FIELD_NAME_MAP: Record<string, IdNameMap> = {
+    productIds: productNames,
+    domainIds: domainNames,
+    tagIds: tagNames,
+  }
+
+  const serializedLogs = initialLogs.map((log) => ({
+    _id: log._id.toString(),
+    userId: log.userId.toString(),
+    userName: log.userName,
+    action: log.action as 'create' | 'update' | 'reorder',
+    entityType: log.entityType as 'update' | 'product' | 'blog' | 'product_order' | 'external_article' | 'external_article_order',
+    entityId: log.entityId.toString(),
+    entityTitle: log.entityTitle,
+    changes: (log.changes as { field: string; before: unknown; after: unknown }[]).map((change) => {
+      const nameMap = FIELD_NAME_MAP[change.field]
+      if (!nameMap) return change
+      return {
+        field: change.field,
+        before: resolveArray(change.before, nameMap),
+        after: resolveArray(change.after, nameMap),
+      }
+    }),
+    beforeSnapshot: (log.beforeSnapshot as Record<string, unknown> | null | undefined) ?? null,
+    afterSnapshot: (log.afterSnapshot as Record<string, unknown> | null | undefined) ?? null,
+    createdAt: (log.createdAt as Date).toISOString(),
+  }))
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -120,6 +176,8 @@ export default async function AdminPage() {
           tags={serializedTags}
           blogCategories={serializedBlogCategories}
           currentUserId={session.user.id}
+          initialLogs={serializedLogs}
+          initialLogsTotal={initialLogsTotal}
         />
       </main>
     </div>
