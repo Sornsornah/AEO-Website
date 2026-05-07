@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Trash2, Users } from 'lucide-react'
+import { UserMembershipModal } from './UserMembershipModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDateShort } from '@/lib/utils'
@@ -50,7 +51,7 @@ export function UserTable({
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
 
   async function toggleWhitelist(user: UserRow) {
     setLoadingId(user._id)
@@ -105,6 +106,19 @@ export function UserTable({
   }
 
   return (
+    <>
+    {editingUserId && (() => {
+      const editingUser = users.find((u) => u._id === editingUserId)
+      if (!editingUser) return null
+      return (
+        <UserMembershipModal
+          user={editingUser}
+          domains={domains}
+          products={products}
+          onClose={() => setEditingUserId(null)}
+        />
+      )
+    })()}
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <Table>
         <TableHeader>
@@ -120,13 +134,8 @@ export function UserTable({
           {users.map((user) => {
             const isSelf = user._id === currentUserId
             const isLoading = loadingId === user._id
-            const isExpanded = expandedUserId === user._id
-
-            const userSections = domains.filter((d) => d.members.some((m) => m._id === user._id))
-            const userProducts = products.filter((p) => p.members.some((m) => m._id === user._id))
 
             return (
-              <>
                 <TableRow key={user._id} className="hover:bg-slate-50/50">
                   <TableCell>
                     <div>
@@ -172,15 +181,17 @@ export function UserTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setExpandedUserId(isExpanded ? null : user._id)}
-                        className={`h-7 w-7 p-0 transition-colors ${isExpanded ? 'text-slate-700 bg-slate-100' : 'text-slate-400 hover:text-slate-700'}`}
-                        title="View memberships"
-                      >
-                        <Users size={14} />
-                      </Button>
+                      {user.role === 'admin' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingUserId(user._id)}
+                          className="h-7 w-7 p-0 transition-colors text-slate-400 hover:text-slate-700"
+                          title="Edit memberships"
+                        >
+                          <Users size={14} />
+                        </Button>
+                      )}
                       {!isSelf && (
                         <Button
                           variant="ghost"
@@ -195,44 +206,11 @@ export function UserTable({
                     </div>
                   </TableCell>
                 </TableRow>
-
-                {isExpanded && (
-                  <TableRow key={`${user._id}-memberships`} className="bg-slate-50/60 border-t border-slate-100">
-                    <TableCell colSpan={5} className="py-3 px-4">
-                      <div className="flex gap-8 text-sm">
-                        <div className="min-w-[160px]">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Sections</p>
-                          {userSections.length > 0 ? (
-                            <ul className="space-y-0.5">
-                              {userSections.map((s) => (
-                                <li key={s._id} className="text-slate-700 text-xs">{s.name}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">Not in any section</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Products</p>
-                          {userProducts.length > 0 ? (
-                            <ul className="space-y-0.5">
-                              {userProducts.map((p) => (
-                                <li key={p._id} className="text-slate-700 text-xs">{p.name}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">Not in any product</p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </>
             )
           })}
         </TableBody>
       </Table>
     </div>
+    </>
   )
 }
