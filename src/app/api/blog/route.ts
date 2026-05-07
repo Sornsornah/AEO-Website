@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
+import { computeDiff, writeLog, serializeBlogSnapshot } from '@/lib/activityLog'
 
 function slugify(text: string) {
   return text
@@ -114,6 +115,18 @@ export async function POST(req: NextRequest) {
     status: status || 'draft',
     isFeatured: true,
     featuredUntil,
+  })
+
+  const changes = computeDiff('blog', null, post.toObject())
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'create',
+    entityType: 'blog',
+    entityId: post._id.toString(),
+    entityTitle: post.title,
+    changes,
+    afterSnapshot: serializeBlogSnapshot(post.toObject()),
   })
 
   return NextResponse.json({ _id: post._id.toString(), slug: post.slug })

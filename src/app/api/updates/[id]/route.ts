@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
+import { computeDiff, writeLog, serializeUpdateSnapshot } from '@/lib/activityLog'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -28,6 +29,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
+
+  const before = await Update.findById(params.id).lean()
+  if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
   const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = body
@@ -59,6 +63,22 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     .lean()
 
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const changes = computeDiff('update', before as Record<string, unknown>, update as Record<string, unknown>)
+  if (changes.length > 0) {
+    await writeLog({
+      userId: session.user.id,
+      userName: session.user.name ?? session.user.email ?? 'Unknown',
+      action: 'update',
+      entityType: 'update',
+      entityId: params.id,
+      entityTitle: (update.title as string) || 'Untitled',
+      changes,
+      beforeSnapshot: serializeUpdateSnapshot(before as Record<string, unknown>),
+      afterSnapshot: serializeUpdateSnapshot(update as Record<string, unknown>),
+    })
+  }
+
   return NextResponse.json(update)
 }
 
@@ -69,8 +89,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   await connectDB()
 
-  const update = await Update.findByIdAndDelete(params.id)
+  const update = await Update.findById(params.id).lean()
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  await Update.findByIdAndDelete(params.id)
+
+  await writeLog({
+    userId: session.user.id,
+    userName: session.user.name ?? session.user.email ?? 'Unknown',
+    action: 'delete',
+    entityType: 'update',
+    entityId: params.id,
+    entityTitle: (update as Record<string, unknown>).title as string,
+    changes: [],
+    beforeSnapshot: serializeUpdateSnapshot(update as Record<string, unknown>),
+  })
 
   return NextResponse.json({ success: true })
 }
