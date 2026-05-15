@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Navbar } from '@/components/layout/Navbar'
+import { PageBanner } from '@/components/layout/PageBanner'
 import { ProductDetailClient } from '@/components/products/ProductDetailClient'
 
 interface Props {
@@ -71,9 +72,10 @@ export default async function ProductPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-center text-xs text-amber-800">
-        Note: This page contains synthetic data for demonstration purposes only.
-      </div>
+      {p.followParentBanner
+        ? <PageBanner pageKey="products" />
+        : <PageBanner banner={{ bannerEnabled: !!p.bannerEnabled, bannerText: p.bannerText || '', bannerStyle: (p.bannerStyle as 'info' | 'warning' | 'success' | 'neutral') || 'warning' }} />
+      }
       <main className="px-6 py-10 max-w-4xl mx-auto">
         <ProductDetailClient product={{ ...serializedProduct, productUpdates: serializedProduct.productUpdates ?? [] }} />
       </main>

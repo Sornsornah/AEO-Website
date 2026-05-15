@@ -394,6 +394,192 @@ function EnlargedCard({ update }: { update: UpdateData }) {
   )
 }
 
+function EditCommentTiptapEditor({
+  initialHtml,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initialHtml: string
+  onSave: (html: string) => void
+  onCancel: () => void
+  saving: boolean
+}) {
+  const videoFileRef = useRef<HTMLInputElement>(null)
+  const imageFileRef = useRef<HTMLInputElement>(null)
+  const linkInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
+  const [showLinkInput, setShowLinkInput] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+
+  const onSaveRef = useRef(onSave)
+  useEffect(() => { onSaveRef.current = onSave }, [onSave])
+  const onCancelRef = useRef(onCancel)
+  useEffect(() => { onCancelRef.current = onCancel }, [onCancel])
+
+  const EditKeymap = useMemo(() => Extension.create({
+    name: 'editCommentKeymap',
+    addKeyboardShortcuts() {
+      return {
+        Enter: () => {
+          if (this.editor.isActive('listItem')) return false
+          const html = this.editor.getHTML()
+          if (html && html !== '<p></p>') onSaveRef.current(html)
+          return true
+        },
+        'Shift-Enter': () => {
+          if (this.editor.isActive('listItem')) return this.editor.commands.splitListItem('listItem')
+          return false
+        },
+        Escape: () => { onCancelRef.current(); return true },
+      }
+    },
+  }), [])
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    content: initialHtml,
+    extensions: [
+      StarterKit.configure({ heading: false, codeBlock: false, code: false, blockquote: false, horizontalRule: false }),
+      Placeholder.configure({ placeholder: 'Edit your comment…' }),
+      Underline,
+      Link.configure({ openOnClick: false, autolink: false }),
+      Image.configure({ allowBase64: true }),
+      VideoNode,
+      EditKeymap,
+    ],
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
+      },
+    },
+    autofocus: true,
+  })
+
+  async function uploadFile(file: File, type: 'image' | 'video') {
+    if (!editor) return
+    setUploading(type)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/uploads', { method: 'POST', body: fd })
+      if (!res.ok) return
+      const { url } = await res.json()
+      if (type === 'image') editor.chain().focus().setImage({ src: url }).run()
+      else editor.chain().focus().insertContent({ type: 'video', attrs: { src: url } }).run()
+    } finally {
+      setUploading(null)
+      if (type === 'image' && imageFileRef.current) imageFileRef.current.value = ''
+      if (type === 'video' && videoFileRef.current) videoFileRef.current.value = ''
+    }
+  }
+
+  function handleLinkToggle() {
+    if (!editor) return
+    if (editor.isActive('link')) setLinkUrl(editor.getAttributes('link').href || '')
+    else setLinkUrl('')
+    setShowLinkInput((v) => !v)
+    setTimeout(() => linkInputRef.current?.focus(), 0)
+  }
+
+  function applyLink() {
+    if (!editor) return
+    const url = linkUrl.trim()
+    if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank', rel: 'noopener noreferrer' }).run()
+    else editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    setShowLinkInput(false)
+    setLinkUrl('')
+  }
+
+  if (!editor) return null
+
+  const btnClass = (active: boolean) =>
+    `px-2 py-1 text-xs rounded transition-colors ${active ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`
+
+  const tb = (label: React.ReactNode, title: string, active: boolean, onClick: () => void) => (
+    <button key={title} type="button" title={title} onMouseDown={(e) => { e.preventDefault(); onClick() }} className={btnClass(active)}>
+      {label}
+    </button>
+  )
+
+  const uploadBtn = (type: 'image' | 'video') => {
+    const isImg = type === 'image'
+    return (
+      <label key={type} title={isImg ? 'Upload photo' : 'Upload video'} onMouseDown={(e) => e.preventDefault()}
+        className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${uploading === type ? 'opacity-50 cursor-wait' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+        {uploading === type ? <span className="text-[10px]">…</span> : isImg ? <ImageIcon className="w-3 h-3" /> : <Video className="w-3 h-3" />}
+        <input ref={isImg ? imageFileRef : videoFileRef} type="file"
+          accept={isImg ? 'image/*' : 'video/mp4,video/webm,video/quicktime'}
+          className="hidden" disabled={!!uploading}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, type) }} />
+      </label>
+    )
+  }
+
+  const html = editor.getHTML()
+  const isEmpty = !html || html === '<p></p>'
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      <div className="rounded-xl border border-slate-200 bg-background focus-within:ring-2 focus-within:ring-slate-300 overflow-hidden">
+        <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b border-slate-100">
+          {tb(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
+          {tb(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
+          {tb(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
+          {tb(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
+          <div className="w-px h-4 bg-slate-200 mx-0.5" />
+          {tb(<List className="w-3 h-3" />, 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
+          {tb(<ListOrdered className="w-3 h-3" />, 'Ordered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+          <div className="w-px h-4 bg-slate-200 mx-0.5" />
+          <button type="button" title="Link" onMouseDown={(e) => { e.preventDefault(); handleLinkToggle() }}
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${editor.isActive('link') || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+            <Link2 className="w-3 h-3" />
+          </button>
+          {uploadBtn('image')}
+          {uploadBtn('video')}
+        </div>
+        {showLinkInput && (
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
+            <Link2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <input ref={linkInputRef} type="url" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                if (e.key === 'Escape') { setShowLinkInput(false); editor.commands.focus() }
+              }}
+              placeholder="https://…"
+              className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-300 bg-white" />
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink() }}
+              className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs hover:bg-slate-700 transition-colors">Apply</button>
+            {editor.isActive('link') && (
+              <button type="button" title="Remove link"
+                onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().extendMarkRange('link').unsetLink().run(); setShowLinkInput(false) }}
+                className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 transition-colors">
+                <Link2Off className="w-3 h-3" />
+              </button>
+            )}
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); setShowLinkInput(false); editor.commands.focus() }}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-100 transition-colors">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+        <EditorContent editor={editor} />
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => { const h = editor.getHTML(); if (h && h !== '<p></p>') onSave(h) }}
+          disabled={isEmpty || saving}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-slate-800 text-white rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors">
+          <Check className="w-3 h-3" />
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button type="button" onClick={onCancel} className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function CommentSidePanel({ updateId, update, onClose, onCountChange }: CommentSidePanelProps) {
   const { data: session } = useSession()
   const [comments, setComments] = useState<Comment[]>([])
@@ -402,7 +588,6 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editText, setEditText] = useState('')
   const [savingEditId, setSavingEditId] = useState<string | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
@@ -430,28 +615,25 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
 
   function startEdit(c: Comment) {
     setEditingId(c._id)
-    setEditText(c.text)
   }
 
   function cancelEdit() {
     setEditingId(null)
-    setEditText('')
   }
 
-  async function saveEdit(commentId: string) {
-    if (!editText.trim() || savingEditId) return
+  async function saveEdit(commentId: string, html: string) {
+    if (!html.trim() || savingEditId) return
     setSavingEditId(commentId)
     try {
       const res = await fetch(`/api/updates/${updateId}/comments/${commentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: editText.trim() }),
+        body: JSON.stringify({ text: html }),
       })
       if (res.ok) {
         const updated = await res.json()
         setComments((prev) => prev.map((c) => (c._id === commentId ? updated : c)))
         setEditingId(null)
-        setEditText('')
       }
     } finally {
       setSavingEditId(null)
@@ -588,38 +770,12 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                     </div>
 
                     {editingId === c._id ? (
-                      <div className="mt-1 space-y-1.5">
-                        <textarea
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(c._id) }
-                            if (e.key === 'Escape') cancelEdit()
-                          }}
-                          rows={3}
-                          maxLength={1000}
-                          autoFocus
-                          className="w-full text-sm text-slate-900 bg-background border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
-                        />
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => saveEdit(c._id)}
-                            disabled={!editText.trim() || savingEditId === c._id}
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-slate-800 text-white rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors"
-                          >
-                            <Check className="w-3 h-3" />
-                            {savingEditId === c._id ? 'Saving…' : 'Save'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
+                      <EditCommentTiptapEditor
+                        initialHtml={c.text}
+                        saving={savingEditId === c._id}
+                        onSave={(html) => saveEdit(c._id, html)}
+                        onCancel={cancelEdit}
+                      />
                     ) : (
                       <>
                         <CommentBody text={c.text} />

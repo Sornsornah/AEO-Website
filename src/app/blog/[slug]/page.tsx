@@ -9,6 +9,7 @@ import type { BlogStatus } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
 import { BlogCategory } from '@/models/BlogCategory'
 import { Navbar } from '@/components/layout/Navbar'
+import { PageBanner } from '@/components/layout/PageBanner'
 import { BlogDetail } from '@/components/blog/BlogDetail'
 import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
 
@@ -103,6 +104,10 @@ export default async function BlogPostPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      {raw.followParentBanner
+        ? <PageBanner pageKey="blog" />
+        : <PageBanner banner={{ bannerEnabled: !!raw.bannerEnabled, bannerText: raw.bannerText || '', bannerStyle: (raw.bannerStyle as 'info' | 'warning' | 'success' | 'neutral') || 'warning' }} />
+      }
       <BlogDetail
         post={post}
         related={related}

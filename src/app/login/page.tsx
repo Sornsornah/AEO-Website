@@ -7,7 +7,7 @@ import { LoginForm } from '@/components/auth/LoginForm'
 
 export default async function LoginPage() {
   const session = await getServerSession(authOptions)
-  if (session) redirect('/about')
+  if (session) redirect(session.user.role === 'admin' ? '/editor' : '/products')
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

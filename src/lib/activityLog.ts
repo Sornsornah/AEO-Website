@@ -18,6 +18,7 @@ export const TRACKED_FIELDS: Record<ActivityEntityType, string[]> = {
     'status', 'isFeatured', 'featuredUntil',
   ],
   product_order:          [],
+  update_order:           [],
   external_article:       ['title', 'description', 'url', 'isHidden'],
   external_article_order: [],
 }

@@ -10,8 +10,9 @@ import { AddTagForm } from './AddTagForm'
 import { BlogCategoryTable } from './BlogCategoryTable'
 import { AddBlogCategoryForm } from './AddBlogCategoryForm'
 import { LogsTable, LogEntry } from './LogsTable'
+import { PageSettingsTable, PageSettingRow, EntityBannerRow } from './PageSettingsTable'
 
-type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'logs'
+type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'pages' | 'logs'
 
 interface SerializedUser {
   _id: string
@@ -57,6 +58,9 @@ interface AdminTabsProps {
   domains: SerializedDomain[]
   tags: SerializedTag[]
   blogCategories: SerializedBlogCategory[]
+  pageSettings: PageSettingRow[]
+  productBanners: EntityBannerRow[]
+  blogBanners: EntityBannerRow[]
   currentUserId: string
   initialLogs: LogEntry[]
   initialLogsTotal: number
@@ -67,10 +71,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'domains', label: 'Sections' },
   { id: 'tags', label: 'Update Tags' },
   { id: 'blog-categories', label: 'Blog Categories' },
+  { id: 'pages', label: 'Pages' },
   { id: 'logs', label: 'Logs' },
 ]
 
-export function AdminTabs({ users, products, domains, tags, blogCategories, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
+export function AdminTabs({ users, products, domains, tags, blogCategories, pageSettings, productBanners, blogBanners, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
@@ -142,6 +147,16 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, curr
             <AddBlogCategoryForm />
           </div>
           <BlogCategoryTable categories={blogCategories} />
+        </section>
+      )}
+
+      {tab === 'pages' && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-slate-900">Pages</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Toggle nav visibility, reorder, and configure banners for each page</p>
+          </div>
+          <PageSettingsTable settings={pageSettings} productBanners={productBanners} blogBanners={blogBanners} />
         </section>
       )}
 

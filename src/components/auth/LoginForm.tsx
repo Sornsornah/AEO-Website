@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,7 +28,8 @@ export function LoginForm() {
     if (result?.error) {
       setError('This email is not authorised to access this app.')
     } else {
-      router.push('/about')
+      const session = await getSession()
+      router.push(session?.user?.role === 'admin' ? '/editor' : '/products')
       router.refresh()
     }
   }

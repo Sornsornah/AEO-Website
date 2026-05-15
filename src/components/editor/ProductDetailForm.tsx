@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2 } from 'lucide-react'
+import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ProductDetailClient } from '@/components/products/ProductDetailClient'
@@ -324,6 +324,15 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     <form onSubmit={(e) => e.preventDefault()} className="flex gap-8 items-start">
       {/* ── Left: editor ── */}
       <div className="flex-1 min-w-0 pb-8">
+      {/* Back button */}
+      <button
+        type="button"
+        onClick={handleCancel}
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to dashboard
+      </button>
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
         {TABS.map((tab) => (

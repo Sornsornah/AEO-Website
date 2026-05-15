@@ -7,12 +7,11 @@ import { signOut, useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from './NotificationBell'
 
-const navLinks = [
-  { href: '/about', label: 'About Us' },
-  { href: '/products', label: 'Products' },
-  { href: '/blog', label: 'Blog' },
-  { href: '/updates', label: 'Internal Updates', adminOnly: true },
-]
+interface NavLink {
+  href: string
+  label: string
+  adminOnly: boolean
+}
 
 function getInitials(name: string) {
   return name
@@ -27,7 +26,21 @@ export function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [navLinks, setNavLinks] = useState<NavLink[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/page-settings')
+      .then((r) => r.json())
+      .then((data: { href: string; label: string; navEnabled: boolean; adminOnly: boolean }[]) => {
+        setNavLinks(
+          data
+            .filter((s) => s.navEnabled && !s.href.includes('['))
+            .map((s) => ({ href: s.href, label: s.label, adminOnly: s.adminOnly }))
+        )
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -41,16 +54,20 @@ export function Navbar() {
 
   const initials = session?.user?.name ? getInitials(session.user.name) : '?'
 
+  const visibleLinks = navLinks.filter(
+    (link) => !link.adminOnly || session?.user?.role === 'admin'
+  )
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#E8E0D6] bg-[#FDFCFB]/95 backdrop-blur supports-[backdrop-filter]:bg-[#FDFCFB]/80">
       <div className="w-full px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href={session?.user?.role === 'admin' ? '/updates' : '/about'} className="flex items-center gap-2">
+          <Link href="/products" className="flex items-center gap-2">
             <span className="font-semibold text-[#1C1512] text-sm tracking-tight">AEO: AI Enablement Office</span>
           </Link>
 
           <nav className="flex items-center gap-1">
-            {navLinks.filter((link) => !('adminOnly' in link && link.adminOnly) || session?.user?.role === 'admin').map((link) => {
+            {visibleLinks.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + '/')
               return (
                 <Link

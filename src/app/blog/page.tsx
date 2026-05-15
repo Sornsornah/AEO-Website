@@ -8,6 +8,7 @@ import { BlogCategory } from '@/models/BlogCategory'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Navbar } from '@/components/layout/Navbar'
+import { PageBanner } from '@/components/layout/PageBanner'
 import { BlogPageClient } from '@/components/blog/BlogPageClient'
 import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
 import type { ExternalArticleEntry } from '@/components/blog/ExternalArticlesSidebar'
@@ -78,6 +79,7 @@ export default async function BlogPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <PageBanner pageKey="blog" />
       <BlogPageClient posts={posts} featured={featured} isLoggedIn={!!session} externalArticles={externalArticles} categoriesMap={categoriesMap} />
     </div>
   )

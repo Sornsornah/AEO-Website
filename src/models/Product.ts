@@ -71,6 +71,10 @@ export interface IProduct extends Document {
   productUpdates: IProductUpdate[]
   isHidden: boolean
   order: number
+  bannerEnabled: boolean
+  bannerText: string
+  bannerStyle: 'info' | 'warning' | 'success' | 'neutral'
+  followParentBanner: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -112,6 +116,10 @@ const ProductSchema = new Schema<IProduct>(
     productUpdates: [{ title: { type: String }, content: { type: String }, date: { type: Date }, _id: false }],
     isHidden: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
+    bannerEnabled: { type: Boolean, default: false },
+    bannerText: { type: String, default: '' },
+    bannerStyle: { type: String, enum: ['info', 'warning', 'success', 'neutral'], default: 'warning' },
+    followParentBanner: { type: Boolean, default: false },
   },
   { timestamps: true }
 )

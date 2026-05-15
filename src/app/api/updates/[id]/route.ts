@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { computeDiff, writeLog, serializeUpdateSnapshot } from '@/lib/activityLog'
+import { formatMonthYear } from '@/lib/utils'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -47,7 +48,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     updateData.productId = normalizedProductIds[0] || null
   }
   if (tagIds !== undefined) updateData.tagIds = tagIds
-  if (date !== undefined) updateData.date = new Date(date)
+  if (date !== undefined) {
+    const newDate = new Date(date)
+    updateData.date = newDate
+    // Reset order when the update moves to a different month
+    if (before.date && formatMonthYear(before.date as Date) !== formatMonthYear(newDate)) {
+      updateData.order = 0
+    }
+  }
   if (highlights !== undefined) updateData.highlights = highlights
   if (progressUpdates !== undefined) updateData.progressUpdates = progressUpdates
   if (nextSteps !== undefined) updateData.nextSteps = nextSteps
