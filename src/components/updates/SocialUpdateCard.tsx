@@ -38,9 +38,9 @@ function isVideo(url: string) {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-50', labelColor: 'text-emerald-700' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-50',    labelColor: 'text-blue-700'    },
-  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-100', labelColor: 'text-emerald-800' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-100',    labelColor: 'text-blue-800'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-100',   labelColor: 'text-amber-800'   },
 ]
 
 
@@ -81,13 +81,13 @@ export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }:
             {update.domains.map((d) => (
               <span
                 key={d._id}
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700"
               >
                 {d.name}
               </span>
             ))}
             {products.map((p) => (
-              <span key={p._id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+              <span key={p._id} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700">
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: p.color }}
@@ -98,7 +98,7 @@ export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }:
             {update.tags.map((t) => (
               <span
                 key={t._id}
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700"
               >
                 {t.name}
               </span>
@@ -127,7 +127,7 @@ export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }:
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>
                   {s.label}
                 </p>
-                <div className="prose prose-xs max-w-none text-black leading-relaxed [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-1 [&_li]:mb-0.5">
+                <div className="prose prose-xs max-w-none text-black leading-relaxed [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-1 [&_li]:mb-0.5 [&_p]:text-black [&_li]:text-black [&_*]:text-black">
                   <ReactMarkdown>{content}</ReactMarkdown>
                 </div>
               </div>

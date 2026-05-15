@@ -210,9 +210,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     else router.push('/editor')
   }
 
-  const availableProducts = domainIds.length > 0
-    ? domainGroups.filter((g) => domainIds.includes(g._id)).flatMap((g) => g.products)
-    : domainGroups.flatMap((g) => g.products)
+  const availableProducts = domainGroups.flatMap((g) => g.products)
 
   async function submitForm(): Promise<boolean> {
     setError('')
@@ -334,11 +332,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
             onChange={(ids) => {
               const nextDomainIds = ids
               setDomainIds(nextDomainIds)
-              if (productIds.length > 0) {
-                const nextProducts = domainGroups.filter((g) => nextDomainIds.includes(g._id)).flatMap((g) => g.products)
-                const validIds = new Set(nextProducts.map((p) => p._id))
-                setProductIds((prev) => prev.filter((pid) => validIds.has(pid)))
-              }
             }}
             placeholder="Select sections..."
           />
@@ -366,7 +359,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           options={availableProducts}
           selected={productIds}
           onChange={setProductIds}
-          placeholder={availableProducts.length === 0 ? 'No products for selected sections' : 'Select products...'}
+          placeholder={availableProducts.length === 0 ? 'No products available' : 'Select products...'}
         />
       </div>
 

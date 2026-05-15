@@ -19,6 +19,10 @@ export interface IBlogPost extends Document {
   featuredUntil?: Date
   likes: Types.ObjectId[]
   savedBy: Types.ObjectId[]
+  bannerEnabled: boolean
+  bannerText: string
+  bannerStyle: 'info' | 'warning' | 'success' | 'neutral'
+  followParentBanner: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -44,6 +48,10 @@ const BlogPostSchema = new Schema<IBlogPost>(
     featuredUntil: { type: Date },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     savedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    bannerEnabled: { type: Boolean, default: false },
+    bannerText: { type: String, default: '' },
+    bannerStyle: { type: String, enum: ['info', 'warning', 'success', 'neutral'], default: 'warning' },
+    followParentBanner: { type: Boolean, default: false },
   },
   { timestamps: true }
 )

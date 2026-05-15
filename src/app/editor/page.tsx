@@ -11,6 +11,7 @@ import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
 import { Navbar } from '@/components/layout/Navbar'
 import { UpdateTable } from '@/components/editor/UpdateTable'
+import { UpdateReorderView } from '@/components/editor/UpdateReorderView'
 import { FilterBar } from '@/components/updates/FilterBar'
 import { EditorProductsList } from '@/components/editor/EditorProductsList'
 import { BlogTable } from '@/components/editor/BlogTable'
@@ -34,6 +35,7 @@ interface PageProps {
     search?: string
     status?: string
     page?: string
+    reorder?: string
   }
 }
 
@@ -194,6 +196,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
     )
   }
 
+  const isReorderMode = searchParams.reorder === '1'
   const currentPage = parseInt(searchParams.page || '1', 10)
   const sortDir = searchParams.sort === 'asc' ? 1 : -1
 
@@ -252,7 +255,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
   for (const u of allDates) yearSet.add(new Date(u.date).getFullYear())
   const availableYears = Array.from(yearSet).sort((a, b) => b - a)
 
-  const skip = (currentPage - 1) * PAGE_SIZE
+  const skip = isReorderMode ? 0 : (currentPage - 1) * PAGE_SIZE
 
   const [allProducts, allDomains, updates, totalCount] = await Promise.all([
     Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
@@ -263,7 +266,10 @@ export default async function EditorPage({ searchParams }: PageProps) {
       .populate('domainIds')
       .populate('updatedBy', 'name email')
       .populate('createdBy', 'name email')
-      .sort({ date: sortDir }).skip(skip).limit(PAGE_SIZE).lean(),
+      .sort({ date: sortDir, order: 1 })
+      .skip(skip)
+      .limit(isReorderMode ? 0 : PAGE_SIZE)
+      .lean(),
     Update.countDocuments(query),
   ])
 
@@ -311,6 +317,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
     title: string
     summary: string
     date: Date
+    order?: number
     isPublished: boolean
     scheduledAt?: Date
     updatedAt: Date
@@ -341,6 +348,7 @@ export default async function EditorPage({ searchParams }: PageProps) {
       title: u.title,
       summary: u.summary,
       date: u.date.toISOString(),
+      order: u.order ?? 0,
       isPublished: u.isPublished,
       scheduledAt: u.scheduledAt ? u.scheduledAt.toISOString() : null,
       updatedAt: u.updatedAt.toISOString(),
@@ -370,57 +378,87 @@ export default async function EditorPage({ searchParams }: PageProps) {
           <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
         </div>
 
-        {/* Status sub-tabs + New Update button */}
-        {(() => {
-          const activeStatus = searchParams.status || 'all'
-          const statusTabs = [
-            { value: 'all', label: 'All', href: '/editor' },
-            { value: 'published', label: 'Published', href: '/editor?status=published' },
-            { value: 'scheduled', label: 'Scheduled', href: '/editor?status=scheduled' },
-            { value: 'draft', label: 'Draft', href: '/editor?status=draft' },
-          ]
-          return (
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-1">
-                {statusTabs.map((tab) => (
-                  <Link
-                    key={tab.value}
-                    href={tab.href}
-                    className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                      activeStatus === tab.value
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    {tab.label}
-                  </Link>
-                ))}
-              </div>
-              <Link href="/editor/new">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-                  + New Update
-                </Button>
-              </Link>
+        {isReorderMode ? (
+          /* Reorder mode header */
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-700">
+                Reorder mode
+              </span>
+              <span className="text-xs text-slate-400">Drag updates within a month to reorder them</span>
             </div>
-          )
-        })()}
+            <Link href="/editor">
+              <Button variant="outline" className="h-9 px-4 text-sm">
+                ← Back to table
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          /* Normal mode: status sub-tabs + actions */
+          <>
+            {(() => {
+              const activeStatus = searchParams.status || 'all'
+              const statusTabs = [
+                { value: 'all', label: 'All', href: '/editor' },
+                { value: 'published', label: 'Published', href: '/editor?status=published' },
+                { value: 'scheduled', label: 'Scheduled', href: '/editor?status=scheduled' },
+                { value: 'draft', label: 'Draft', href: '/editor?status=draft' },
+              ]
+              return (
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-1">
+                    {statusTabs.map((tab) => (
+                      <Link
+                        key={tab.value}
+                        href={tab.href}
+                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                          activeStatus === tab.value
+                            ? 'bg-slate-900 text-white'
+                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                        }`}
+                      >
+                        {tab.label}
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link href="/editor?reorder=1">
+                      <Button variant="outline" className="h-9 px-4 text-sm">
+                        ↕ Reorder
+                      </Button>
+                    </Link>
+                    <Link href="/editor/new">
+                      <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                        + New Update
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )
+            })()}
 
-        <Suspense>
-          <FilterBar
-            domains={domainGroups}
-            allDomains={allDomainOptions}
-            availableYears={availableYears}
-            currentSearch={searchParams.search || ''}
+            <Suspense>
+              <FilterBar
+                domains={domainGroups}
+                allDomains={allDomainOptions}
+                availableYears={availableYears}
+                currentSearch={searchParams.search || ''}
+              />
+            </Suspense>
+          </>
+        )}
+
+        {isReorderMode ? (
+          <UpdateReorderView updates={serialized} />
+        ) : (
+          <UpdateTable
+            updates={serialized}
+            hasFilters={hasFilters}
+            totalCount={totalCount}
+            currentPage={currentPage}
+            pageSize={PAGE_SIZE}
           />
-        </Suspense>
-
-        <UpdateTable
-          updates={serialized}
-          hasFilters={hasFilters}
-          totalCount={totalCount}
-          currentPage={currentPage}
-          pageSize={PAGE_SIZE}
-        />
+        )}
       </main>
     </div>
   )

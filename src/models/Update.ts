@@ -10,6 +10,7 @@ export interface IUpdate extends Document {
   productIds: Types.ObjectId[]
   tagIds: Types.ObjectId[]
   date: Date
+  order: number
   highlights: string[]
   progressUpdates: string
   nextSteps: string
@@ -39,6 +40,7 @@ const UpdateSchema = new Schema<IUpdate>(
     nextSteps: { type: String, default: '' },
     learningPoints: { type: String, default: '' },
     media: [{ type: String }],
+    order: { type: Number, default: 0 },
     isPublished: { type: Boolean, default: false },
     scheduledAt: { type: Date, required: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -49,6 +51,7 @@ const UpdateSchema = new Schema<IUpdate>(
 
 UpdateSchema.index({ productId: 1 })
 UpdateSchema.index({ date: -1 })
+UpdateSchema.index({ date: -1, order: 1 })
 UpdateSchema.index({ isPublished: 1 })
 
 export const Update = mongoose.models.Update || mongoose.model<IUpdate>('Update', UpdateSchema)

@@ -9,7 +9,9 @@ import { Notification } from '@/models/Notification'
 import { Update } from '@/models/Update'
 import { Domain } from '@/models/Domain'
 import { Product } from '@/models/Product'
+import { User } from '@/models/User'
 import { Types } from 'mongoose'
+import { sendCommentNotificationEmail } from '@/lib/email'
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   await connectDB()
@@ -122,6 +124,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (notifications.length > 0) {
       await Notification.insertMany(notifications)
+      const recipientIds = notifications.map((n) => n.userId)
+      const users = await User.find({ _id: { $in: recipientIds } }).select('email').lean()
+      Promise.allSettled(
+        users.map((u) =>
+          sendCommentNotificationEmail(
+            (u as { email: string }).email,
+            session.user.name,
+            updateTitle,
+            params.id,
+            trimmedText
+          )
+        )
+      )
     }
   }
 

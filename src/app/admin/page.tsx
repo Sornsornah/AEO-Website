@@ -11,6 +11,7 @@ import { Tag } from '@/models/Tag'
 import { BlogCategory } from '@/models/BlogCategory'
 import { BlogPost } from '@/models/BlogPost'
 import { ActivityLog } from '@/models/ActivityLog'
+import { PageSetting } from '@/models/PageSetting'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminTabs } from '@/components/admin/AdminTabs'
 
@@ -34,14 +35,16 @@ export default async function AdminPage() {
 
   await connectDB()
 
-  const [users, products, domains, tags, existingCategories, initialLogs, initialLogsTotal] = await Promise.all([
+  const [users, products, domains, tags, existingCategories, existingPageSettings, initialLogs, initialLogsTotal, allBlogPosts] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     Product.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Tag.find().sort({ name: 1 }).lean(),
     BlogCategory.find().sort({ name: 1 }).lean(),
+    PageSetting.find().sort({ order: 1 }).lean(),
     ActivityLog.find().sort({ createdAt: -1 }).limit(50).lean(),
     ActivityLog.countDocuments(),
+    BlogPost.find().sort({ publishedAt: -1 }).select('_id title slug bannerEnabled bannerText bannerStyle followParentBanner').lean(),
   ])
 
   // First-time seeding + migration of old blog post category slugs
@@ -55,6 +58,18 @@ export default async function AdminPage() {
   const blogCategories = existingCategories.length > 0
     ? existingCategories
     : await BlogCategory.find().sort({ name: 1 }).lean()
+
+  // Seed page settings on first load
+  let pageSettingsData = existingPageSettings
+  if (pageSettingsData.length === 0) {
+    await PageSetting.insertMany([
+      { pageKey: 'about', label: 'About Us', href: '/about', navEnabled: true, order: 0, bannerEnabled: false, bannerText: '', bannerStyle: 'warning', adminOnly: false },
+      { pageKey: 'products', label: 'Products', href: '/products', navEnabled: true, order: 1, bannerEnabled: false, bannerText: '', bannerStyle: 'warning', adminOnly: false },
+      { pageKey: 'blog', label: 'Blog', href: '/blog', navEnabled: true, order: 2, bannerEnabled: false, bannerText: '', bannerStyle: 'warning', adminOnly: false },
+      { pageKey: 'updates', label: 'Internal Updates', href: '/updates', navEnabled: true, order: 3, bannerEnabled: true, bannerText: 'Restricted Access — this page is intended for authorised internal users only.', bannerStyle: 'warning', adminOnly: true },
+    ])
+    pageSettingsData = await PageSetting.find().sort({ order: 1 }).lean()
+  }
 
   const productCountByDomain: Record<string, number> = {}
   for (const p of products) {
@@ -105,6 +120,38 @@ export default async function AdminPage() {
     slug: c.slug,
     purpose: c.purpose,
     color: c.color,
+  }))
+
+  const serializedPageSettings = pageSettingsData.map((p) => ({
+    pageKey: p.pageKey,
+    label: p.label,
+    href: p.href,
+    navEnabled: p.navEnabled,
+    order: p.order,
+    bannerEnabled: p.bannerEnabled,
+    bannerText: p.bannerText,
+    bannerStyle: p.bannerStyle as 'info' | 'warning' | 'success' | 'neutral',
+    adminOnly: p.adminOnly,
+  }))
+
+  const serializedProductBanners = products.map((p) => ({
+    _id: p._id.toString(),
+    name: p.name,
+    slug: p.slug,
+    bannerEnabled: !!(p as typeof p & { bannerEnabled?: boolean }).bannerEnabled,
+    bannerText: (p as typeof p & { bannerText?: string }).bannerText || '',
+    bannerStyle: ((p as typeof p & { bannerStyle?: string }).bannerStyle || 'warning') as 'info' | 'warning' | 'success' | 'neutral',
+    followParentBanner: !!(p as typeof p & { followParentBanner?: boolean }).followParentBanner,
+  }))
+
+  const serializedBlogBanners = allBlogPosts.map((p) => ({
+    _id: p._id.toString(),
+    name: p.title,
+    slug: p.slug,
+    bannerEnabled: !!(p as typeof p & { bannerEnabled?: boolean }).bannerEnabled,
+    bannerText: (p as typeof p & { bannerText?: string }).bannerText || '',
+    bannerStyle: ((p as typeof p & { bannerStyle?: string }).bannerStyle || 'warning') as 'info' | 'warning' | 'success' | 'neutral',
+    followParentBanner: !!(p as typeof p & { followParentBanner?: boolean }).followParentBanner,
   }))
 
   type IdNameMap = Record<string, string>
@@ -175,6 +222,9 @@ export default async function AdminPage() {
           domains={serializedDomains}
           tags={serializedTags}
           blogCategories={serializedBlogCategories}
+          pageSettings={serializedPageSettings}
+          productBanners={serializedProductBanners}
+          blogBanners={serializedBlogBanners}
           currentUserId={session.user.id}
           initialLogs={serializedLogs}
           initialLogsTotal={initialLogsTotal}

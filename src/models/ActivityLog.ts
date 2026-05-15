@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from 'mongoose'
 
 export type ActivityAction = 'create' | 'update' | 'reorder' | 'delete'
-export type ActivityEntityType = 'update' | 'product' | 'blog' | 'product_order' | 'external_article' | 'external_article_order'
+export type ActivityEntityType = 'update' | 'product' | 'blog' | 'product_order' | 'update_order' | 'external_article' | 'external_article_order'
 
 export interface IFieldChange {
   field: string

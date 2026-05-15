@@ -22,6 +22,7 @@ interface UpdateItem {
   title: string
   summary: string
   date: string
+  order?: number
   progressUpdates: string
   nextSteps: string
   learningPoints: string
@@ -50,7 +51,14 @@ function groupByMonth(updates: UpdateItem[]): { month: string; items: UpdateItem
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(u)
   }
-  return Array.from(map.entries()).map(([month, items]) => ({ month, items }))
+  return Array.from(map.entries()).map(([month, items]) => ({
+    month,
+    items: [...items].sort(
+      (a, b) =>
+        (a.order ?? 0) - (b.order ?? 0) ||
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    ),
+  }))
 }
 
 export function UpdatesPageClient({

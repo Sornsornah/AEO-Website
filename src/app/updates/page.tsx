@@ -12,6 +12,7 @@ import { Comment } from '@/models/Comment'
 import { Tag } from '@/models/Tag'
 import { redirect } from 'next/navigation'
 import { Navbar } from '@/components/layout/Navbar'
+import { PageBanner } from '@/components/layout/PageBanner'
 import { UpdatesPageClient } from '@/components/updates/UpdatesPageClient'
 
 interface PageProps {
@@ -95,6 +96,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     title: string
     summary: string
     date: Date
+    order?: number
     progressUpdates: string | string[] | undefined
     nextSteps: string | string[] | undefined
     learningPoints: string | string[] | undefined
@@ -114,6 +116,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     title: update.title,
     summary: update.summary,
     date: update.date.toISOString(),
+    order: update.order ?? 0,
     progressUpdates: toMarkdownString(update.progressUpdates),
     nextSteps: toMarkdownString(update.nextSteps),
     learningPoints: toMarkdownString(update.learningPoints),
@@ -159,10 +162,7 @@ export default async function UpdatesPage({ searchParams }: PageProps) {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="w-full bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-200 px-2 py-0.5 rounded-full">Restricted Access</span>
-        <p className="text-xs text-amber-800">This page is intended for authorised internal users only.</p>
-      </div>
+      <PageBanner pageKey="updates" />
 
       <main className="px-6 py-10">
         <UpdatesPageClient

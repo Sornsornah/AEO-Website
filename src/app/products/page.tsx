@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Navbar } from '@/components/layout/Navbar'
+import { PageBanner } from '@/components/layout/PageBanner'
 import { ProductsCatalogueClient } from '@/components/products/ProductsCatalogueClient'
 
 export default async function ProductsPage() {
@@ -38,6 +39,7 @@ export default async function ProductsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <PageBanner pageKey="products" />
       <ProductsCatalogueClient products={serialized} />
     </div>
   )

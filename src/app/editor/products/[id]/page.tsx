@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
@@ -74,12 +73,6 @@ export default async function EditProductPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="px-6 py-10">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-8">
-          <Link href="/editor?tab=products" className="hover:text-slate-600 transition-colors">Products</Link>
-          <span>›</span>
-          <span className="text-slate-600">{p.name}</span>
-        </div>
         <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
         <ProductDetailForm productId={p._id.toString()} productSlug={p.slug} defaultValues={defaultValues} />
       </main>
