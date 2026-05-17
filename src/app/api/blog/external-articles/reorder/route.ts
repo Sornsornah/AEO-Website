@@ -1,12 +1,11 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { ExternalArticle } from '@/models/ExternalArticle'
 import { writeLog } from '@/lib/activityLog'
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
+export async function POST(req: NextRequest) {
+  const session = await getSession(req.headers)
   if (session?.user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { ids } = await req.json() as { ids: string[] }

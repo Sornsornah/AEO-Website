@@ -1,14 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (typeof body.isWhitelisted === 'boolean') update.isWhitelisted = body.isWhitelisted
   if (body.role && ['viewer', 'admin'].includes(body.role)) update.role = body.role
 
-  const user = await User.findByIdAndUpdate(params.id, update, { new: true })
+  const user = await User.findByIdAndUpdate(id, update, { new: true })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({
@@ -30,17 +30,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  if (params.id === session.user.id) {
+  if (id === session.user.id) {
     return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
   }
 
   await connectDB()
-  const user = await User.findByIdAndDelete(params.id)
+  const user = await User.findByIdAndDelete(id)
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ success: true })

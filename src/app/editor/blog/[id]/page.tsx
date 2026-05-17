@@ -1,25 +1,26 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound, redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { User } from '@/models/User'
-import { Navbar } from '@/components/layout/Navbar'
-import { BlogPostForm } from '@/components/editor/BlogPostForm'
+import { Navbar } from '@/components/layout/navbar'
+import { BlogPostForm } from '@/features/editor/components/blog-post-form'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function EditBlogPostPage({ params }: PageProps) {
-  const session = await getServerSession(authOptions)
+  const { id } = await params
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
   const [raw, rawUsers] = await Promise.all([
-    BlogPost.findById(params.id).lean(),
+    BlogPost.findById(id).lean(),
     User.find({ isWhitelisted: true }).select('name').sort({ name: 1 }).lean(),
   ])
   if (!raw) notFound()

@@ -1,23 +1,21 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
-import { ProductDetailClient } from '@/components/products/ProductDetailClient'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
+import { ProductDetailClient } from '@/features/products/components/product-detail-client'
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export default async function ProductPage({ params }: Props) {
-  await getServerSession(authOptions)
+  const { slug } = await params
   await connectDB()
 
-  const product = await Product.findOne({ slug: params.slug }).lean()
+  const product = await Product.findOne({ slug }).lean()
   if (!product) notFound()
 
   const p = product as typeof product & {

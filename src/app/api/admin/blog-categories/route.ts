@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogCategory } from '@/models/BlogCategory'
 
@@ -10,8 +9,8 @@ function slugify(name: string) {
   return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
+export async function GET(req: NextRequest) {
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -20,8 +19,8 @@ export async function GET() {
   return NextResponse.json(categories)
 }
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
+export async function POST(req: NextRequest) {
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

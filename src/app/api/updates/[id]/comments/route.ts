@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Comment } from '@/models/Comment'
 import { Notification } from '@/models/Notification'
@@ -13,9 +12,10 @@ import { User } from '@/models/User'
 import { Types } from 'mongoose'
 import { sendCommentNotificationEmail } from '@/lib/email'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   await connectDB()
-  const comments = await Comment.find({ updateId: params.id })
+  const comments = await Comment.find({ updateId: id })
     .sort({ createdAt: 1 })
     .lean()
 
@@ -42,9 +42,10 @@ type NotificationPayload = {
   updateTitle: string
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
 
   const { text, attachments } = await req.json()
   const trimmedText = typeof text === 'string' ? text.trim() : ''
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const fromObjId = new Types.ObjectId(session.user.id)
 
   const comment = await Comment.create({
-    updateId: params.id,
+    updateId: id,
     userId: session.user.id,
     userName: session.user.name,
     text: trimmedText,
@@ -71,10 +72,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   })
 
   const commentObjId = comment._id as Types.ObjectId
-  const updateObjId = new Types.ObjectId(params.id)
+  const updateObjId = new Types.ObjectId(id)
 
   // Notify all domain members + product members associated with this update
-  const update = await Update.findById(params.id).select('title domainIds domainId productId productIds').lean()
+  const update = await Update.findById(id).select('title domainIds domainId productId productIds').lean()
   if (update) {
     const updateTitle = (update as { title?: string }).title || 'an update'
 
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const rawDomainIds = (update as { domainIds?: unknown[] }).domainIds
     const rawDomainId = (update as { domainId?: unknown }).domainId
     if (Array.isArray(rawDomainIds) && rawDomainIds.length > 0) {
-      rawDomainIds.forEach((id) => domainIds.push(new Types.ObjectId(String(id))))
+      rawDomainIds.forEach((did) => domainIds.push(new Types.ObjectId(String(did))))
     } else if (rawDomainId) {
       domainIds.push(new Types.ObjectId(String(rawDomainId)))
     }
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const rawProductId = (update as { productId?: unknown }).productId
     const rawProductIds = (update as { productIds?: unknown[] }).productIds || []
     if (rawProductId) productIdSet.add(String(rawProductId))
-    for (const id of rawProductIds) if (id) productIdSet.add(String(id))
+    for (const pid of rawProductIds) if (pid) productIdSet.add(String(pid))
 
     const notifiedIds = new Set<string>([session.user.id])
     const notifications: NotificationPayload[] = []
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             (u as { email: string }).email,
             session.user.name,
             updateTitle,
-            params.id,
+            id,
             trimmedText
           )
         )

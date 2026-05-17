@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
 import { Product } from '@/models/Product'
@@ -12,8 +12,8 @@ import { BlogCategory } from '@/models/BlogCategory'
 import { BlogPost } from '@/models/BlogPost'
 import { ActivityLog } from '@/models/ActivityLog'
 import { PageSetting } from '@/models/PageSetting'
-import { Navbar } from '@/components/layout/Navbar'
-import { AdminTabs } from '@/components/admin/AdminTabs'
+import { Navbar } from '@/components/layout/navbar'
+import { AdminTabs } from '@/features/admin/components/admin-tabs'
 
 const SEED_CATEGORIES = [
   { name: 'Thought Pieces', slug: 'thought-pieces', color: '#f97316', purpose: 'Opinion and perspective pieces that challenge assumptions or share points of view.' },
@@ -30,7 +30,7 @@ const SLUG_MIGRATION_MAP: Record<string, string> = {
 }
 
 export default async function AdminPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()

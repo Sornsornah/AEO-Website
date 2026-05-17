@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
 
 const GOALS = [
   {

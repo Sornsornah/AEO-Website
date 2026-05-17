@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic'
 
 import { Types } from 'mongoose'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Update } from '@/models/Update'
@@ -11,17 +11,17 @@ import { UserSeenUpdate } from '@/models/UserSeenUpdate'
 import { Comment } from '@/models/Comment'
 import { Tag } from '@/models/Tag'
 import { redirect } from 'next/navigation'
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
-import { UpdatesPageClient } from '@/components/updates/UpdatesPageClient'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
+import { UpdatesPageClient } from '@/features/updates/components/updates-page-client'
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     domain?: string
     product?: string
     view?: string
     comments?: string
-  }
+  }>
 }
 
 function toMarkdownString(val: string | string[] | undefined): string {
@@ -29,8 +29,9 @@ function toMarkdownString(val: string | string[] | undefined): string {
   return val || ''
 }
 
-export default async function UpdatesPage({ searchParams }: PageProps) {
-  const session = await getServerSession(authOptions)
+export default async function UpdatesPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/about')
   await connectDB()
   void Tag // ensure Tag schema is registered for populate('tagIds')

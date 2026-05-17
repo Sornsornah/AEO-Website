@@ -3,15 +3,16 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
-import { GridFSBucket, ObjectId } from 'mongodb'
 
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  let fileId: ObjectId
+  const { id } = await params
+  const { GridFSBucket, ObjectId } = mongoose.mongo
+  let fileId: InstanceType<typeof ObjectId>
   try {
-    fileId = new ObjectId(params.id)
+    fileId = new ObjectId(id)
   } catch {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }

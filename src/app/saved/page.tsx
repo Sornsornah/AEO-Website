@@ -1,14 +1,15 @@
 export const dynamic = 'force-dynamic'
 
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
+import Link from 'next/link'
 import { connectDB } from '@/lib/mongodb'
 import { SavedUpdate } from '@/models/SavedUpdate'
-import { Navbar } from '@/components/layout/Navbar'
-import { UpdateCard } from '@/components/updates/UpdateCard'
+import { Navbar } from '@/components/layout/navbar'
+import { UpdateCard } from '@/features/updates/components/update-card'
 
 export default async function SavedPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
 
   await connectDB()
 
@@ -53,9 +54,9 @@ export default async function SavedPage() {
             <p className="text-slate-400 text-sm">
               Bookmark updates to find them here later.
             </p>
-            <a href="/updates" className="text-blue-600 text-sm mt-3 inline-block hover:underline">
+            <Link href="/updates" className="text-blue-600 text-sm mt-3 inline-block hover:underline">
               Browse all updates
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="mt-2">

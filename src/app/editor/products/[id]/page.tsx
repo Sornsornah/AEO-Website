@@ -1,24 +1,25 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound, redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
-import { Navbar } from '@/components/layout/Navbar'
-import { ProductDetailForm } from '@/components/editor/ProductDetailForm'
+import { Navbar } from '@/components/layout/navbar'
+import { ProductDetailForm } from '@/features/editor/components/product-detail-form'
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function EditProductPage({ params }: Props) {
-  const session = await getServerSession(authOptions)
+  const { id } = await params
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
 
-  const product = await Product.findById(params.id).lean()
+  const product = await Product.findById(id).lean()
   if (!product) notFound()
 
   const p = product as typeof product & {

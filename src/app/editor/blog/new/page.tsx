@@ -1,15 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
-import { Navbar } from '@/components/layout/Navbar'
-import { BlogPostForm } from '@/components/editor/BlogPostForm'
+import { Navbar } from '@/components/layout/navbar'
+import { BlogPostForm } from '@/features/editor/components/blog-post-form'
 
 export default async function NewBlogPostPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()

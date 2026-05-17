@@ -38,3 +38,7 @@ next-env.d.ts
 
 # uploaded files
 /public/uploads/
+
+# Claude Code
+.claude/
+.agents/

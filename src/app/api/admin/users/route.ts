@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+const createUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  role: z.enum(['viewer', 'admin']).optional(),
+})
+
+export async function GET(req: NextRequest) {
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
@@ -27,18 +33,18 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  const { email, name, role } = await req.json()
-
-  if (!email || !name) {
-    return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
+  const parsed = createUserSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return Response.json({ errors: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
+  const { email, name, role } = parsed.data
 
-  const validRole = ['viewer', 'admin'].includes(role) ? role : 'viewer'
+  const validRole = role ?? 'viewer'
 
   const existing = await User.findOne({ email: email.toLowerCase() })
   if (existing) {
