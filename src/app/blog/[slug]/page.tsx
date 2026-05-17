@@ -1,20 +1,20 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import type { BlogStatus } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
 import { BlogCategory } from '@/models/BlogCategory'
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
-import { BlogDetail } from '@/components/blog/BlogDetail'
-import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
+import { BlogDetail } from '@/features/blog/components/blog-detail'
+import type { BlogPostSummary, CategoriesMap } from '@/features/blog/components/blog-utils'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 function isVisible(status: string | undefined, publishedAt: Date): boolean {
@@ -24,10 +24,11 @@ function isVisible(status: string | undefined, publishedAt: Date): boolean {
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
-  const session = await getServerSession(authOptions)
+  const { slug } = await params
+  const session = await getSession(await headers())
   await connectDB()
 
-  const raw = await BlogPost.findOne({ slug: params.slug }).lean()
+  const raw = await BlogPost.findOne({ slug }).lean()
   if (!raw) notFound()
   if (!isVisible(raw.status, raw.publishedAt) && session?.user?.role !== 'admin') notFound()
 

@@ -5,17 +5,17 @@ import { BlogPost } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
 import { ExternalArticle } from '@/models/ExternalArticle'
 import { BlogCategory } from '@/models/BlogCategory'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
-import { BlogPageClient } from '@/components/blog/BlogPageClient'
-import type { BlogPostSummary, CategoriesMap } from '@/components/blog/blogUtils'
-import type { ExternalArticleEntry } from '@/components/blog/ExternalArticlesSidebar'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
+import { BlogPageClient } from '@/features/blog/components/blog-page-client'
+import type { BlogPostSummary, CategoriesMap } from '@/features/blog/components/blog-utils'
+import type { ExternalArticleEntry } from '@/features/blog/components/external-articles-sidebar'
 import { Types } from 'mongoose'
 
 export default async function BlogPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
   await connectDB()
 
   const now = new Date()

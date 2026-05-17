@@ -3,19 +3,19 @@ export const dynamic = 'force-dynamic'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
-import { Navbar } from '@/components/layout/Navbar'
-import { UpdateTable } from '@/components/editor/UpdateTable'
-import { UpdateReorderView } from '@/components/editor/UpdateReorderView'
-import { FilterBar } from '@/components/updates/FilterBar'
-import { EditorProductsList } from '@/components/editor/EditorProductsList'
-import { BlogTable } from '@/components/editor/BlogTable'
-import { ExternalArticlesTable } from '@/components/editor/ExternalArticlesTable'
+import { Navbar } from '@/components/layout/navbar'
+import { UpdateTable } from '@/features/editor/components/update-table'
+import { UpdateReorderView } from '@/features/editor/components/update-reorder-view'
+import { FilterBar } from '@/features/updates/components/filter-bar'
+import { EditorProductsList } from '@/features/editor/components/editor-products-list'
+import { BlogTable } from '@/features/editor/components/blog-table'
+import { ExternalArticlesTable } from '@/features/editor/components/external-articles-table'
 import { Button } from '@/components/ui/button'
 import { BlogPost } from '@/models/BlogPost'
 import { ExternalArticle } from '@/models/ExternalArticle'
@@ -24,7 +24,7 @@ import { BlogCategory } from '@/models/BlogCategory'
 const PAGE_SIZE = 20
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     tab?: string
     subtab?: string
     product?: string
@@ -36,11 +36,12 @@ interface PageProps {
     status?: string
     page?: string
     reorder?: string
-  }
+  }>
 }
 
-export default async function EditorPage({ searchParams }: PageProps) {
-  const session = await getServerSession(authOptions)
+export default async function EditorPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()

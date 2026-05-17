@@ -1,15 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
 
-export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   await connectDB()
-  const post = await BlogPost.findOne({ slug: params.slug }).select('_id').lean()
+  const post = await BlogPost.findOne({ slug }).select('_id').lean()
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const comments = await BlogComment.find({ postId: post._id })
@@ -28,16 +28,17 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   )
 }
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
 
   const { content } = await req.json()
   if (!content?.trim()) return NextResponse.json({ error: 'Comment is required' }, { status: 400 })
   if (content.trim().length > 2000) return NextResponse.json({ error: 'Too long' }, { status: 400 })
 
   await connectDB()
-  const post = await BlogPost.findOne({ slug: params.slug }).select('_id').lean()
+  const post = await BlogPost.findOne({ slug }).select('_id').lean()
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const comment = await BlogComment.create({

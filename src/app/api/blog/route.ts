@@ -1,11 +1,23 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { z } from 'zod'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { computeDiff, writeLog, serializeBlogSnapshot } from '@/lib/activityLog'
+
+const createBlogSchema = z.object({
+  title: z.string().min(1),
+  excerpt: z.string().min(1),
+  category: z.enum(['thought', 'learning-journey', 'field-notes', 'deep-dive']),
+  authorName: z.string().min(1),
+  content: z.string().optional(),
+  coverImage: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  publishedAt: z.string().optional(),
+  status: z.enum(['draft', 'scheduled', 'published']).optional(),
+})
 
 function slugify(text: string) {
   return text
@@ -38,7 +50,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search')
   const adminAll = searchParams.get('admin') === '1'
 
-  const session = await getServerSession(authOptions)
+  const session = await getSession(req.headers)
   const isAdmin = session?.user?.role === 'admin'
 
   const query: Record<string, unknown> = {}
@@ -81,17 +93,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return new Response(null, { status: 401 })
   }
 
-  const body = await req.json()
-  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status } = body
-
-  if (!title || !excerpt || !category || !authorName) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  const parsed = createBlogSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return Response.json({ errors: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
+  const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status } = parsed.data
 
   await connectDB()
 

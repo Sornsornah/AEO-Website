@@ -2,17 +2,17 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
 import { Tag } from '@/models/Tag'
-import { Navbar } from '@/components/layout/Navbar'
-import { UpdateForm } from '@/components/editor/UpdateForm'
+import { Navbar } from '@/components/layout/navbar'
+import { UpdateForm } from '@/features/editor/components/update-form'
 
 export default async function NewUpdatePage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()

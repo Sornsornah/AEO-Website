@@ -2,24 +2,25 @@ export const dynamic = 'force-dynamic'
 
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
-import { Navbar } from '@/components/layout/Navbar'
-import { ComparisonView } from '@/components/updates/ComparisonView'
-import { SeenTracker } from '@/components/updates/SeenTracker'
+import { Navbar } from '@/components/layout/navbar'
+import { ComparisonView } from '@/features/updates/components/comparison-view'
+import { SeenTracker } from '@/features/updates/components/seen-tracker'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function UpdateDetailPage({ params }: PageProps) {
-  const session = await getServerSession(authOptions)
+  const { id } = await params
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/about')
 
   await connectDB()
-  const update = await Update.findById(params.id).populate('productId').populate('productIds').lean()
+  const update = await Update.findById(id).populate('productId').populate('productIds').lean()
 
   if (!update) notFound()
 
@@ -89,7 +90,7 @@ export default async function UpdateDetailPage({ params }: PageProps) {
         <ComparisonView current={serialized} prev={serializedPrev} />
       </main>
 
-      {update.isPublished && <SeenTracker updateId={params.id} />}
+      {update.isPublished && <SeenTracker updateId={id} />}
     </div>
   )
 }

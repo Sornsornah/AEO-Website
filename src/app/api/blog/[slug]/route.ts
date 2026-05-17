@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { computeDiff, writeLog, TRACKED_FIELDS, serializeBlogSnapshot } from '@/lib/activityLog'
@@ -18,10 +17,11 @@ function isVisible(post: { status?: string; publishedAt: Date }): boolean {
   return false
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   await connectDB()
-  const session = await getServerSession(authOptions)
-  const post = await BlogPost.findOne({ slug: params.slug }).lean()
+  const session = await getSession(req.headers)
+  const post = await BlogPost.findOne({ slug }).lean()
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!isVisible(post) && session?.user?.role !== 'admin') {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -47,13 +47,14 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { slug: string } }) {
-  const session = await getServerSession(authOptions)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return new Response(null, { status: 401 })
   }
   await connectDB()
-  const post = await BlogPost.findOne({ slug: params.slug })
+  const post = await BlogPost.findOne({ slug })
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
@@ -104,15 +105,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
   return NextResponse.json({ slug: post.slug })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { slug: string } }) {
-  const session = await getServerSession(authOptions)
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return new Response(null, { status: 401 })
   }
   await connectDB()
-  const post = await BlogPost.findOne({ slug: params.slug }).lean()
+  const post = await BlogPost.findOne({ slug }).lean()
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  await BlogPost.deleteOne({ slug: params.slug })
+  await BlogPost.deleteOne({ slug })
   await writeLog({
     userId: session.user.id,
     userName: session.user.name ?? session.user.email ?? 'Unknown',

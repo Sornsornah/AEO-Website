@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { PageSetting } from '@/models/PageSetting'
 
-export async function PATCH(req: NextRequest, { params }: { params: { pageKey: string } }) {
-  const session = await getServerSession(authOptions)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pageKey: string }> }) {
+  const { pageKey } = await params
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -19,10 +19,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { pageKey: s
     if (key in body) update[key] = body[key]
   }
 
-  console.log('[page-settings PATCH]', params.pageKey, update)
+  console.log('[page-settings PATCH]', pageKey, update)
 
   const setting = await PageSetting.findOneAndUpdate(
-    { pageKey: params.pageKey },
+    { pageKey },
     { $set: update },
     { returnDocument: 'after' }
   )

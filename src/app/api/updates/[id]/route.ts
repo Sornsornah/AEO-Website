@@ -1,19 +1,19 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { computeDiff, writeLog, serializeUpdateSnapshot } from '@/lib/activityLog'
 import { formatMonthYear } from '@/lib/utils'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
 
   await connectDB()
-  const update = await Update.findById(params.id).populate('productId').populate('productIds').lean()
+  const update = await Update.findById(id).populate('productId').populate('productIds').lean()
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const isVisible = update.isPublished || (update.scheduledAt && new Date(update.scheduledAt as Date) <= new Date())
@@ -24,14 +24,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(update)
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
 
-  const before = await Update.findById(params.id).lean()
+  const before = await Update.findById(id).lean()
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
@@ -65,7 +66,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null
   updateData.updatedBy = session.user.id
 
-  const update = await Update.findByIdAndUpdate(params.id, updateData, { new: true })
+  const update = await Update.findByIdAndUpdate(id, updateData, { new: true })
     .populate('productId')
     .populate('productIds')
     .lean()
@@ -79,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       userName: session.user.name ?? session.user.email ?? 'Unknown',
       action: 'update',
       entityType: 'update',
-      entityId: params.id,
+      entityId: id,
       entityTitle: (update.title as string) || 'Untitled',
       changes,
       beforeSnapshot: serializeUpdateSnapshot(before as Record<string, unknown>),
@@ -90,24 +91,25 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json(update)
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
 
-  const update = await Update.findById(params.id).lean()
+  const update = await Update.findById(id).lean()
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  await Update.findByIdAndDelete(params.id)
+  await Update.findByIdAndDelete(id)
 
   await writeLog({
     userId: session.user.id,
     userName: session.user.name ?? session.user.email ?? 'Unknown',
     action: 'delete',
     entityType: 'update',
-    entityId: params.id,
+    entityId: id,
     entityTitle: (update as Record<string, unknown>).title as string,
     changes: [],
     beforeSnapshot: serializeUpdateSnapshot(update as Record<string, unknown>),

@@ -1,18 +1,35 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { z } from 'zod'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
 import { computeDiff, writeLog, serializeUpdateSnapshot } from '@/lib/activityLog'
 
+const createUpdateSchema = z.object({
+  title: z.string().min(1),
+  date: z.string().min(1),
+  domainIds: z.array(z.string()).min(1),
+  summary: z.string().optional(),
+  content: z.string().optional(),
+  productIds: z.array(z.string()).optional(),
+  tagIds: z.array(z.string()).optional(),
+  highlights: z.array(z.unknown()).optional(),
+  progressUpdates: z.string().optional(),
+  nextSteps: z.string().optional(),
+  learningPoints: z.string().optional(),
+  media: z.array(z.string()).optional(),
+  isPublished: z.boolean().optional(),
+  scheduledAt: z.string().optional(),
+})
+
 const PAGE_SIZE = 20
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
 
   await connectDB()
 
@@ -67,20 +84,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  const body = await req.json()
-  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = body
-
-  if (!title || !date) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  const parsed = createUpdateSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return Response.json({ errors: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
-  if (!Array.isArray(domainIds) || domainIds.length === 0) {
-    return NextResponse.json({ error: 'At least one domain is required' }, { status: 400 })
-  }
+  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = parsed.data
 
   const normalizedProductIds = Array.isArray(productIds) ? productIds : []
   const update = await Update.create({

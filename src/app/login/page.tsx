@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { LoginForm } from '@/components/auth/LoginForm'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
+import { LoginForm } from '@/features/auth/components/login-form'
 
 export default async function LoginPage() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession(await headers())
   if (session) redirect(session.user.role === 'admin' ? '/editor' : '/products')
 
   return (

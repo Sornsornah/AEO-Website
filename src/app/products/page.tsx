@@ -1,15 +1,12 @@
 export const dynamic = 'force-dynamic'
 
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
-import { Navbar } from '@/components/layout/Navbar'
-import { PageBanner } from '@/components/layout/PageBanner'
-import { ProductsCatalogueClient } from '@/components/products/ProductsCatalogueClient'
+import { Navbar } from '@/components/layout/navbar'
+import { PageBanner } from '@/components/layout/page-banner'
+import { ProductsCatalogueClient } from '@/features/products/components/products-catalogue-client'
 
 export default async function ProductsPage() {
-  await getServerSession(authOptions)
   await connectDB()
 
   const products = await Product.find({ isHidden: { $ne: true } }).sort({ order: 1, name: 1 }).lean()

@@ -1,17 +1,17 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { ExternalArticle } from '@/models/ExternalArticle'
 import { computeDiff, writeLog, serializeExternalArticleSnapshot } from '@/lib/activityLog'
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
   if (session?.user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { title, description, url, order, isHidden } = await req.json()
   await connectDB()
-  const article = await ExternalArticle.findById(params.id)
+  const article = await ExternalArticle.findById(id)
   if (!article) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const beforeSnapshot = serializeExternalArticleSnapshot(article.toObject())
@@ -42,20 +42,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
   if (session?.user?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   await connectDB()
-  const article = await ExternalArticle.findById(params.id).lean()
+  const article = await ExternalArticle.findById(id).lean()
   if (!article) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  await ExternalArticle.findByIdAndDelete(params.id)
+  await ExternalArticle.findByIdAndDelete(id)
   await writeLog({
     userId: session.user.id,
     userName: session.user.name ?? session.user.email ?? 'Unknown',
     action: 'delete',
     entityType: 'external_article',
-    entityId: params.id,
+    entityId: id,
     entityTitle: (article as Record<string, unknown>).title as string,
     changes: [],
     beforeSnapshot: serializeExternalArticleSnapshot(article as Record<string, unknown>),

@@ -1,11 +1,9 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import mongoose from 'mongoose'
-import { GridFSBucket } from 'mongodb'
 import { Readable } from 'stream'
 
 const MAX_SIZE = 50 * 1024 * 1024 // 50MB
@@ -15,8 +13,8 @@ const ALLOWED_TYPES = [
 ]
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getSession(req.headers)
+  if (!session) return new Response(null, { status: 401 })
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null
@@ -42,6 +40,7 @@ export async function POST(req: NextRequest) {
     .slice(0, 40)
   const filename = `${Date.now()}-${safeName}.${ext}`
 
+  const { GridFSBucket } = mongoose.mongo
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
   const uploadStream = bucket.openUploadStream(filename, { metadata: { contentType: file.type } })
 

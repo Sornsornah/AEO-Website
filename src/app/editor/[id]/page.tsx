@@ -2,29 +2,30 @@ export const dynamic = 'force-dynamic'
 
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
 import { Tag } from '@/models/Tag'
-import { Navbar } from '@/components/layout/Navbar'
-import { UpdateForm } from '@/components/editor/UpdateForm'
+import { Navbar } from '@/components/layout/navbar'
+import { UpdateForm } from '@/features/editor/components/update-form'
 import { format } from 'date-fns'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function EditUpdatePage({ params }: PageProps) {
-  const session = await getServerSession(authOptions)
+  const { id } = await params
+  const session = await getSession(await headers())
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
 
   const [update, products, domains, tags] = await Promise.all([
-    Update.findById(params.id).lean(),
+    Update.findById(id).lean(),
     Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
     Tag.find().sort({ name: 1 }).lean(),

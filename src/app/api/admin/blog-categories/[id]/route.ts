@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogCategory } from '@/models/BlogCategory'
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -17,18 +17,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (purpose !== undefined) update.purpose = purpose.trim() || undefined
   if (color !== undefined) update.color = color.trim()
 
-  const category = await BlogCategory.findByIdAndUpdate(params.id, update, { new: true })
+  const category = await BlogCategory.findByIdAndUpdate(id, update, { new: true })
   if (!category) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(category)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions)
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await getSession(req.headers)
   if (!session || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   await connectDB()
 
-  await BlogCategory.findByIdAndDelete(params.id)
+  await BlogCategory.findByIdAndDelete(id)
   return NextResponse.json({ ok: true })
 }
