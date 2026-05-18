@@ -1,8 +1,0 @@
-diff --git a/dist/state/index.js b/dist/state/index.js
-index c44ae8fdcc6a0f89c53f992fd34f788a2d73dbe2..edc12e8afca463b9cd7a58da2b43274de8dbe0fe 100644
---- a/dist/state/index.js
-+++ b/dist/state/index.js
-@@ -1,2 +1,2 @@
- // state/index.ts
--export * from "prosemirror-state";
-+export { AllSelection, EditorState, NodeSelection, Plugin, PluginKey, Selection, SelectionRange, TextSelection, Transaction } from "prosemirror-state";
