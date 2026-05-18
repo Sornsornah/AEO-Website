@@ -127,7 +127,7 @@ export function SocialUpdateCard({ update, commentCount = 0, autoOpen = false }:
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1.5 ${s.labelColor}`}>
                   {s.label}
                 </p>
-                <div className="prose prose-xs max-w-none text-black leading-relaxed [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-1 [&_li]:mb-0.5 [&_p]:text-black [&_li]:text-black [&_*]:text-black">
+                <div className="prose prose-xs max-w-none text-black leading-snug [&_ul]:my-0 [&_ol]:my-0 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol_ol]:list-[lower-alpha] [&_p]:mb-0.5 [&_li]:mb-0 [&_li]:mt-0 [&_p]:text-black [&_li]:text-black [&_*]:text-black">
                   <ReactMarkdown>{content}</ReactMarkdown>
                 </div>
               </div>

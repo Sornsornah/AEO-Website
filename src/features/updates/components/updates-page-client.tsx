@@ -227,7 +227,7 @@ export function UpdatesPageClient({
                 {!isCollapsed && (
                   <div
                     id={`month-${month.replace(/\s+/g, '-')}`}
-                    className="space-y-4"
+                    className="space-y-4 ml-10"
                   >
                     {items.map((update) => (
                       <SocialUpdateCard
