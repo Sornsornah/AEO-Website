@@ -6,8 +6,7 @@ services:
     env_file:
       - .env
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/updatecentral
-      - NEXTAUTH_URL=http://localhost:3000
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/updatecentral}
     depends_on:
       mongo:
         condition: service_healthy
