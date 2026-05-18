@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from './notification-bell'
+import { Lock } from 'lucide-react'
 
 interface NavLink {
   href: string
@@ -81,6 +82,17 @@ export function Navbar() {
                   )}
                 >
                   {link.label}
+                  {link.href === '/updates' && (
+                    <span className={cn(
+                      'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium',
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#F4F4F6] text-[#64748B] border border-[#E2E8F0]'
+                    )}>
+                      <Lock className="w-2.5 h-2.5" />
+                      Restricted
+                    </span>
+                  )}
                 </Link>
               )
             })}

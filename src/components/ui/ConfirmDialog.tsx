@@ -45,6 +45,9 @@ export function ConfirmDialog({
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+          <AlertDialogCancel onClick={onCancel} className="w-full">
+            {cancelLabel}
+          </AlertDialogCancel>
           {tertiaryLabel && onTertiary && (
             <AlertDialogAction
               onClick={onTertiary}
@@ -64,9 +67,6 @@ export function ConfirmDialog({
           >
             {confirmLabel}
           </AlertDialogAction>
-          <AlertDialogCancel onClick={onCancel} className="w-full">
-            {cancelLabel}
-          </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
