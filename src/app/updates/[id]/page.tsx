@@ -17,7 +17,7 @@ interface PageProps {
 export default async function UpdateDetailPage({ params }: PageProps) {
   const { id } = await params
   const session = await getSession(await headers())
-  if (!session || session.user.role !== 'admin') redirect('/about')
+  if (!session || (session.user.role !== 'viewer' && session.user.role !== 'admin')) redirect('/about')
 
   await connectDB()
   const update = await Update.findById(id).populate('productId').populate('productIds').lean()

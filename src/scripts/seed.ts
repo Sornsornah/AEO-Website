@@ -10,8 +10,7 @@ const MONGODB_URI = process.env.MONGODB_URI!
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['viewer', 'admin'], default: 'viewer' },
-  isWhitelisted: { type: Boolean, default: false },
+  role: { type: String, enum: ['public', 'viewer', 'admin'], default: 'public' },
 }, { timestamps: true })
 
 const ProductSchema = new mongoose.Schema({
@@ -50,14 +49,12 @@ async function seed() {
     email: 'admin@updatecentral.com',
     name: 'Alex Admin',
     role: 'admin',
-    isWhitelisted: true,
   })
 
   await User.create({
     email: 'viewer@updatecentral.com',
     name: 'CEO Viewer',
     role: 'viewer',
-    isWhitelisted: true,
   })
 
   console.log('Seeding products...')
@@ -306,7 +303,7 @@ All screens have been audited and updated to meet WCAG 2.1 AA standards:
 
   console.log('✓ Seed complete!')
   console.log('')
-  console.log('Test accounts (sign in via OTP at /login):')
+  console.log('Test accounts (matched by email when gateway headers arrive):')
   console.log('  Admin:   admin@updatecentral.com')
   console.log('  Viewer:  viewer@updatecentral.com')
 

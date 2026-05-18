@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { authClient } from '@/lib/auth-client'
-import type { AuthSession } from '@/lib/auth'
+import { useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { NotificationBell } from './notification-bell'
 
@@ -25,8 +24,7 @@ function getInitials(name: string) {
 
 export function Navbar() {
   const pathname = usePathname()
-  const { data: rawSession } = authClient.useSession()
-  const session = rawSession as unknown as AuthSession | null
+  const session = useSession()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [navLinks, setNavLinks] = useState<NavLink[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -128,15 +126,6 @@ export function Navbar() {
                         </Link>
                       </>
                     )}
-
-                    <div className="border-t border-stone-100">
-                      <button
-                        onClick={() => authClient.signOut().then(() => window.location.href = '/login')}
-                        className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 hover:text-stone-700 transition-colors"
-                      >
-                        Sign out
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>

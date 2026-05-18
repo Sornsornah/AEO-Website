@@ -13,7 +13,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed-domains": "tsx src/scripts/seed-domains.ts",
     "create-user": "tsx src/scripts/create-user.ts",
-    "whitelist-user": "tsx src/scripts/whitelist-user.ts",
+    "set-role": "tsx src/scripts/set-role.ts",
     "migrate-roles": "tsx src/scripts/migrate-editor-to-admin.ts",
     "migrate-db": "tsx src/scripts/migrate-db.ts"
   },
@@ -41,7 +41,6 @@
     "@types/nodemailer": "^8.0.0",
     "@types/turndown": "^5.0.6",
     "@uiw/react-md-editor": "^4.1.0",
-    "better-auth": "^1.2.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

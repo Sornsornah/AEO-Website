@@ -15,8 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const update: Record<string, unknown> = {}
 
-  if (typeof body.isWhitelisted === 'boolean') update.isWhitelisted = body.isWhitelisted
-  if (body.role && ['viewer', 'admin'].includes(body.role)) update.role = body.role
+  if (body.role && ['public', 'viewer', 'admin'].includes(body.role)) update.role = body.role
 
   const user = await User.findByIdAndUpdate(id, update, { new: true })
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -26,7 +25,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     email: user.email,
     name: user.name,
     role: user.role,
-    isWhitelisted: user.isWhitelisted,
   })
 }
 

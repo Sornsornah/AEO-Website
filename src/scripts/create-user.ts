@@ -9,8 +9,7 @@ const MONGODB_URI = process.env.MONGODB_URI!
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   name: { type: String, required: true },
-  role: { type: String, enum: ['viewer', 'admin'], default: 'viewer' },
-  isWhitelisted: { type: Boolean, default: false },
+  role: { type: String, enum: ['public', 'viewer', 'admin'], default: 'viewer' },
 }, { timestamps: true })
 
 function getArg(flag: string): string | undefined {
@@ -24,12 +23,12 @@ async function createUser() {
   const role = getArg('role') ?? 'viewer'
 
   if (!email || !name) {
-    console.error('Usage: npm run create-user -- --email=<email> --name=<name> [--role=viewer|admin]')
+    console.error('Usage: pnpm create-user -- --email=<email> --name=<name> [--role=public|viewer|admin]')
     process.exit(1)
   }
 
-  if (!['viewer', 'admin'].includes(role)) {
-    console.error('Role must be "viewer" or "admin"')
+  if (!['public', 'viewer', 'admin'].includes(role)) {
+    console.error('Role must be "public", "viewer", or "admin"')
     process.exit(1)
   }
 
@@ -43,10 +42,10 @@ async function createUser() {
     process.exit(1)
   }
 
-  await User.create({ email, name, role, isWhitelisted: true })
+  await User.create({ email, name, role: role as 'public' | 'viewer' | 'admin' })
 
-  console.log(`✓ Created user: ${email} (role: ${role}, whitelisted: true)`)
-  console.log(`  They can sign in at /login using their email — a code will be sent.`)
+  console.log(`✓ Created user: ${email} (role: ${role})`)
+  console.log(`  They can access the app once the gateway forwards their headers.`)
   await mongoose.disconnect()
 }
 

@@ -81,8 +81,7 @@ export default async function AdminPage() {
     _id: u._id.toString(),
     email: u.email,
     name: u.name,
-    role: u.role as 'viewer' | 'admin',
-    isWhitelisted: u.isWhitelisted,
+    role: u.role as 'public' | 'viewer' | 'admin',
     createdAt: u.createdAt.toISOString(),
   }))
 

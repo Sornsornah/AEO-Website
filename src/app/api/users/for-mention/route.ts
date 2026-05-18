@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (!session) return new Response(null, { status: 401 })
 
   await connectDB()
-  const users = await User.find({ isWhitelisted: true }).select('_id name').lean()
+  const users = await User.find({ role: { $in: ['viewer', 'admin'] } }).select('_id name').lean()
 
   return NextResponse.json(
     users.map((u) => ({

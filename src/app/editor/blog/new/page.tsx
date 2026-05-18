@@ -13,7 +13,7 @@ export default async function NewBlogPostPage() {
   if (!session || session.user.role !== 'admin') redirect('/updates')
 
   await connectDB()
-  const rawUsers = await User.find({ isWhitelisted: true }).select('name').sort({ name: 1 }).lean()
+  const rawUsers = await User.find({ role: { $in: ['viewer', 'admin'] } }).select('name').sort({ name: 1 }).lean()
   const users = rawUsers.map((u) => ({ _id: u._id.toString(), name: u.name }))
 
   return (
