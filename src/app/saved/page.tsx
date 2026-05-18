@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import Link from 'next/link'
 import { connectDB } from '@/lib/mongodb'
@@ -10,6 +11,7 @@ import { UpdateCard } from '@/features/updates/components/update-card'
 
 export default async function SavedPage() {
   const session = await getSession(await headers())
+  if (!session || (session.user.role !== 'viewer' && session.user.role !== 'admin')) redirect('/about')
 
   await connectDB()
 

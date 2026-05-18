@@ -9,7 +9,7 @@ import { User } from '@/models/User'
 const createUserSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1),
-  role: z.enum(['viewer', 'admin']).optional(),
+  role: z.enum(['public', 'viewer', 'admin']).optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
     email: u.email,
     name: u.name,
     role: u.role,
-    isWhitelisted: u.isWhitelisted,
     createdAt: u.createdAt.toISOString(),
   }))
 
@@ -44,21 +43,20 @@ export async function POST(req: NextRequest) {
   }
   const { email, name, role } = parsed.data
 
-  const validRole = role ?? 'viewer'
+  const validRole = role ?? 'public'
 
   const existing = await User.findOne({ email: email.toLowerCase() })
   if (existing) {
     return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 })
   }
 
-  const user = await User.create({ email, name, role: validRole, isWhitelisted: true })
+  const user = await User.create({ email, name, role: validRole })
 
   return NextResponse.json({
     _id: user._id.toString(),
     email: user.email,
     name: user.name,
     role: user.role,
-    isWhitelisted: user.isWhitelisted,
     createdAt: user.createdAt.toISOString(),
   }, { status: 201 })
 }

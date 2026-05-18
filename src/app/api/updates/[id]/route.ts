@@ -16,6 +16,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const update = await Update.findById(id).populate('productId').populate('productIds').lean()
   if (!update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  if (session.user.role === 'public') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const isVisible = update.isPublished || (update.scheduledAt && new Date(update.scheduledAt as Date) <= new Date())
   if (session.user.role === 'viewer' && !isVisible) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })

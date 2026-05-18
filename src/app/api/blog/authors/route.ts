@@ -11,6 +11,6 @@ export async function GET(req: NextRequest) {
     return new Response(null, { status: 401 })
   }
   await connectDB()
-  const users = await User.find({ isWhitelisted: true }).select('name').sort({ name: 1 }).lean()
+  const users = await User.find({ role: { $in: ['viewer', 'admin'] } }).select('name').sort({ name: 1 }).lean()
   return NextResponse.json(users.map((u) => ({ _id: u._id.toString(), name: u.name })))
 }

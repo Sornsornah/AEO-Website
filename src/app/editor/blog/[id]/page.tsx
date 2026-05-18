@@ -21,7 +21,7 @@ export default async function EditBlogPostPage({ params }: PageProps) {
   await connectDB()
   const [raw, rawUsers] = await Promise.all([
     BlogPost.findById(id).lean(),
-    User.find({ isWhitelisted: true }).select('name').sort({ name: 1 }).lean(),
+    User.find({ role: { $in: ['viewer', 'admin'] } }).select('name').sort({ name: 1 }).lean(),
   ])
   if (!raw) notFound()
 

@@ -18,8 +18,7 @@ interface SerializedUser {
   _id: string
   email: string
   name: string
-  role: 'viewer' | 'admin'
-  isWhitelisted: boolean
+  role: 'public' | 'viewer' | 'admin'
   createdAt: string
 }
 

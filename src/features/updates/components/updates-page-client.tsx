@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { SlidersHorizontal, Inbox } from 'lucide-react'
+import { SlidersHorizontal, Inbox, ChevronDown } from 'lucide-react'
 import { formatMonthYear } from '@/lib/utils'
 import { SocialUpdateCard } from './social-update-card'
 
@@ -74,6 +74,16 @@ export function UpdatesPageClient({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [filterOpen, setFilterOpen] = useState(false)
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
+
+  const toggleMonth = useCallback((month: string) => {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev)
+      if (next.has(month)) next.delete(month)
+      else next.add(month)
+      return next
+    })
+  }, [])
 
   const pushParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -190,29 +200,48 @@ export function UpdatesPageClient({
         </div>
       ) : (
         <div className="space-y-10">
-          {monthGroups.map(({ month, items }) => (
-            <section key={month}>
-              <div className="flex items-center gap-4 mb-4">
-                <h2 className="text-base font-bold text-[#1C1512] uppercase tracking-widest flex-shrink-0">
-                  {month}
-                </h2>
-                <div className="flex-1 h-px bg-[#E8E0D6]" />
-                <span className="text-xs text-stone-400 flex-shrink-0">
-                  {items.length} {items.length === 1 ? 'update' : 'updates'}
-                </span>
-              </div>
-              <div className="space-y-4">
-                {items.map((update) => (
-                  <SocialUpdateCard
-                    key={update._id}
-                    update={update}
-                    commentCount={commentCounts[update._id] ?? 0}
-                    autoOpen={openComments === update._id}
+          {monthGroups.map(({ month, items }) => {
+            const isCollapsed = collapsedMonths.has(month)
+            return (
+              <section key={month}>
+                <button
+                  type="button"
+                  onClick={() => toggleMonth(month)}
+                  aria-expanded={!isCollapsed}
+                  aria-controls={`month-${month.replace(/\s+/g, '-')}`}
+                  className="w-full flex items-center gap-4 mb-4 group text-left"
+                >
+                  <ChevronDown
+                    className={`w-6 h-6 text-stone-400 transition-transform duration-200 flex-shrink-0 ${
+                      isCollapsed ? '-rotate-90' : ''
+                    }`}
                   />
-                ))}
-              </div>
-            </section>
-          ))}
+                  <h2 className="text-4xl font-bold text-[#1C1512] flex-shrink-0 group-hover:text-stone-700 transition-colors">
+                    {month}
+                  </h2>
+                  <div className="flex-1 h-px bg-[#E8E0D6]" />
+                  <span className="text-xs text-stone-400 flex-shrink-0">
+                    {items.length} {items.length === 1 ? 'update' : 'updates'}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div
+                    id={`month-${month.replace(/\s+/g, '-')}`}
+                    className="space-y-4"
+                  >
+                    {items.map((update) => (
+                      <SocialUpdateCard
+                        key={update._id}
+                        update={update}
+                        commentCount={commentCounts[update._id] ?? 0}
+                        autoOpen={openComments === update._id}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )
+          })}
         </div>
       )}
     </div>

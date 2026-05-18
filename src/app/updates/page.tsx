@@ -32,7 +32,7 @@ function toMarkdownString(val: string | string[] | undefined): string {
 export default async function UpdatesPage({ searchParams: searchParamsPromise }: PageProps) {
   const searchParams = await searchParamsPromise
   const session = await getSession(await headers())
-  if (!session || session.user.role !== 'admin') redirect('/about')
+  if (!session || (session.user.role !== 'viewer' && session.user.role !== 'admin')) redirect('/about')
   await connectDB()
   void Tag // ensure Tag schema is registered for populate('tagIds')
 

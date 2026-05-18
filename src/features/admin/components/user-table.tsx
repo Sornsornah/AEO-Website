@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Trash2, Users } from 'lucide-react'
@@ -15,8 +14,7 @@ interface UserRow {
   _id: string
   email: string
   name: string
-  role: 'viewer' | 'admin'
-  isWhitelisted: boolean
+  role: 'public' | 'viewer' | 'admin'
   createdAt: string
 }
 
@@ -35,6 +33,7 @@ interface DomainRow {
 const roleColors: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700 border-purple-100',
   viewer: 'bg-slate-50 text-slate-600 border-slate-200',
+  public: 'bg-stone-50 text-stone-500 border-stone-200',
 }
 
 export function UserTable({
@@ -52,20 +51,6 @@ export function UserTable({
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
-
-  async function toggleWhitelist(user: UserRow) {
-    setLoadingId(user._id)
-    try {
-      await fetch(`/api/admin/users/${user._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isWhitelisted: !user.isWhitelisted }),
-      })
-      router.refresh()
-    } finally {
-      setLoadingId(null)
-    }
-  }
 
   async function changeRole(userId: string, role: string) {
     setLoadingId(userId)
@@ -125,7 +110,6 @@ export function UserTable({
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">User</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Role</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-28">Access</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Added</TableHead>
             <TableHead className="w-20" />
           </TableRow>
@@ -158,23 +142,12 @@ export function UserTable({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="public">Public</SelectItem>
                           <SelectItem value="viewer">Viewer</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={user.isWhitelisted}
-                        onCheckedChange={() => toggleWhitelist(user)}
-                        disabled={isLoading || isSelf}
-                      />
-                      <span className={`text-xs ${user.isWhitelisted ? 'text-green-600' : 'text-slate-400'}`}>
-                        {user.isWhitelisted ? 'Allowed' : 'Blocked'}
-                      </span>
-                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-slate-500 whitespace-nowrap">
                     {formatDateShort(user.createdAt)}

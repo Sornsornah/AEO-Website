@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { createPortal } from 'react-dom'
 import { X, Trash2, Pencil, Check, Video, Image as ImageIcon, Link2, Link2Off, List, ListOrdered } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { authClient } from '@/lib/auth-client'
+import { useSession } from '@/lib/use-session'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEditor, EditorContent, Node, mergeAttributes, Extension } from '@tiptap/react'
@@ -583,7 +583,7 @@ function EditCommentTiptapEditor({
 }
 
 export function CommentSidePanel({ updateId, update, onClose, onCountChange }: CommentSidePanelProps) {
-  const { data: session } = authClient.useSession()
+  const session = useSession()
   const queryClient = useQueryClient()
   const commentEditorRef = useRef<CommentEditorHandle>(null)
   const [editingId, setEditingId] = useState<string | null>(null)

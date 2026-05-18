@@ -1,29 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { AuthSession } from '@/lib/auth'
 
 const PROTECTED_PATHS = ['/updates', '/editor', '/admin', '/saved']
 
-export async function middleware(request: NextRequest) {
+function hasGatewayHeaders(request: NextRequest): boolean {
+  if (request.headers.get('x-auth-user-id') && request.headers.get('x-auth-user-email')) {
+    return true
+  }
+  // Dev fallback — only honoured outside production.
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_USER_EMAIL) {
+    return true
+  }
+  return false
+}
+
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p))
+  const isProtected = PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
 
   if (!isProtected) return NextResponse.next()
 
-  const res = await fetch(new URL('/api/auth/get-session', request.url), {
-    headers: { cookie: request.headers.get('cookie') ?? '' },
-  })
-
-  let session: AuthSession | null = null
-  if (res.ok) {
-    try {
-      session = await res.json()
-    } catch {
-      session = null
-    }
-  }
-
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (!hasGatewayHeaders(request)) {
+    return new NextResponse('Unauthorized', { status: 401 })
   }
 
   return NextResponse.next()

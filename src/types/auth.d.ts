@@ -1,6 +1,3 @@
-import type { auth } from '@/lib/auth'
+export type { UserRole, AuthSession, AuthSessionUser } from '@/lib/auth'
 
-export type Session = typeof auth.$Infer.Session
-export type User = Session['user']
-
-export type UserRole = 'viewer' | 'admin'
+export type User = import('@/lib/auth').AuthSessionUser
