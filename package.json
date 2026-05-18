@@ -2,19 +2,18 @@
   "name": "update-central",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.1.2",
+  "packageManager": "pnpm@10.33.4",
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp",
       "unrs-resolver"
-    ],
-    "patchedDependencies": {
-      "@tiptap/pm@3.23.4": "patches/@tiptap+pm+3.23.4.patch"
-    }
+    ]
   },
   "scripts": {
+    "postinstall": "if [ -f scripts/apply-patches.mjs ]; then node scripts/apply-patches.mjs; fi",
     "dev": "next dev",
+    "prebuild": "node scripts/apply-patches.mjs",
     "build": "next build",
     "build:worker": "esbuild src/worker.ts --bundle --platform=node --target=node22 --format=cjs --sourcemap --outfile=dist/worker.js",
     "start": "next start",
