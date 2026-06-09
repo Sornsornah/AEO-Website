@@ -11,22 +11,15 @@ import { UpdateCardPreview } from '@/features/editor/components/update-card-prev
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Clock, ChevronDown, Check } from 'lucide-react'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
-import { format } from 'date-fns'
-
-const SGT_OFFSET_MS = 8 * 60 * 60 * 1000
-
-function utcToSgtDatetimeLocal(utcIso: string): string {
-  const d = new Date(new Date(utcIso).getTime() + SGT_OFFSET_MS)
-  return d.toISOString().slice(0, 16)
-}
-
-function sgtToUtcIso(sgtLocal: string): string {
-  return new Date(new Date(sgtLocal + ':00Z').getTime() - SGT_OFFSET_MS).toISOString()
-}
-
-function sgtNowDatetimeLocal(): string {
-  return new Date(Date.now() + SGT_OFFSET_MS).toISOString().slice(0, 16)
-}
+import {
+  toMonthInput,
+  utcToSgtInput,
+  sgtInputToUtcIso,
+  nowSgtInput,
+  isValidDateTimeLocal,
+  isFutureSgtInput,
+  isValidMonthInput,
+} from '@/lib/date'
 
 interface MultiSelectOption {
   _id: string
@@ -164,11 +157,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
   const [domainIds, setDomainIds] = useState<string[]>(defaultValues.domainIds || [])
   const [productIds, setProductIds] = useState<string[]>(defaultValues.productIds || [])
   const [tagIds, setTagIds] = useState<string[]>(defaultValues.tagIds || [])
-  const [date, setDate] = useState(
-    defaultValues.date
-      ? format(new Date(defaultValues.date), 'yyyy-MM')
-      : format(new Date(), 'yyyy-MM')
-  )
+  const [date, setDate] = useState(toMonthInput(defaultValues.date))
   const initialPublishState = defaultValues.isPublished
     ? 'publish'
     : defaultValues.scheduledAt
@@ -176,7 +165,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
     : 'draft'
   const [publishState, setPublishState] = useState<'draft' | 'publish' | 'schedule'>(initialPublishState)
   const [scheduledAt, setScheduledAt] = useState(
-    defaultValues.scheduledAt ? utcToSgtDatetimeLocal(defaultValues.scheduledAt) : ''
+    defaultValues.scheduledAt ? utcToSgtInput(defaultValues.scheduledAt) : ''
   )
   const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? '')
   const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? '')
@@ -219,6 +208,10 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Please fill in all required fields.')
       return false
     }
+    if (!isValidMonthInput(date)) {
+      setError('Please choose a valid update period.')
+      return false
+    }
     if (domainIds.length === 0) {
       setError('Please select at least one section.')
       return false
@@ -228,9 +221,15 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
       return false
     }
-    if (publishState === 'schedule' && !scheduledAt) {
-      setError('Please select a date and time for scheduled publishing.')
-      return false
+    if (publishState === 'schedule') {
+      if (!scheduledAt || !isValidDateTimeLocal(scheduledAt)) {
+        setError('Please select a valid date and time for scheduled publishing.')
+        return false
+      }
+      if (!isFutureSgtInput(scheduledAt)) {
+        setError('Scheduled publish time must be in the future.')
+        return false
+      }
     }
 
     setLoading(true)
@@ -253,7 +252,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           nextSteps,
           learningPoints,
           isPublished: publishState === 'publish',
-          scheduledAt: publishState === 'schedule' ? sgtToUtcIso(scheduledAt) : null,
+          scheduledAt: publishState === 'schedule' ? sgtInputToUtcIso(scheduledAt) : null,
         }),
       })
 
@@ -446,7 +445,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
               className="h-8 text-sm w-auto"
-              min={sgtNowDatetimeLocal()}
+              min={nowSgtInput()}
             />
             <span className="text-xs text-slate-400 font-medium">SGT</span>
           </div>

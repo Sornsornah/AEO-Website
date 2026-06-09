@@ -198,7 +198,7 @@ function StaticPagesSection({ settings: initial }: { settings: PageSettingRow[] 
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-slate-500">{s.href}</span>
                     {s.adminOnly && (
-                      <span className="ml-1.5 text-[10px] font-medium bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">admin</span>
+                      <span className="ml-1.5 text-[10px] font-medium bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">AEO</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

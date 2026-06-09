@@ -36,6 +36,12 @@ const roleColors: Record<string, string> = {
   public: 'bg-stone-50 text-stone-500 border-stone-200',
 }
 
+const roleLabels: Record<string, string> = {
+  admin: 'AEO',
+  viewer: 'Management',
+  public: 'CPF officers',
+}
+
 export function UserTable({
   users,
   products,
@@ -129,8 +135,8 @@ export function UserTable({
                   </TableCell>
                   <TableCell>
                     {isSelf ? (
-                      <Badge className={`text-xs capitalize ${roleColors[user.role]}`}>
-                        {user.role}
+                      <Badge className={`text-xs ${roleColors[user.role]}`}>
+                        {roleLabels[user.role] ?? user.role}
                       </Badge>
                     ) : (
                       <Select
@@ -142,9 +148,9 @@ export function UserTable({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="public">Public</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="public">CPF officers</SelectItem>
+                          <SelectItem value="viewer">Management</SelectItem>
+                          <SelectItem value="admin">AEO</SelectItem>
                         </SelectContent>
                       </Select>
                     )}

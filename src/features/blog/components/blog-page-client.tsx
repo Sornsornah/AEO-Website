@@ -1,23 +1,26 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Search, Bookmark, ChevronLeft, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { Search, Bookmark, ChevronLeft, ChevronRight, PenSquare, FileText } from 'lucide-react'
 import { BlogCard } from './blog-card'
 import { FeaturedBlogCard } from './featured-blog-card'
+import { MyPostsTable } from './my-posts-table'
 import { ExternalArticlesSidebar, type ExternalArticleEntry } from './external-articles-sidebar'
 import { type BlogPostSummary, type CategoriesMap } from './blog-utils'
 
 interface BlogPageClientProps {
   posts: BlogPostSummary[]
   featured: BlogPostSummary[]
+  myPosts: BlogPostSummary[]
   isLoggedIn: boolean
   externalArticles: ExternalArticleEntry[]
   categoriesMap?: CategoriesMap
 }
 
-export function BlogPageClient({ posts: initialPosts, featured: initialFeatured, isLoggedIn, externalArticles, categoriesMap = {} }: BlogPageClientProps) {
+export function BlogPageClient({ posts: initialPosts, featured: initialFeatured, myPosts: initialMyPosts, isLoggedIn, externalArticles, categoriesMap = {} }: BlogPageClientProps) {
   const [posts, setPosts] = useState(initialPosts)
-  const [activeTab, setActiveTab] = useState<'browse' | 'saved'>('browse')
+  const [activeTab, setActiveTab] = useState<'browse' | 'saved' | 'my-posts'>('browse')
   const [search, setSearch] = useState('')
   const [featuredIdx, setFeaturedIdx] = useState(0)
   const isPaused = useRef(false)
@@ -104,6 +107,19 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
               Saved
             </button>
           )}
+          {isLoggedIn && (
+            <button
+              onClick={() => setActiveTab('my-posts')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                activeTab === 'my-posts'
+                  ? 'bg-[#070E1D] text-white'
+                  : 'text-[#64748B] hover:text-[#070E1D] hover:bg-[#F4F4F6]'
+              }`}
+            >
+              <FileText className="w-3 h-3" />
+              My Posts
+            </button>
+          )}
           {activeTab === 'browse' && (
             <>
               <div className="w-px h-4 bg-[#E2E8F0] mx-1 flex-shrink-0" />
@@ -118,6 +134,15 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                 />
               </div>
             </>
+          )}
+          {isLoggedIn && (
+            <Link
+              href="/editor/blog/new"
+              className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full bg-orange-600 text-white hover:bg-orange-700 transition-colors"
+            >
+              <PenSquare className="w-3 h-3" />
+              Write a post
+            </Link>
           )}
         </div>
       </div>
@@ -141,6 +166,8 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                   ))}
                 </div>
               )
+            ) : activeTab === 'my-posts' ? (
+              <MyPostsTable posts={initialMyPosts} categoriesMap={categoriesMap} />
             ) : (
               <>
                 {/* Featured carousel */}

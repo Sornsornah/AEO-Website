@@ -41,9 +41,9 @@ export function ProductsCatalogueClient({ products }: ProductsCatalogueClientPro
         <p className="text-xs font-semibold tracking-[0.2em] text-orange-700 uppercase mb-3">
 The Full Catalogue
         </p>
-        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">Explore potential products</h1>
+        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">Explore our products</h1>
         <p className="text-stone-500 text-sm">
-          Browse the full suite of products built for CPF officers.
+          Browse the full suite of products built for CPF officers to tackle operational challenges, streamline workflows, and unlock productivity across teams.
         </p>
       </div>
 

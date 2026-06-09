@@ -11,8 +11,9 @@ import { BlogCategoryTable } from './blog-category-table'
 import { AddBlogCategoryForm } from './add-blog-category-form'
 import { LogsTable, LogEntry } from './logs-table'
 import { PageSettingsTable, PageSettingRow, EntityBannerRow } from './page-settings-table'
+import { HomepageProductsTab } from './homepage-products-tab'
 
-type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'pages' | 'logs'
+type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'pages' | 'homepage' | 'logs'
 
 interface SerializedUser {
   _id: string
@@ -25,6 +26,9 @@ interface SerializedUser {
 interface SerializedProduct {
   _id: string
   name: string
+  slug: string
+  logoUrl?: string
+  color: string
   members: { _id: string; name: string }[]
 }
 
@@ -60,6 +64,7 @@ interface AdminTabsProps {
   pageSettings: PageSettingRow[]
   productBanners: EntityBannerRow[]
   blogBanners: EntityBannerRow[]
+  featuredProductIds: string[]
   currentUserId: string
   initialLogs: LogEntry[]
   initialLogsTotal: number
@@ -71,10 +76,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'tags', label: 'Update Tags' },
   { id: 'blog-categories', label: 'Blog Categories' },
   { id: 'pages', label: 'Pages' },
+  { id: 'homepage', label: 'Homepage' },
   { id: 'logs', label: 'Logs' },
 ]
 
-export function AdminTabs({ users, products, domains, tags, blogCategories, pageSettings, productBanners, blogBanners, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
+export function AdminTabs({ users, products, domains, tags, blogCategories, pageSettings, productBanners, blogBanners, featuredProductIds, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
   const [tab, setTab] = useState<Tab>('users')
 
   return (
@@ -159,11 +165,21 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, page
         </section>
       )}
 
+      {tab === 'homepage' && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-slate-900">Homepage</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Curate the products shown in the homepage constellation</p>
+          </div>
+          <HomepageProductsTab products={products} featuredIds={featuredProductIds} />
+        </section>
+      )}
+
       {tab === 'logs' && (
         <section>
           <div className="mb-4">
             <h2 className="text-base font-semibold text-slate-900">Activity Log</h2>
-            <p className="text-xs text-slate-400 mt-0.5">All content changes made by admins — click a row to see the diff</p>
+            <p className="text-xs text-slate-400 mt-0.5">All content changes made by AEOs — click a row to see the diff</p>
           </div>
           <LogsTable initialLogs={initialLogs} initialTotal={initialLogsTotal} />
         </section>

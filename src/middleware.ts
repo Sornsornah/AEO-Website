@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PROTECTED_PATHS = ['/updates', '/editor', '/admin', '/saved']
+const PROTECTED_PATHS = ['/updates', '/editor', '/admin', '/saved', '/dashboard']
 
 function hasGatewayHeaders(request: NextRequest): boolean {
   if (request.headers.get('x-auth-user-id') && request.headers.get('x-auth-user-email')) {
@@ -27,5 +27,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/updates/:path*', '/editor/:path*', '/admin/:path*', '/saved/:path*'],
+  matcher: ['/updates/:path*', '/editor/:path*', '/admin/:path*', '/saved/:path*', '/dashboard/:path*'],
 }

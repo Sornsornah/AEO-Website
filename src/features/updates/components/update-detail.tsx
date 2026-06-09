@@ -82,7 +82,7 @@ export function UpdateDetail({ update }: UpdateDetailProps) {
               <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${s.labelColor}`}>
                 {s.label}
               </h2>
-              <div className="prose prose-sm max-w-none text-slate-700">
+              <div className="prose prose-sm max-w-none text-black [&_*]:text-black [&_p]:leading-[1.5] [&_li]:leading-[1.5] [&_ul]:leading-[1.5] [&_ol]:leading-[1.5]">
                 <ReactMarkdown>{content}</ReactMarkdown>
               </div>
             </div>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { track } from '@/lib/track'
 import { Heart, Bookmark, Share2, Clock, ArrowLeft } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import {
@@ -32,6 +33,14 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
   const [saved, setSaved] = useState(post.saved)
   const [sharing, setSharing] = useState(false)
 
+  // Guard against React Strict Mode's double-mount (dev) firing two views.
+  const viewedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (viewedRef.current === post._id) return
+    viewedRef.current = post._id
+    track('blog_view', { entityId: post._id, entityType: 'blog', category: post.category })
+  }, [post._id, post.category])
+
   const { name: label, color } = getCategoryDisplay(post.category, categoriesMap)
   const badgeStyle = hexToBadgeStyle(color)
   const gradient = hexToGradient(color)
@@ -46,12 +55,15 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
         const data = await res.json()
         setLiked(data.liked)
         setLikeCount(data.likeCount)
+        if (data.liked) {
+          track('blog_like', { entityId: post._id, entityType: 'blog', category: post.category })
+        }
       }
     } catch {
       setLiked((v) => !v)
       setLikeCount((c) => (liked ? c + 1 : c - 1))
     }
-  }, [isLoggedIn, liked, post.slug])
+  }, [isLoggedIn, liked, post.slug, post._id, post.category])
 
   const handleSave = useCallback(async () => {
     if (!isLoggedIn) return
@@ -61,20 +73,24 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       if (res.ok) {
         const data = await res.json()
         setSaved(data.saved)
+        if (data.saved) {
+          track('blog_save', { entityId: post._id, entityType: 'blog', category: post.category })
+        }
       }
     } catch {
       setSaved((v) => !v)
     }
-  }, [isLoggedIn, post.slug])
+  }, [isLoggedIn, post.slug, post._id, post.category])
 
   const handleShare = useCallback(async () => {
+    track('blog_share', { entityId: post._id, entityType: 'blog', category: post.category })
     const url = window.location.href
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(url)
     }
     setSharing(true)
     setTimeout(() => setSharing(false), 2000)
-  }, [])
+  }, [post._id, post.category])
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -214,6 +230,8 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       <div className="mb-12 pt-10 border-t border-[#E8E0D6]">
         <BlogComments
           slug={post.slug}
+          postId={post._id}
+          category={post.category}
           initialComments={initialComments}
           isLoggedIn={isLoggedIn}
           currentUserId={currentUserId}
