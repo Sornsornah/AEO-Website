@@ -30,31 +30,49 @@ export default async function BlogPage() {
   }).sort({ publishedAt: -1 }).lean()
   const userId = session?.user?.id
 
-  const postIds = rawPosts.map((p) => p._id)
+  const rawMyPosts =
+    userId && session
+      ? await BlogPost.find({
+          $or: [
+            { createdBy: new Types.ObjectId(userId) },
+            { authorName: session.user.name, createdBy: { $exists: false } },
+          ],
+        })
+          .sort({ updatedAt: -1 })
+          .lean()
+      : []
+
+  const allRaw = [...rawPosts, ...rawMyPosts.filter((mp) => !rawPosts.some((p) => p._id.toString() === mp._id.toString()))]
+  const postIds = allRaw.map((p) => p._id)
   const commentCounts = await BlogComment.aggregate<{ _id: Types.ObjectId; count: number }>([
     { $match: { postId: { $in: postIds } } },
     { $group: { _id: '$postId', count: { $sum: 1 } } },
   ])
   const commentCountMap = new Map(commentCounts.map((c) => [c._id.toString(), c.count]))
 
-  const posts: BlogPostSummary[] = rawPosts.map((p) => ({
-    _id: p._id.toString(),
-    title: p.title,
-    slug: p.slug,
-    excerpt: p.excerpt,
-    coverImage: p.coverImage || null,
-    category: p.category,
-    tags: p.tags || [],
-    authorName: p.authorName,
-    publishedAt: p.publishedAt.toISOString(),
-    readTime: p.readTime,
-    status: (p.status || 'draft') as import('@/models/BlogPost').BlogStatus,
-    isFeatured: p.isFeatured,
-    likeCount: p.likes?.length ?? 0,
-    liked: userId ? p.likes?.some((id: { toString(): string }) => id.toString() === userId) : false,
-    saved: userId ? p.savedBy?.some((id: { toString(): string }) => id.toString() === userId) : false,
-    commentCount: commentCountMap.get(p._id.toString()) ?? 0,
-  }))
+  function mapPost(p: (typeof rawPosts)[0]): BlogPostSummary {
+    return {
+      _id: p._id.toString(),
+      title: p.title,
+      slug: p.slug,
+      excerpt: p.excerpt,
+      coverImage: p.coverImage || null,
+      category: p.category,
+      tags: p.tags || [],
+      authorName: p.authorName,
+      publishedAt: p.publishedAt.toISOString(),
+      readTime: p.readTime,
+      status: (p.status || 'draft') as import('@/models/BlogPost').BlogStatus,
+      isFeatured: p.isFeatured,
+      likeCount: p.likes?.length ?? 0,
+      liked: userId ? p.likes?.some((id: { toString(): string }) => id.toString() === userId) : false,
+      saved: userId ? p.savedBy?.some((id: { toString(): string }) => id.toString() === userId) : false,
+      commentCount: commentCountMap.get(p._id.toString()) ?? 0,
+    }
+  }
+
+  const posts: BlogPostSummary[] = rawPosts.map(mapPost)
+  const myPosts: BlogPostSummary[] = rawMyPosts.map(mapPost)
 
   const featured = posts.filter((p) => p.isFeatured)
 
@@ -80,7 +98,7 @@ export default async function BlogPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <PageBanner pageKey="blog" />
-      <BlogPageClient posts={posts} featured={featured} isLoggedIn={!!session} externalArticles={externalArticles} categoriesMap={categoriesMap} />
+      <BlogPageClient posts={posts} featured={featured} myPosts={myPosts} isLoggedIn={!!session} externalArticles={externalArticles} categoriesMap={categoriesMap} />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { X, Trash2, Pencil, Check, Video, Image as ImageIcon, Link2, Link2Off, List, ListOrdered } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from '@/lib/use-session'
+import { track } from '@/lib/track'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEditor, EditorContent, Node, mergeAttributes, Extension } from '@tiptap/react'
@@ -49,9 +50,9 @@ interface CommentSidePanelProps {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Key Milestones',   bg: 'bg-emerald-50', labelColor: 'text-emerald-700' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',       bg: 'bg-blue-50',    labelColor: 'text-blue-700'    },
-  { key: 'learningPoints'  as const, label: 'Learning Points',  bg: 'bg-amber-50',   labelColor: 'text-amber-700'   },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',   bg: 'bg-emerald-150', labelColor: 'text-emerald-800' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',       bg: 'bg-blue-150',    labelColor: 'text-blue-800'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points',  bg: 'bg-amber-150',   labelColor: 'text-amber-800'   },
 ]
 
 const AVATAR_COLORS = [
@@ -638,6 +639,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
       queryClient.setQueryData<Comment[]>(['comments', updateId], (old = []) =>
         old.map((c) => (c._id === ctx?.optimisticId ? saved : c))
       )
+      track('update_comment', { entityId: updateId, entityType: 'update' })
     },
     onError: (_err, _text, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['comments', updateId], ctx.prev)

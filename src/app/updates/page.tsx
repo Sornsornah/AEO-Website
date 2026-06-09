@@ -19,6 +19,7 @@ interface PageProps {
   searchParams: Promise<{
     domain?: string
     product?: string
+    tag?: string
     view?: string
     comments?: string
   }>
@@ -62,26 +63,46 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
     andConditions.push({ _id: { $nin: seenIds } })
   }
 
-  if (searchParams.domain) {
-    const domain = await Domain.findOne({ slug: searchParams.domain })
-    if (domain) {
-      const domainProducts = await Product.find({ domainId: domain._id }).select('_id').lean()
-      const ids = domainProducts.map((p) => p._id)
-      andConditions.push({ $or: [{ productId: { $in: ids } }, { productIds: { $in: ids } }] })
-    }
-  } else if (searchParams.product) {
-    const product = await Product.findOne({ slug: searchParams.product }).select('_id').lean()
-    if (product) {
-      andConditions.push({ $or: [{ productId: product._id }, { productIds: product._id }] })
-    }
+  // Multi-select facets — comma-separated slugs. Within a facet the values are
+  // OR'd ($in); the three facets are AND'd together (each pushes its own condition).
+  const domainSlugs = searchParams.domain ? searchParams.domain.split(',').filter(Boolean) : []
+  const productSlugs = searchParams.product ? searchParams.product.split(',').filter(Boolean) : []
+  const tagSlugs = searchParams.tag ? searchParams.tag.split(',').filter(Boolean) : []
+
+  if (domainSlugs.length) {
+    const domainDocs = await Domain.find({ slug: { $in: domainSlugs } }).select('_id').lean()
+    const domainIds = domainDocs.map((d) => d._id)
+    const domainProducts = await Product.find({ domainId: { $in: domainIds } }).select('_id').lean()
+    const productIds = domainProducts.map((p) => p._id)
+    andConditions.push({
+      $or: [
+        { productId: { $in: productIds } },
+        { productIds: { $in: productIds } },
+        { domainId: { $in: domainIds } },
+        { domainIds: { $in: domainIds } },
+      ],
+    })
+  }
+
+  if (productSlugs.length) {
+    const productDocs = await Product.find({ slug: { $in: productSlugs } }).select('_id').lean()
+    const ids = productDocs.map((p) => p._id)
+    andConditions.push({ $or: [{ productId: { $in: ids } }, { productIds: { $in: ids } }] })
+  }
+
+  if (tagSlugs.length) {
+    const tagDocs = await Tag.find({ slug: { $in: tagSlugs } }).select('_id').lean()
+    const ids = tagDocs.map((t) => t._id)
+    andConditions.push({ tagIds: { $in: ids } })
   }
 
   const query: Record<string, unknown> = andConditions.length === 1 ? andConditions[0] : { $and: andConditions }
 
   // Fetch all domains, products, and updates
-  const [allDomains, allProducts, updates] = await Promise.all([
+  const [allDomains, allProducts, allTags, updates] = await Promise.all([
     Domain.find().lean(),
     Product.find().select('name slug').sort({ name: 1 }).lean(),
+    Tag.find().select('name slug').sort({ name: 1 }).lean(),
     Update.find(query)
       .populate({ path: 'productId', populate: { path: 'domainId' } })
       .populate({ path: 'productIds', populate: { path: 'domainId' } })
@@ -158,6 +179,7 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
 
   const allDomainOptions = allDomains.map((d) => ({ name: d.name, slug: d.slug }))
   const allProductOptions = allProducts.map((p) => ({ name: p.name, slug: p.slug }))
+  const allTagOptions = (allTags as Array<{ name: string; slug: string }>).map((t) => ({ name: t.name, slug: t.slug }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,9 +192,11 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
           updates={serializedUpdates}
           commentCounts={commentCounts}
           domains={allDomainOptions}
-          activeDomain={searchParams.domain}
+          activeDomains={domainSlugs}
           products={allProductOptions}
-          activeProduct={searchParams.product}
+          activeProducts={productSlugs}
+          tags={allTagOptions}
+          activeTags={tagSlugs}
           openComments={searchParams.comments}
         />
       </main>

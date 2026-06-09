@@ -25,7 +25,8 @@
     "create-user": "tsx src/scripts/create-user.ts",
     "set-role": "tsx src/scripts/set-role.ts",
     "migrate-roles": "tsx src/scripts/migrate-editor-to-admin.ts",
-    "migrate-db": "tsx src/scripts/migrate-db.ts"
+    "migrate-db": "tsx src/scripts/migrate-db.ts",
+    "backfill-blog-createdby": "tsx src/scripts/backfill-blog-createdby.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -69,6 +70,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.0",
     "react-markdown": "^10.1.0",
+    "recharts": "^2.15.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "slugify": "^1.6.9",

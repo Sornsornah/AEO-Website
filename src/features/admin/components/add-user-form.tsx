@@ -111,8 +111,8 @@ export function AddUserForm() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="viewer">Management</SelectItem>
+                        <SelectItem value="admin">AEO</SelectItem>
                       </SelectContent>
                     </Select>
                   )}

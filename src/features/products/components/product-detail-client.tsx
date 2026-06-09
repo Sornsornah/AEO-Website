@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
-import { ExternalLink, Globe, FileText, Mail } from 'lucide-react'
+import { ExternalLink, Globe, FileText, Mail, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { track } from '@/lib/track'
 
 const markdownComponents: Components = {
   a: ({ href, children }) => {
@@ -154,6 +156,29 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
   const status = STATUS_CONFIG[product.status] || STATUS_CONFIG.live
   const hasTeam = product.productManagers.length > 0 || product.developers.length > 0
 
+  useEffect(() => {
+    track('product_view', { entityId: product._id, entityType: 'product' })
+  }, [product._id])
+
+  async function handleShare() {
+    track('product_share', { entityId: product._id, entityType: 'product' })
+    const url = typeof window !== 'undefined' ? window.location.href : ''
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.name, url })
+        return
+      } catch {
+        // user cancelled or unsupported — fall through to copy
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Link copied to clipboard')
+    } catch {
+      toast.error('Could not copy link')
+    }
+  }
+
   return (
     <>
       {/* Breadcrumb */}
@@ -186,13 +211,13 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
           {product.shortDescription && (
             <p className="text-sm text-slate-500 leading-relaxed mb-3 max-w-2xl">{product.shortDescription}</p>
           )}
-          {(product.websiteUrl || product.deckUrl || product.contactUsUrl) && (
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
               {product.websiteUrl && (
                 <a
                   href={product.websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => track('product_visit_website', { entityId: product._id, entityType: 'product' })}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1C1512] bg-[#1C1512] text-white text-sm font-medium hover:bg-[#2d2420] transition-colors"
                 >
                   <Globe className="w-3.5 h-3.5" />
@@ -222,8 +247,15 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                   Contact us
                 </a>
               )}
+              <button
+                type="button"
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:border-slate-300 hover:text-[#1C1512] transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share
+              </button>
             </div>
-          )}
         </div>
       </div>
 
@@ -238,7 +270,7 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
         {(['overview', 'usecases', 'updates'] as const).map((t) => {
-          const labels = { overview: 'Overview', usecases: 'Use cases', updates: 'Updates' }
+          const labels = { overview: 'Overview', usecases: 'Use cases', updates: 'Release Notes' }
           return (
             <button
               key={t}

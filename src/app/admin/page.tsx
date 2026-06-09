@@ -12,6 +12,7 @@ import { BlogCategory } from '@/models/BlogCategory'
 import { BlogPost } from '@/models/BlogPost'
 import { ActivityLog } from '@/models/ActivityLog'
 import { PageSetting } from '@/models/PageSetting'
+import { HomeConfig } from '@/models/HomeConfig'
 import { Navbar } from '@/components/layout/navbar'
 import { AdminTabs } from '@/features/admin/components/admin-tabs'
 
@@ -35,7 +36,7 @@ export default async function AdminPage() {
 
   await connectDB()
 
-  const [users, products, domains, tags, existingCategories, existingPageSettings, initialLogs, initialLogsTotal, allBlogPosts] = await Promise.all([
+  const [users, products, domains, tags, existingCategories, existingPageSettings, initialLogs, initialLogsTotal, allBlogPosts, homeConfig] = await Promise.all([
     User.find().sort({ createdAt: -1 }).lean(),
     Product.find().populate('members', 'name email').sort({ name: 1 }).lean(),
     Domain.find().populate('members', 'name email').sort({ name: 1 }).lean(),
@@ -45,7 +46,12 @@ export default async function AdminPage() {
     ActivityLog.find().sort({ createdAt: -1 }).limit(50).lean(),
     ActivityLog.countDocuments(),
     BlogPost.find().sort({ publishedAt: -1 }).select('_id title slug bannerEnabled bannerText bannerStyle followParentBanner').lean(),
+    HomeConfig.findOne({ key: 'home' }).lean(),
   ])
+
+  const featuredProductIds = (
+    ((homeConfig as { featuredProductIds?: { toString(): string }[] } | null)?.featuredProductIds) ?? []
+  ).map((id) => id.toString())
 
   // First-time seeding + migration of old blog post category slugs
   if (existingCategories.length === 0) {
@@ -88,6 +94,9 @@ export default async function AdminPage() {
   const serializedProducts = products.map((p) => ({
     _id: p._id.toString(),
     name: p.name,
+    slug: p.slug,
+    logoUrl: p.logoUrl,
+    color: p.color,
     members: ((p.members as unknown) as { _id: { toString(): string }; name: string }[] || []).map((m) => ({
       _id: m._id.toString(),
       name: m.name,
@@ -224,6 +233,7 @@ export default async function AdminPage() {
           pageSettings={serializedPageSettings}
           productBanners={serializedProductBanners}
           blogBanners={serializedBlogBanners}
+          featuredProductIds={featuredProductIds}
           currentUserId={session.user.id}
           initialLogs={serializedLogs}
           initialLogsTotal={initialLogsTotal}

@@ -50,12 +50,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const session = await getSession(req.headers)
-  if (!session || session.user.role !== 'admin') {
+  if (!session) {
     return new Response(null, { status: 401 })
   }
   await connectDB()
   const post = await BlogPost.findOne({ slug })
   if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const isAdmin = session.user.role === 'admin'
+  const isOwner = post.createdBy?.toString() === session.user.id
+  if (!isAdmin && !isOwner) {
+    return new Response(null, { status: 401 })
+  }
 
   const body = await req.json()
   const { title, excerpt, content, coverImage, category, tags, authorName, publishedAt, status, isFeatured, featuredUntil } = body
@@ -74,14 +80,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
   if (coverImage !== undefined) post.coverImage = coverImage || undefined
   if (category !== undefined) post.category = category
   if (tags !== undefined) post.tags = Array.isArray(tags) ? tags.filter(Boolean) : []
-  if (authorName !== undefined) post.authorName = authorName
+  if (isAdmin && authorName !== undefined) post.authorName = authorName
   if (publishedAt !== undefined) post.publishedAt = new Date(publishedAt)
   if (status !== undefined) post.status = status
-  if (isFeatured !== undefined) {
+  if (isAdmin && isFeatured !== undefined) {
     if (isFeatured) await BlogPost.updateMany({ _id: { $ne: post._id }, isFeatured: true }, { isFeatured: false })
     post.isFeatured = isFeatured
   }
-  if ('featuredUntil' in body) {
+  if (isAdmin && 'featuredUntil' in body) {
     post.featuredUntil = featuredUntil ? new Date(featuredUntil) : undefined
   }
 

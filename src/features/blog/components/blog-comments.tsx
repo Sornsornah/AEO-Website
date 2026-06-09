@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Trash2, MessageCircle, Send, Pencil, Check, X } from 'lucide-react'
+import { track } from '@/lib/track'
 import { getInitials } from './blog-utils'
 
 export interface BlogCommentData {
@@ -16,13 +17,15 @@ export interface BlogCommentData {
 
 interface BlogCommentsProps {
   slug: string
+  postId: string
+  category: string
   initialComments: BlogCommentData[]
   isLoggedIn: boolean
   currentUserId?: string
   isAdmin?: boolean
 }
 
-export function BlogComments({ slug, initialComments, isLoggedIn, currentUserId, isAdmin }: BlogCommentsProps) {
+export function BlogComments({ slug, postId, category, initialComments, isLoggedIn, currentUserId, isAdmin }: BlogCommentsProps) {
   const [comments, setComments] = useState(initialComments)
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -45,6 +48,7 @@ export function BlogComments({ slug, initialComments, isLoggedIn, currentUserId,
         const comment = await res.json()
         setComments((prev) => [...prev, comment])
         setText('')
+        track('blog_comment', { entityId: postId, entityType: 'blog', category })
       }
     } finally {
       setSubmitting(false)

@@ -25,7 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'card', label: 'Card information' },
   { id: 'overview', label: 'Overview' },
   { id: 'usecases', label: 'Use cases' },
-  { id: 'content', label: 'Updates' },
+  { id: 'content', label: 'Release Notes' },
 ]
 
 interface ProductDetailFormProps {
@@ -765,7 +765,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               {/* Collapsed header */}
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">{u.title || <span className="text-slate-400 font-normal">Untitled update</span>}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{u.title || <span className="text-slate-400 font-normal">Untitled release note</span>}</p>
                 </div>
                 {u.isDraft && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
@@ -777,7 +777,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                     Edit
                   </button>
                 )}
-                <button type="button" onClick={() => setDeleteConfirm({ message: 'Delete this update? This cannot be undone.', action: () => { setProductUpdates((prev) => prev.filter((_, j) => j !== i)); if (activePuIndex === i) { setActivePuIndex(null); setPuDraft(null) } } })} className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">
+                <button type="button" onClick={() => setDeleteConfirm({ message: 'Delete this release note? This cannot be undone.', action: () => { setProductUpdates((prev) => prev.filter((_, j) => j !== i)); if (activePuIndex === i) { setActivePuIndex(null); setPuDraft(null) } } })} className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -790,7 +790,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-slate-500">Content</Label>
-                    <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this update..." minHeight="160px" />
+                    <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this release note..." minHeight="160px" />
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                     <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
@@ -810,7 +810,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           {activePuIndex === -1 && puDraft ? (
             <div className="border border-slate-400 rounded-xl bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100">
-                <p className="text-sm font-semibold text-slate-700">New update</p>
+                <p className="text-sm font-semibold text-slate-700">New release note</p>
               </div>
               <div className="px-4 py-4 space-y-3 bg-slate-50">
                 <div className="space-y-1.5">
@@ -819,7 +819,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-slate-500">Content</Label>
-                  <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this update..." minHeight="160px" />
+                  <TiptapEditor value={puDraft.content} onChange={(v) => setPuDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this release note..." minHeight="160px" />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                   <button type="button" onClick={() => { setActivePuIndex(null); setPuDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
@@ -834,7 +834,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             </div>
           ) : (
             <button type="button" onClick={openNewPuAccordion} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-xl px-4 py-3 w-full justify-center hover:border-slate-400 transition-colors mt-2">
-              <Plus className="w-4 h-4" /> Add update
+              <Plus className="w-4 h-4" /> Add release note
             </button>
           )}
         </div>

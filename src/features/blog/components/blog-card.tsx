@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ArrowUpRight, Clock, Bookmark, Heart, MessageCircle } from 'lucide-react'
+import { ArrowUpRight, Clock, Bookmark, Heart, MessageCircle, Pencil } from 'lucide-react'
 import {
   getCategoryDisplay,
   hexToBadgeStyle,
@@ -11,19 +11,26 @@ import {
   type CategoriesMap,
 } from './blog-utils'
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
+  scheduled: 'Scheduled',
+  published: 'Published',
+}
+
 interface BlogCardProps {
   post: BlogPostSummary
   onSave?: (e: React.MouseEvent) => void
+  editHref?: string
   categoriesMap?: CategoriesMap
 }
 
-export function BlogCard({ post, onSave, categoriesMap = {} }: BlogCardProps) {
+export function BlogCard({ post, onSave, editHref, categoriesMap = {} }: BlogCardProps) {
   const { name: label, color } = getCategoryDisplay(post.category, categoriesMap)
   const badgeStyle = hexToBadgeStyle(color)
   const gradient = hexToGradient(color)
 
   return (
-    <Link href={`/blog/${post.slug}`} className="group block">
+    <Link href={editHref ?? `/blog/${post.slug}`} className="group block">
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all">
         {/* Cover */}
         <div className="relative aspect-[16/9] overflow-hidden">
@@ -39,7 +46,12 @@ export function BlogCard({ post, onSave, categoriesMap = {} }: BlogCardProps) {
           >
             {label}
           </span>
-          {onSave && (
+          {editHref ? (
+            <span className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 text-white text-[10px] font-semibold backdrop-blur-sm">
+              <Pencil className="w-2.5 h-2.5" />
+              {STATUS_LABELS[post.status] ?? post.status}
+            </span>
+          ) : onSave ? (
             <button
               onClick={onSave}
               className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-sm transition-colors ${
@@ -51,7 +63,7 @@ export function BlogCard({ post, onSave, categoriesMap = {} }: BlogCardProps) {
             >
               <Bookmark className={`w-3.5 h-3.5 ${post.saved ? 'fill-white' : ''}`} />
             </button>
-          )}
+          ) : null}
         </div>
 
         {/* Body */}
