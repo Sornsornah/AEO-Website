@@ -69,7 +69,6 @@ export default async function EditUpdatePage({ params }: PageProps) {
     tagIds: (update.tagIds as unknown[] | undefined)?.map(String) || [],
     date: format(update.date, 'yyyy-MM'),
     isPublished: update.isPublished,
-    scheduledAt: update.scheduledAt ? format(new Date(update.scheduledAt as Date), "yyyy-MM-dd'T'HH:mm") : '',
     progressUpdates: (update.progressUpdates as string | string[] | undefined) instanceof Array
       ? (update.progressUpdates as string[]).join('\n')
       : (update.progressUpdates as string | undefined) || '',

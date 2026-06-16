@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import { Toaster } from 'sonner'
 import { getSession } from '@/lib/auth'
 import { SessionProvider } from '@/components/session-provider'
+import { ImageLightbox } from '@/components/image-lightbox'
 
 export const metadata: Metadata = {
   title: 'AEO Happenings',
@@ -25,6 +26,7 @@ export default async function RootLayout({
           <Providers>{children}</Providers>
         </SessionProvider>
         <Toaster richColors position="top-right" />
+        <ImageLightbox />
       </body>
     </html>
   )

@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from 'mongoose'
 
 export type BlogCategory = string
-export type BlogStatus = 'draft' | 'scheduled' | 'published'
+export type BlogStatus = 'draft' | 'published'
 
 export interface IBlogPost extends Document {
   title: string
@@ -19,6 +19,7 @@ export interface IBlogPost extends Document {
   featuredUntil?: Date
   likes: Types.ObjectId[]
   savedBy: Types.ObjectId[]
+  createdBy?: Types.ObjectId
   bannerEnabled: boolean
   bannerText: string
   bannerStyle: 'info' | 'warning' | 'success' | 'neutral'
@@ -41,13 +42,14 @@ const BlogPostSchema = new Schema<IBlogPost>(
     readTime: { type: Number, default: 1 },
     status: {
       type: String,
-      enum: ['draft', 'scheduled', 'published'],
+      enum: ['draft', 'published'],
       default: 'draft',
     },
     isFeatured: { type: Boolean, default: false },
     featuredUntil: { type: Date },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     savedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     bannerEnabled: { type: Boolean, default: false },
     bannerText: { type: String, default: '' },
     bannerStyle: { type: String, enum: ['info', 'warning', 'success', 'neutral'], default: 'warning' },
@@ -58,6 +60,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
 
 BlogPostSchema.index({ status: 1, publishedAt: -1 })
 BlogPostSchema.index({ isFeatured: 1 })
+BlogPostSchema.index({ createdBy: 1 })
 
 export const BlogPost =
   mongoose.models.BlogPost || mongoose.model<IBlogPost>('BlogPost', BlogPostSchema)

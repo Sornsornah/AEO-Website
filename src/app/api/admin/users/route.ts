@@ -8,7 +8,7 @@ import { User } from '@/models/User'
 
 const createUserSchema = z.object({
   email: z.string().email(),
-  name: z.string().min(1),
+  name: z.string().min(1).optional(),
   role: z.enum(['public', 'viewer', 'admin']).optional(),
 })
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 })
   }
 
-  const user = await User.create({ email, name, role: validRole })
+  const user = await User.create({ email, role: validRole, ...(name ? { name } : {}) })
 
   return NextResponse.json({
     _id: user._id.toString(),

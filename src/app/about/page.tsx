@@ -35,7 +35,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <PageBanner pageKey="about" />
+      <PageBanner banner={{ bannerEnabled: true, bannerText: 'Note: This page contains synthetic data for demonstration purposes only.', bannerStyle: 'warning' }} />
       <main className="max-w-3xl mx-auto px-6 py-16">
 
         {/* Header */}

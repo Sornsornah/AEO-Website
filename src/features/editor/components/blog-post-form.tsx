@@ -1,48 +1,62 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 import { format } from 'date-fns'
+import {
+  toDateInput,
+  todayDateInput,
+  utcToSgtInput,
+  sgtInputToUtcIso,
+  nowSgtInput,
+  isValidDateInput,
+  isValidDateTimeLocal,
+  isFutureSgtInput,
+} from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
+import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getCategoryDisplay, hexToBadgeStyle, hexToGradient, getInitials, type CategoriesMap } from '@/features/blog/components/blog-utils'
 import type { BlogStatus } from '@/models/BlogPost'
-import { ImagePlus, X, Clock, Check } from 'lucide-react'
+import { ImagePlus, X, Clock, Check, ChevronDown } from 'lucide-react'
 
 type BlogCategory = string
 
-const SG_OFFSET_MS = 8 * 60 * 60 * 1000
-
-function utcToSgInput(date: Date): string {
-  const d = new Date(date.getTime() + SG_OFFSET_MS)
-  const yr = d.getUTCFullYear()
-  const mo = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dy = String(d.getUTCDate()).padStart(2, '0')
-  const hr = String(d.getUTCHours()).padStart(2, '0')
-  const mn = String(d.getUTCMinutes()).padStart(2, '0')
-  return `${yr}-${mo}-${dy}T${hr}:${mn}`
-}
-
-function sgInputToISO(value: string): string {
-  return new Date(`${value}:00+08:00`).toISOString()
+// Surface the server's real reason for a failed save. API routes return either
+// `{ error: string }` or, for Zod validation failures, `{ errors: Record<field, string[]> }`.
+async function extractErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json()
+    if (typeof data?.error === 'string') return data.error
+    if (data?.errors && typeof data.errors === 'object') {
+      const fields = Object.entries(data.errors as Record<string, string[]>)
+        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(', ')}`)
+        .filter(Boolean)
+      if (fields.length) return fields.join(' · ')
+    }
+  } catch {
+    // Non-JSON body — fall through to the generic message.
+  }
+  return 'Something went wrong.'
 }
 
 function sgDefaultFiveDays(): string {
-  return utcToSgInput(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000))
+  return utcToSgtInput(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000))
 }
 
 const STATUS_OPTIONS: { value: BlogStatus; label: string; description: string }[] = [
   { value: 'draft', label: 'Draft', description: 'Not visible to readers' },
-  { value: 'scheduled', label: 'Scheduled', description: 'Goes live on publish date' },
   { value: 'published', label: 'Published', description: 'Live and visible now' },
 ]
 
 interface BlogPostFormProps {
   users: { _id: string; name: string }[]
+  isAdmin: boolean
+  currentUserName?: string
   initialData?: {
     _id: string
     slug: string
@@ -60,8 +74,9 @@ interface BlogPostFormProps {
   }
 }
 
-export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
+export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: BlogPostFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isEdit = !!initialData
 
   const [title, setTitle] = useState(initialData?.title ?? '')
@@ -70,21 +85,23 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
   const [coverImage, setCoverImage] = useState(initialData?.coverImage ?? '')
   const [category, setCategory] = useState<BlogCategory>(initialData?.category ?? 'thought')
   const [tagInput, setTagInput] = useState(initialData?.tags.join(', ') ?? '')
-  const [authorName, setAuthorName] = useState(initialData?.authorName ?? '')
+  const [authorName, setAuthorName] = useState(initialData?.authorName ?? currentUserName ?? '')
   const [publishedAt, setPublishedAt] = useState(
     initialData?.publishedAt
-      ? format(new Date(initialData.publishedAt), "yyyy-MM-dd'T'HH:mm")
-      : format(new Date(), "yyyy-MM-dd'T'HH:mm")
+      ? toDateInput(initialData.publishedAt)
+      : todayDateInput()
   )
   const [status, setStatus] = useState<BlogStatus>(initialData?.status ?? 'draft')
   const [isFeatured, setIsFeatured] = useState(initialData?.isFeatured ?? false)
   const [featuredUntil, setFeaturedUntil] = useState(
     initialData?.featuredUntil
-      ? utcToSgInput(new Date(initialData.featuredUntil))
+      ? utcToSgtInput(initialData.featuredUntil)
       : sgDefaultFiveDays()
   )
 
-  const [categories, setCategories] = useState<{ slug: string; name: string; color: string }[]>([])
+  const [categories, setCategories] = useState<{ slug: string; name: string; color: string; purpose?: string }[]>([])
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const categoryRef = useRef<HTMLDivElement>(null)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -92,13 +109,30 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('/api/admin/blog-categories')
+    fetch('/api/blog/categories')
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setCategories(data.map((c: { slug: string; name: string; color: string }) => ({ slug: c.slug, name: c.name, color: c.color })))
+        if (Array.isArray(data)) setCategories(data.map((c: { slug: string; name: string; color: string; purpose?: string }) => ({ slug: c.slug, name: c.name, color: c.color, purpose: c.purpose })))
       })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!categoryOpen) return
+    function onPointerDown(e: MouseEvent) {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) setCategoryOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setCategoryOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [categoryOpen])
+
   const previewContentRef = useRef<HTMLDivElement>(null)
 
   const isDirty = useRef(false)
@@ -136,23 +170,36 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
     })
   }, [content])
 
+  // When the author arrived from the blog page (?from=blog), return them to
+  // blog → My Posts rather than the editor dashboard.
+  const exitHref =
+    searchParams.get('from') === 'blog'
+      ? '/blog?tab=my-posts'
+      : isAdmin
+        ? '/editor?tab=blog'
+        : '/blog'
+
   function handleCancel() {
-    if (isDirty.current) setPendingNav(() => () => router.push('/editor?tab=blog'))
-    else router.push('/editor?tab=blog')
+    if (isDirty.current) setPendingNav(() => () => router.push(exitHref))
+    else router.push(exitHref)
   }
 
+  // Cover images are encoded inline (no server upload) and downscaled to a max
+  // width of 1600px to keep the data URL small.
   async function handleImageUpload(file: File) {
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
-      if (res.ok) {
-        const { url } = await res.json()
-        setCoverImage(url)
-      }
+      setCoverImage(await encodeImageFile(file, 1600))
     } finally {
       setUploading(false)
+    }
+  }
+
+  function handleCoverPaste(e: React.ClipboardEvent) {
+    const file = imageFileFromClipboardData(e.clipboardData)
+    if (file) {
+      e.preventDefault()
+      handleImageUpload(file)
     }
   }
 
@@ -162,6 +209,21 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
     if (!title.trim() || !excerpt.trim() || !authorName.trim()) {
       setError('Title, excerpt, and author are required.')
       return false
+    }
+
+    if (publishedAt && !isValidDateInput(publishedAt)) {
+      setError('Please choose a valid publish date.')
+      return false
+    }
+    if (isFeatured && featuredUntil) {
+      if (!isValidDateTimeLocal(featuredUntil)) {
+        setError('Please choose a valid "Featured until" date.')
+        return false
+      }
+      if (!isFutureSgtInput(featuredUntil)) {
+        setError('"Featured until" must be a future date.')
+        return false
+      }
     }
 
     setSaving(true)
@@ -181,7 +243,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
       publishedAt,
       status,
       isFeatured,
-      featuredUntil: isFeatured && featuredUntil ? sgInputToISO(featuredUntil) : null,
+      featuredUntil: isFeatured && featuredUntil ? sgtInputToUtcIso(featuredUntil) : null,
     }
 
     try {
@@ -200,8 +262,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
         })
       }
       if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || 'Something went wrong.')
+        setError(await extractErrorMessage(res))
         return false
       }
       isDirty.current = false
@@ -221,7 +282,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
     const ok = await submitForm()
     if (ok) {
       await new Promise((r) => setTimeout(r, 900))
-      router.push('/editor?tab=blog')
+      router.push(exitHref)
     }
   }
 
@@ -230,9 +291,10 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
   const previewGradient = hexToGradient(categoryColor)
   const badgeStyle = hexToBadgeStyle(categoryColor)
   const parsedTags = tagInput.split(',').map((t) => t.trim()).filter(Boolean)
-  const displayDate = publishedAt
-    ? format(new Date(publishedAt), 'MMM dd, yyyy')
-    : format(new Date(), 'MMM dd, yyyy')
+  const displayDate = format(
+    isValidDateInput(publishedAt) ? new Date(publishedAt) : new Date(),
+    'MMM dd, yyyy'
+  )
 
   return (
     <form onSubmit={handleSubmit}>
@@ -267,7 +329,11 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
           </div>
 
           {/* Cover image */}
-          <div className="space-y-2">
+          <div
+            tabIndex={0}
+            onPaste={handleCoverPaste}
+            className="space-y-2 rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
+          >
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cover Image</Label>
             {coverImage ? (
               <div className="relative rounded-xl overflow-hidden aspect-[16/9]">
@@ -289,11 +355,11 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
               >
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20 group-hover:bg-black/30 transition-colors">
                   {uploading ? (
-                    <p className="text-white text-xs font-medium">Uploading...</p>
+                    <p className="text-white text-xs font-medium">Adding...</p>
                   ) : (
                     <>
                       <ImagePlus className="w-6 h-6 text-white/80" />
-                      <p className="text-white/80 text-xs font-medium">Click to upload</p>
+                      <p className="text-white/80 text-xs font-medium">Click to upload or paste (Ctrl/⌘+V)</p>
                     </>
                   )}
                 </div>
@@ -309,6 +375,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
                 if (file) handleImageUpload(file)
               }}
             />
+            <p className="text-xs text-slate-400">Cover images are scaled to 1600px wide.</p>
           </div>
 
           {/* Content */}
@@ -321,32 +388,74 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
             {/* Category */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Category *</Label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {categories.length === 0 && <option value={category}>{category}</option>}
-                {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.name}</option>
-                ))}
-              </select>
+              <div ref={categoryRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategoryOpen((o) => !o)}
+                  aria-haspopup="listbox"
+                  aria-expanded={categoryOpen}
+                  className="w-full h-9 flex items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <span className="truncate text-left">
+                    {categories.find((c) => c.slug === category)?.name ?? category}
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 flex-shrink-0 text-slate-400 transition-transform ${categoryOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {categoryOpen && categories.length > 0 && (
+                  <div
+                    role="listbox"
+                    className="absolute z-40 mt-1.5 w-full max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg"
+                  >
+                    {categories.map((c) => {
+                      const active = c.slug === category
+                      return (
+                        <button
+                          key={c.slug}
+                          type="button"
+                          role="option"
+                          aria-selected={active}
+                          onClick={() => {
+                            setCategory(c.slug)
+                            setCategoryOpen(false)
+                          }}
+                          className={`w-full text-left px-4 py-2 transition-colors hover:bg-slate-50 ${active ? 'bg-slate-50' : ''}`}
+                        >
+                          <span className={`block text-sm font-semibold ${active ? 'text-orange-600' : 'text-slate-900'}`}>
+                            {c.name}
+                          </span>
+                          {c.purpose && (
+                            <span className="mt-0.5 block text-xs leading-snug text-slate-400">{c.purpose}</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Author */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Author *</Label>
-              <select
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              >
-                <option value="">Select author...</option>
-                {users.map((u) => (
-                  <option key={u._id} value={u.name}>{u.name}</option>
-                ))}
-              </select>
+              {isAdmin ? (
+                <select
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                >
+                  <option value="">Select author...</option>
+                  {users.map((u) => (
+                    <option key={u._id} value={u.name}>{u.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="h-9 flex items-center px-3 rounded-md border border-input bg-slate-50 text-sm text-slate-600">
+                  {authorName}
+                </div>
+              )}
             </div>
 
             {/* Tags */}
@@ -364,14 +473,13 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
             {/* Publish date */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                {status === 'scheduled' ? 'Publish Date *' : 'Publish Date'}
+                Publish Date
               </Label>
               <Input
-                type="datetime-local"
+                type="date"
                 value={publishedAt}
                 onChange={(e) => setPublishedAt(e.target.value)}
                 className="h-9 text-sm"
-                required={status === 'scheduled'}
               />
             </div>
           </div>
@@ -379,7 +487,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
           {/* Status */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</Label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -389,8 +497,6 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
                     status === opt.value
                       ? opt.value === 'published'
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                        : opt.value === 'scheduled'
-                        ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-slate-100 border-slate-300 text-slate-700'
                       : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
                   }`}
@@ -404,40 +510,43 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
             </p>
           </div>
 
-          {/* Featured toggle */}
-          <div className="space-y-2 pt-1">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm font-medium text-slate-700">Featured Article</span>
-              <button
-                type="button"
-                onClick={() => {
-                setIsFeatured((v) => {
-                  if (!v && !featuredUntil) setFeaturedUntil(sgDefaultFiveDays())
-                  return !v
-                })
-              }}
-                className={`relative rounded-full transition-colors ${isFeatured ? 'bg-amber-400' : 'bg-slate-200'}`}
-                style={{ height: '22px', width: '40px' }}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 rounded-full bg-white shadow transition-transform ${isFeatured ? 'translate-x-[18px]' : 'translate-x-0'}`}
-                  style={{ width: '18px', height: '18px' }}
-                />
-              </button>
-            </label>
-            {isFeatured && (
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Featured Until <span className="normal-case font-normal text-slate-400">(SGT, UTC+8)</span></Label>
-                <Input
-                  type="datetime-local"
-                  value={featuredUntil}
-                  onChange={(e) => setFeaturedUntil(e.target.value)}
-                  className="h-9 text-sm"
-                />
-                <p className="text-[10px] text-slate-400">Leave blank to feature indefinitely</p>
-              </div>
-            )}
-          </div>
+          {/* Featured toggle — admin only */}
+          {isAdmin && (
+            <div className="space-y-2 pt-1">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-sm font-medium text-slate-700">Featured Article</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                  setIsFeatured((v) => {
+                    if (!v && !featuredUntil) setFeaturedUntil(sgDefaultFiveDays())
+                    return !v
+                  })
+                }}
+                  className={`relative rounded-full transition-colors ${isFeatured ? 'bg-amber-400' : 'bg-slate-200'}`}
+                  style={{ height: '22px', width: '40px' }}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 rounded-full bg-white shadow transition-transform ${isFeatured ? 'translate-x-[18px]' : 'translate-x-0'}`}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                </button>
+              </label>
+              {isFeatured && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Featured Until <span className="normal-case font-normal text-slate-400">(SGT, UTC+8)</span></Label>
+                  <Input
+                    type="datetime-local"
+                    value={featuredUntil}
+                    onChange={(e) => setFeaturedUntil(e.target.value)}
+                    className="h-9 text-sm"
+                    min={nowSgtInput()}
+                  />
+                  <p className="text-[10px] text-slate-400">Leave blank to feature indefinitely</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
@@ -447,7 +556,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
             <Button
               type="submit"
               disabled={saving || saved}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm"
+              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white h-9 text-sm"
             >
               {saving ? 'Saving...' : saved ? 'Saved!' : isEdit ? 'Save Changes' : 'Create Post'}
             </Button>
@@ -551,7 +660,7 @@ export function BlogPostForm({ users, initialData }: BlogPostFormProps) {
         confirmLabel="Keep editing"
         cancelLabel="Cancel changes"
         onConfirm={() => setPendingNav(null)}
-        onCancel={() => { const run = pendingNav!; setPendingNav(null); run() }}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); isDirty.current = false; run() }}
       />
       <div
         className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${

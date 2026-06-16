@@ -17,10 +17,8 @@ interface PageProps {
   params: Promise<{ slug: string }>
 }
 
-function isVisible(status: string | undefined, publishedAt: Date): boolean {
-  if (status === 'published') return true
-  if (status === 'scheduled' && publishedAt <= new Date()) return true
-  return false
+function isVisible(status: string | undefined): boolean {
+  return status === 'published'
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
@@ -30,7 +28,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const raw = await BlogPost.findOne({ slug }).lean()
   if (!raw) notFound()
-  if (!isVisible(raw.status, raw.publishedAt) && session?.user?.role !== 'admin') notFound()
+  if (!isVisible(raw.status) && session?.user?.role !== 'admin') notFound()
 
   const userId = session?.user?.id
 
@@ -73,9 +71,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     commentCount,
   }
 
-  const now = new Date()
   const rawRelated = await BlogPost.find({
-    $or: [{ status: 'published' }, { status: 'scheduled', publishedAt: { $lte: now } }],
+    status: 'published',
     category: raw.category,
     _id: { $ne: raw._id },
   })

@@ -30,12 +30,9 @@ export const ROUTES = {
     PRODUCTS: '/api/products',
     DOMAINS: '/api/domains',
     UPLOADS: '/api/uploads',
-    NOTIFICATIONS: '/api/notifications',
     PAGE_SETTINGS: '/api/page-settings',
     ADMIN_USERS: '/api/admin/users',
     ADMIN_TAGS: '/api/admin/tags',
     ADMIN_BLOG_CATEGORIES: '/api/admin/blog-categories',
-    ADMIN_PAGE_SETTINGS: '/api/admin/page-settings',
-    ADMIN_LOGS: '/api/admin/logs',
   },
 } as const
