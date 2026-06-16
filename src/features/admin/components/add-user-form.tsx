@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const addUserSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
   email: z.string().email('Please enter a valid email'),
   role: z.enum(['viewer', 'admin']),
 })
@@ -31,7 +30,7 @@ export function AddUserForm() {
     formState: { errors, isSubmitting },
   } = useForm<AddUserFormValues>({
     resolver: zodResolver(addUserSchema),
-    defaultValues: { name: '', email: '', role: 'viewer' },
+    defaultValues: { email: '', role: 'viewer' },
   })
 
   function handleClose() {
@@ -78,17 +77,6 @@ export function AddUserForm() {
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Add New User</h3>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-slate-600">Full Name</Label>
-                <Input
-                  placeholder="Jane Smith"
-                  className="h-9 text-sm"
-                  {...register('name')}
-                />
-                {errors.name && (
-                  <p className="text-xs text-red-600">{errors.name.message}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Email</Label>
                 <Input
                   type="email"
@@ -99,6 +87,9 @@ export function AddUserForm() {
                 {errors.email && (
                   <p className="text-xs text-red-600">{errors.email.message}</p>
                 )}
+                <p className="text-xs text-slate-400">
+                  Their full name fills in automatically when they first sign in.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Role</Label>
@@ -111,8 +102,8 @@ export function AddUserForm() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="viewer">Management</SelectItem>
+                        <SelectItem value="admin">AEO</SelectItem>
                       </SelectContent>
                     </Select>
                   )}

@@ -17,8 +17,8 @@ export function FeaturedBlogCard({ post, categoriesMap = {} }: { post: BlogPostS
   const gradient = hexToGradient(color)
 
   return (
-    <Link href={`/blog/${post.slug}`} className="group block">
-      <div className="bg-white rounded-2xl overflow-hidden border border-[#E2E8F0] hover:border-[#CBD5E1] hover:shadow-md transition-all flex flex-col md:flex-row">
+    <Link href={`/blog/${post.slug}`} className="group block h-full">
+      <div className="h-full bg-white rounded-2xl overflow-hidden border border-[#E2E8F0] hover:border-[#CBD5E1] hover:shadow-md transition-all flex flex-col md:flex-row">
         {/* Cover */}
         <div className="relative md:w-2/5 aspect-[4/3] md:aspect-auto flex-shrink-0 overflow-hidden">
           {post.coverImage ? (

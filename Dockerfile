@@ -64,6 +64,13 @@ RUN \
   else echo "Lockfile not found." && exit 1; \
   fi
 
+# Redirect the Next.js runtime cache (image optimizer output + ISR) to a
+# writable location. The prod stage runs on a read-only root filesystem, so
+# Next.js cannot create /app/.next/cache; /tmp is the writable mount (see the
+# prod-prep stage). This symlink ships inside the standalone bundle that the
+# prod stage COPYs into /app, so /app/.next/cache → /tmp/.next/cache at runtime.
+RUN ln -sfn /tmp/.next/cache .next/standalone/.next/cache
+
 # ---- Production prep ----
 # Creates writable directories in Alpine so the distroless prod stage
 # doesn't need any RUN commands.

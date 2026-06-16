@@ -124,10 +124,10 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
           onValueChange={(val) => updateParams({ domain: val === 'all' ? '' : val, product: '' })}
         >
           <SelectTrigger className="w-44 h-9 text-sm">
-            <SelectValue placeholder="All domains" />
+            <SelectValue placeholder="All sections" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All domains</SelectItem>
+            <SelectItem value="all">All sections</SelectItem>
             {allDomains.map((d) => (
               <SelectItem key={d._id} value={d.slug}>{d.name}</SelectItem>
             ))}

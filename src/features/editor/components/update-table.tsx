@@ -16,11 +16,17 @@ import {
 } from '@/components/ui/table'
 import { Pencil, Trash2 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ManageTaxonomyModal, TaxonomyKind } from './manage-taxonomy-modal'
 
 interface Product {
   _id: string
   name: string
   color: string
+}
+
+interface TaxonomyOption {
+  _id: string
+  name: string
 }
 
 interface UpdateRow {
@@ -29,11 +35,11 @@ interface UpdateRow {
   summary: string
   date: string
   isPublished: boolean
-  scheduledAt?: string | null
   updatedAt?: string
   lastUpdatedBy?: string | null
   products: Product[]
   domainNames: string[]
+  tags: TaxonomyOption[]
 }
 
 interface UpdateTableProps {
@@ -42,14 +48,17 @@ interface UpdateTableProps {
   totalCount?: number
   currentPage?: number
   pageSize?: number
+  allSections?: TaxonomyOption[]
+  allTags?: TaxonomyOption[]
 }
 
-export function UpdateTable({ updates, hasFilters = false, totalCount = 0, currentPage = 1, pageSize = 20 }: UpdateTableProps) {
+export function UpdateTable({ updates, hasFilters = false, totalCount = 0, currentPage = 1, pageSize = 20, allSections = [], allTags = [] }: UpdateTableProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null)
+  const [manageKind, setManageKind] = useState<TaxonomyKind | null>(null)
 
   const changePage = useCallback((page: number) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -103,8 +112,35 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Date</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Title</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Section</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1">
+                Section
+                <button
+                  type="button"
+                  onClick={() => setManageKind('section')}
+                  className="text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label="Manage sections"
+                  title="Manage sections"
+                >
+                  <Pencil size={12} />
+                </button>
+              </span>
+            </TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1">
+                Tags
+                <button
+                  type="button"
+                  onClick={() => setManageKind('tag')}
+                  className="text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label="Manage tags"
+                  title="Manage tags"
+                >
+                  <Pencil size={12} />
+                </button>
+              </span>
+            </TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">Status</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Last Updated</TableHead>
             <TableHead className="w-24" />
@@ -147,10 +183,21 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
                 )}
               </TableCell>
               <TableCell>
+                {update.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {update.tags.map((t) => (
+                      <span key={t._id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-300">—</span>
+                )}
+              </TableCell>
+              <TableCell>
                 {update.isPublished ? (
                   <Badge className="bg-green-50 text-green-700 border-green-100 text-xs hover:bg-green-50">Published</Badge>
-                ) : update.scheduledAt ? (
-                  <Badge className="bg-amber-50 text-amber-700 border-amber-100 text-xs hover:bg-amber-50 whitespace-nowrap">Scheduled</Badge>
                 ) : (
                   <Badge variant="secondary" className="text-xs">Draft</Badge>
                 )}
@@ -223,6 +270,14 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
         onConfirm={() => deleteConfirm && confirmDelete(deleteConfirm.id)}
         onCancel={() => setDeleteConfirm(null)}
       />
+      {manageKind && (
+        <ManageTaxonomyModal
+          kind={manageKind}
+          items={manageKind === 'section' ? allSections : allTags}
+          open={!!manageKind}
+          onClose={() => setManageKind(null)}
+        />
+      )}
     </div>
   )
 }

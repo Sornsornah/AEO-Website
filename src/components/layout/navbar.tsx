@@ -5,13 +5,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
-import { NotificationBell } from './notification-bell'
 import { Lock } from 'lucide-react'
 
 interface NavLink {
   href: string
   label: string
   adminOnly: boolean
+}
+
+const roleLabels: Record<string, string> = {
+  admin: 'AEO',
+  viewer: 'Management',
+  public: 'CPF officers',
 }
 
 function getInitials(name: string) {
@@ -63,7 +68,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-[#E8E0D6] bg-[#FDFCFB]/95 backdrop-blur supports-[backdrop-filter]:bg-[#FDFCFB]/80">
       <div className="w-full px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <Link href="/products" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="font-semibold text-[#1C1512] text-sm tracking-tight">AEO: AI Enablement Office</span>
           </Link>
 
@@ -102,8 +107,6 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {session?.user && (
             <>
-              <NotificationBell />
-
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -117,7 +120,7 @@ export function Navbar() {
                   <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-[#E8E0D6] rounded-xl shadow-lg z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-stone-100">
                       <p className="text-sm font-medium text-stone-900 truncate">{session.user.name}</p>
-                      <p className="text-xs text-stone-400 capitalize mt-0.5">{session.user.role}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{roleLabels[session.user.role] ?? session.user.role}</p>
                     </div>
 
                     {session.user.role === 'admin' && (
@@ -135,6 +138,13 @@ export function Navbar() {
                           className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                         >
                           Admin
+                        </Link>
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                        >
+                          Metrics Tracking
                         </Link>
                       </>
                     )}

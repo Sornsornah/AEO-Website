@@ -2,7 +2,7 @@ import { connectDB } from '@/lib/mongodb'
 import { ActivityLog, ActivityAction, ActivityEntityType, IFieldChange } from '@/models/ActivityLog'
 
 export const TRACKED_FIELDS: Record<ActivityEntityType, string[]> = {
-  update:  ['title', 'isPublished', 'scheduledAt', 'date', 'productIds', 'domainIds', 'tagIds',
+  update:  ['title', 'isPublished', 'date', 'productIds', 'domainIds', 'tagIds',
              'progressUpdates', 'nextSteps', 'learningPoints', 'content'],
   product: [
     'name', 'status', 'color', 'shortDescription', 'description',
@@ -116,7 +116,6 @@ export function serializeUpdateSnapshot(doc: PlainDoc): Record<string, unknown> 
     content: doc.content ?? null,
     date: doc.date ? new Date(doc.date as string | Date).toISOString() : null,
     isPublished: doc.isPublished ?? false,
-    scheduledAt: doc.scheduledAt ? new Date(doc.scheduledAt as string | Date).toISOString() : null,
     progressUpdates: doc.progressUpdates ?? null,
     nextSteps: doc.nextSteps ?? null,
     learningPoints: doc.learningPoints ?? null,

@@ -6,17 +6,18 @@ import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { computeDiff, writeLog, serializeBlogSnapshot } from '@/lib/activityLog'
+import { sanitizeBlogHtml } from '@/lib/sanitizeHtml'
 
 const createBlogSchema = z.object({
   title: z.string().min(1),
   excerpt: z.string().min(1),
-  category: z.enum(['thought', 'learning-journey', 'field-notes', 'deep-dive']),
+  category: z.string().min(1),
   authorName: z.string().min(1),
-  content: z.string().optional(),
-  coverImage: z.string().optional(),
+  content: z.string().nullish(),
+  coverImage: z.string().nullish(),
   tags: z.array(z.string()).optional(),
-  publishedAt: z.string().optional(),
-  status: z.enum(['draft', 'scheduled', 'published']).optional(),
+  publishedAt: z.string().nullish(),
+  status: z.enum(['draft', 'published']).optional(),
 })
 
 function slugify(text: string) {
@@ -34,13 +35,7 @@ function computeReadTime(content: string): number {
 }
 
 function publicFilter() {
-  const now = new Date()
-  return {
-    $or: [
-      { status: 'published' },
-      { status: 'scheduled', publishedAt: { $lte: now } },
-    ],
-  }
+  return { status: 'published' }
 }
 
 export async function GET(req: NextRequest) {
@@ -94,7 +89,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getSession(req.headers)
-  if (!session || session.user.role !== 'admin') {
+  if (!session) {
     return new Response(null, { status: 401 })
   }
 
@@ -106,26 +101,34 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
 
+  const isAdmin = session.user.role === 'admin'
+
   let slug = slugify(title)
   const existing = await BlogPost.findOne({ slug }).lean()
   if (existing) slug = `${slug}-${Date.now()}`
 
-  const featuredUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+  const resolvedAuthorName = isAdmin ? authorName : session.user.name
+  const featuredUntil = isAdmin ? new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) : undefined
+
+  // Sanitise author-supplied HTML before storage — the content is rendered via
+  // dangerouslySetInnerHTML and any authenticated (incl. non-admin) user can post.
+  const cleanContent = sanitizeBlogHtml(content || '')
 
   const post = await BlogPost.create({
     title,
     slug,
     excerpt,
-    content: content || '',
+    content: cleanContent,
     coverImage: coverImage || undefined,
     category,
     tags: Array.isArray(tags) ? tags.filter(Boolean) : [],
-    authorName,
+    authorName: resolvedAuthorName,
     publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
-    readTime: computeReadTime(content || ''),
+    readTime: computeReadTime(cleanContent),
     status: status || 'draft',
-    isFeatured: true,
+    isFeatured: isAdmin,
     featuredUntil,
+    createdBy: session.user.id,
   })
 
   const changes = computeDiff('blog', null, post.toObject())

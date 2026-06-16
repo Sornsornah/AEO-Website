@@ -39,6 +39,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.status !== undefined) updateData.status = body.status
   if (body.shortDescription !== undefined) updateData.shortDescription = body.shortDescription
   if (body.uiScreenshot !== undefined) updateData.uiScreenshot = body.uiScreenshot
+  if (body.maintainedByAEO !== undefined) updateData.maintainedByAEO = !!body.maintainedByAEO
+  if (body.maintainerNote !== undefined) updateData.maintainerNote = body.maintainerNote
   if (body.productManagers !== undefined) updateData.productManagers = Array.isArray(body.productManagers) ? body.productManagers : []
   if (body.developers !== undefined) updateData.developers = Array.isArray(body.developers) ? body.developers : []
   if (body.overviewContent !== undefined) updateData.overviewContent = body.overviewContent

@@ -18,7 +18,7 @@ interface ProductRow {
 }
 
 interface UserMembershipModalProps {
-  user: { _id: string; name: string }
+  user: { _id: string; name?: string }
   domains: DomainRow[]
   products: ProductRow[]
   onClose: () => void

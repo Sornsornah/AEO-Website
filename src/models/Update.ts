@@ -17,7 +17,10 @@ export interface IUpdate extends Document {
   learningPoints: string
   media: string[]
   isPublished: boolean
-  scheduledAt?: Date
+  // Per-thread email subscriptions. Effective subscribers =
+  // (domain/product members ∪ subscribers) − unsubscribers.
+  subscribers: Types.ObjectId[]
+  unsubscribers: Types.ObjectId[]
   createdBy?: Types.ObjectId
   updatedBy?: Types.ObjectId
   createdAt: Date
@@ -42,7 +45,8 @@ const UpdateSchema = new Schema<IUpdate>(
     media: [{ type: String }],
     order: { type: Number, default: 0 },
     isPublished: { type: Boolean, default: false },
-    scheduledAt: { type: Date, required: false },
+    subscribers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    unsubscribers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

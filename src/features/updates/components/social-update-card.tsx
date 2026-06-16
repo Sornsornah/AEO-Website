@@ -38,9 +38,9 @@ function isVideo(url: string) {
 }
 
 const SECTIONS = [
-  { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-100', labelColor: 'text-emerald-800' },
-  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-100',    labelColor: 'text-blue-800'    },
-  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-100',   labelColor: 'text-amber-800'   },
+  { key: 'progressUpdates' as const, label: 'Key Milestones',  bg: 'bg-emerald-150', labelColor: 'text-emerald-800' },
+  { key: 'nextSteps'       as const, label: 'Next Steps',      bg: 'bg-blue-150',    labelColor: 'text-blue-800'    },
+  { key: 'learningPoints'  as const, label: 'Learning Points', bg: 'bg-amber-150',   labelColor: 'text-amber-800'   },
 ]
 
 

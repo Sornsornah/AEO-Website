@@ -7,7 +7,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import { useEffect, useRef, useState } from 'react'
-import { Link2, Link2Off, Image as ImageIcon, Video, Code, Quote } from 'lucide-react'
+import { Link2, Link2Off, Code, Quote } from 'lucide-react'
 
 // Custom video node — renders as <video controls>
 const VideoNode = Node.create({
@@ -81,10 +81,7 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
 function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?: boolean }) {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
-  const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const imageFileRef = useRef<HTMLInputElement>(null)
-  const videoFileRef = useRef<HTMLInputElement>(null)
 
   if (!editor) return null
 
@@ -115,25 +112,7 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
     setLinkUrl('')
   }
 
-  async function uploadFile(file: File, type: 'image' | 'video') {
-    setUploading(type)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
-      if (!res.ok) return
-      const { url } = await res.json()
-      if (type === 'image') {
-        editor!.chain().focus().setImage({ src: url }).run()
-      } else {
-        editor!.chain().focus().insertContent({ type: 'video', attrs: { src: url } }).run()
-      }
-    } finally {
-      setUploading(null)
-    }
-  }
-
-  const btn = (label: React.ReactNode, title: string, active: boolean, onClick: () => void) => (
+  const btn =(label: React.ReactNode, title: string, active: boolean, onClick: () => void) => (
     <button
       key={title}
       type="button"
@@ -184,54 +163,6 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
           <Link2 size={12} />
           Link
         </button>
-        <label
-          title="Upload image"
-          onMouseDown={(e) => e.preventDefault()}
-          className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
-            uploading === 'image'
-              ? 'bg-slate-100 text-slate-400 cursor-wait'
-              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-          }`}
-        >
-          <ImageIcon size={12} />
-          {uploading === 'image' ? 'Uploading…' : 'Image'}
-          <input
-            ref={imageFileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            disabled={!!uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) uploadFile(file, 'image')
-              e.target.value = ''
-            }}
-          />
-        </label>
-        <label
-          title="Upload video"
-          onMouseDown={(e) => e.preventDefault()}
-          className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${
-            uploading === 'video'
-              ? 'bg-slate-100 text-slate-400 cursor-wait'
-              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-          }`}
-        >
-          <Video size={12} />
-          {uploading === 'video' ? 'Uploading…' : 'Video'}
-          <input
-            ref={videoFileRef}
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            className="hidden"
-            disabled={!!uploading}
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) uploadFile(file, 'video')
-              e.target.value = ''
-            }}
-          />
-        </label>
       </div>
 
       {showLinkInput && (

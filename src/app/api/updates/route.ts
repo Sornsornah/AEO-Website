@@ -22,7 +22,6 @@ const createUpdateSchema = z.object({
   learningPoints: z.string().optional(),
   media: z.array(z.string()).optional(),
   isPublished: z.boolean().optional(),
-  scheduledAt: z.string().optional(),
 })
 
 const PAGE_SIZE = 20
@@ -41,10 +40,9 @@ export async function GET(req: NextRequest) {
   const includeUnpublished = searchParams.get('includeUnpublished') === 'true' && session.user.role === 'admin'
 
   const must: Record<string, unknown>[] = []
-  const now = new Date()
 
   if (!includeUnpublished) {
-    must.push({ $or: [{ isPublished: true }, { scheduledAt: { $lte: now } }] })
+    must.push({ isPublished: true })
   }
 
   if (productSlug) {
@@ -93,7 +91,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return Response.json({ errors: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
-  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = parsed.data
+  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished } = parsed.data
 
   const normalizedProductIds = Array.isArray(productIds) ? productIds : []
   const update = await Update.create({
@@ -111,7 +109,6 @@ export async function POST(req: NextRequest) {
     learningPoints: learningPoints || '',
     media: media || [],
     isPublished: isPublished || false,
-    scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     createdBy: session.user.id,
   })
 

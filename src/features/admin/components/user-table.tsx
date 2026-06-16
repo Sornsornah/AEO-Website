@@ -13,7 +13,7 @@ import { formatDateShort } from '@/lib/utils'
 interface UserRow {
   _id: string
   email: string
-  name: string
+  name?: string
   role: 'public' | 'viewer' | 'admin'
   createdAt: string
 }
@@ -34,6 +34,12 @@ const roleColors: Record<string, string> = {
   admin: 'bg-purple-50 text-purple-700 border-purple-100',
   viewer: 'bg-slate-50 text-slate-600 border-slate-200',
   public: 'bg-stone-50 text-stone-500 border-stone-200',
+}
+
+const roleLabels: Record<string, string> = {
+  admin: 'AEO',
+  viewer: 'Management',
+  public: 'CPF officers',
 }
 
 export function UserTable({
@@ -67,7 +73,7 @@ export function UserTable({
   }
 
   async function deleteUser(user: UserRow) {
-    if (!confirm(`Delete ${user.name} (${user.email})? This cannot be undone.`)) return
+    if (!confirm(`Delete ${user.name || user.email} (${user.email})? This cannot be undone.`)) return
     setDeletingId(user._id)
     try {
       const res = await fetch(`/api/admin/users/${user._id}`, { method: 'DELETE' })
@@ -123,14 +129,18 @@ export function UserTable({
                 <TableRow key={user._id} className="hover:bg-slate-50/50">
                   <TableCell>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                      {user.name ? (
+                        <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                      ) : (
+                        <p className="text-sm italic text-slate-400">Pending first login</p>
+                      )}
                       <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
                     </div>
                   </TableCell>
                   <TableCell>
                     {isSelf ? (
-                      <Badge className={`text-xs capitalize ${roleColors[user.role]}`}>
-                        {user.role}
+                      <Badge className={`text-xs ${roleColors[user.role]}`}>
+                        {roleLabels[user.role] ?? user.role}
                       </Badge>
                     ) : (
                       <Select
@@ -142,9 +152,9 @@ export function UserTable({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="public">Public</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="public">CPF officers</SelectItem>
+                          <SelectItem value="viewer">Management</SelectItem>
+                          <SelectItem value="admin">AEO</SelectItem>
                         </SelectContent>
                       </Select>
                     )}
