@@ -26,7 +26,10 @@ export function useNavigationGuard({ when, onBlock }: Options) {
         history.pushState(null, '', location.href)
         onBlock(() => {
           pendingPopRef.current = true
-          history.back()
+          // Go back two entries: one for the extra entry we just re-pushed and
+          // one for the mount-time guard entry, so the user actually leaves the
+          // page instead of landing back on this same URL.
+          history.go(-2)
         })
       }
     }

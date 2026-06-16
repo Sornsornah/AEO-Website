@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { track } from '@/lib/track'
+import { copyToClipboard } from '@/lib/utils'
 import { Heart, Bookmark, Share2, Clock, ArrowLeft } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import {
@@ -82,12 +83,10 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
     }
   }, [isLoggedIn, post.slug, post._id, post.category])
 
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(() => {
     track('blog_share', { entityId: post._id, entityType: 'blog', category: post.category })
     const url = window.location.href
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(url)
-    }
+    void copyToClipboard(url)
     setSharing(true)
     setTimeout(() => setSharing(false), 2000)
   }, [post._id, post.category])

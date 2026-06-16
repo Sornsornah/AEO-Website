@@ -16,7 +16,7 @@ interface BlogRow {
   category: BlogCategory
   authorName: string
   publishedAt: string
-  status: 'draft' | 'scheduled' | 'published'
+  status: 'draft' | 'published'
   isFeatured: boolean
   featuredUntil: string | null
   likeCount: number
@@ -105,9 +105,6 @@ export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories:
               <td className="px-4 py-3">
                 {post.status === 'published' && (
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Published</span>
-                )}
-                {post.status === 'scheduled' && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Scheduled</span>
                 )}
                 {post.status === 'draft' && (
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Draft</span>

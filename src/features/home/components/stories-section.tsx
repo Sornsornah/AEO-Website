@@ -15,7 +15,7 @@ export function StoriesSection({ posts, categoriesMap }: StoriesSectionProps) {
     <section className="max-w-6xl 2xl:max-w-[78vw] mx-auto px-6 py-16">
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h2 className="text-4xl font-bold tracking-tight text-[#1C1512] md:text-5xl">
-          What&rsquo;s h<span className="text-orange-600">AI</span>ppening
+          What&rsquo;s Happening
         </h2>
         <p className="text-sm text-stone-500 mt-3">
           Explore the latest updates, product news, success stories and practical insights about AI,

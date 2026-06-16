@@ -1,4 +1,5 @@
 export { BlogCard } from './blog-card'
+export { BlogCtaCard } from './blog-cta-card'
 export { BlogComments } from './blog-comments'
 export type { BlogCommentData } from './blog-comments'
 export { BlogDetail } from './blog-detail'

@@ -3,22 +3,16 @@
 import { useState } from 'react'
 import { UserTable } from './user-table'
 import { AddUserForm } from './add-user-form'
-import { DomainTable } from './domain-table'
-import { AddDomainForm } from './add-domain-form'
-import { TagTable } from './tag-table'
-import { AddTagForm } from './add-tag-form'
 import { BlogCategoryTable } from './blog-category-table'
 import { AddBlogCategoryForm } from './add-blog-category-form'
-import { LogsTable, LogEntry } from './logs-table'
-import { PageSettingsTable, PageSettingRow, EntityBannerRow } from './page-settings-table'
 import { HomepageProductsTab } from './homepage-products-tab'
 
-type Tab = 'users' | 'domains' | 'tags' | 'blog-categories' | 'pages' | 'homepage' | 'logs'
+type Tab = 'users' | 'blog-categories' | 'homepage'
 
 interface SerializedUser {
   _id: string
   email: string
-  name: string
+  name?: string
   role: 'public' | 'viewer' | 'admin'
   createdAt: string
 }
@@ -41,12 +35,6 @@ interface SerializedDomain {
   members: { _id: string; name: string; email: string }[]
 }
 
-interface SerializedTag {
-  _id: string
-  name: string
-  slug: string
-}
-
 interface SerializedBlogCategory {
   _id: string
   name: string
@@ -59,29 +47,19 @@ interface AdminTabsProps {
   users: SerializedUser[]
   products: SerializedProduct[]
   domains: SerializedDomain[]
-  tags: SerializedTag[]
   blogCategories: SerializedBlogCategory[]
-  pageSettings: PageSettingRow[]
-  productBanners: EntityBannerRow[]
-  blogBanners: EntityBannerRow[]
-  featuredProductIds: string[]
+  featuredProductIds: (string | null)[]
   currentUserId: string
-  initialLogs: LogEntry[]
-  initialLogsTotal: number
 }
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'users', label: 'Users' },
-  { id: 'domains', label: 'Sections' },
-  { id: 'tags', label: 'Update Tags' },
-  { id: 'blog-categories', label: 'Blog Categories' },
-  { id: 'pages', label: 'Pages' },
   { id: 'homepage', label: 'Homepage' },
-  { id: 'logs', label: 'Logs' },
+  { id: 'blog-categories', label: 'Blog Categories' },
+  { id: 'users', label: 'Users' },
 ]
 
-export function AdminTabs({ users, products, domains, tags, blogCategories, pageSettings, productBanners, blogBanners, featuredProductIds, currentUserId, initialLogs, initialLogsTotal }: AdminTabsProps) {
-  const [tab, setTab] = useState<Tab>('users')
+export function AdminTabs({ users, products, domains, blogCategories, featuredProductIds, currentUserId }: AdminTabsProps) {
+  const [tab, setTab] = useState<Tab>('homepage')
 
   return (
     <div>
@@ -112,33 +90,24 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, page
             </div>
             <AddUserForm />
           </div>
+          <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Role permissions</p>
+            <ul className="space-y-2.5">
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 inline-flex justify-center w-28 px-2 py-0.5 rounded-full border text-xs font-medium bg-stone-50 text-stone-500 border-stone-200">CPF officers</span>
+                <span className="text-xs text-slate-600 leading-relaxed">Can view the homepage, about us, products, and blog pages.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 inline-flex justify-center w-28 px-2 py-0.5 rounded-full border text-xs font-medium bg-slate-50 text-slate-600 border-slate-200">Management</span>
+                <span className="text-xs text-slate-600 leading-relaxed">Everything CPF officers can see, plus the internal updates page.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex-shrink-0 inline-flex justify-center w-28 px-2 py-0.5 rounded-full border text-xs font-medium bg-purple-50 text-purple-700 border-purple-100">AEO</span>
+                <span className="text-xs text-slate-600 leading-relaxed">Full access — all pages above, plus the editor, admin, and metrics tracking.</span>
+              </li>
+            </ul>
+          </div>
           <UserTable users={users} products={products} domains={domains} currentUserId={currentUserId} />
-        </section>
-      )}
-
-      {tab === 'domains' && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Sections</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Top-level groupings (e.g. Team 1)</p>
-            </div>
-            <AddDomainForm users={users} />
-          </div>
-          <DomainTable domains={domains} users={users} />
-        </section>
-      )}
-
-      {tab === 'tags' && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Update Tags</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Labels for categorizing updates</p>
-            </div>
-            <AddTagForm />
-          </div>
-          <TagTable tags={tags} />
         </section>
       )}
 
@@ -155,16 +124,6 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, page
         </section>
       )}
 
-      {tab === 'pages' && (
-        <section>
-          <div className="mb-4">
-            <h2 className="text-base font-semibold text-slate-900">Pages</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Toggle nav visibility, reorder, and configure banners for each page</p>
-          </div>
-          <PageSettingsTable settings={pageSettings} productBanners={productBanners} blogBanners={blogBanners} />
-        </section>
-      )}
-
       {tab === 'homepage' && (
         <section>
           <div className="mb-4">
@@ -172,16 +131,6 @@ export function AdminTabs({ users, products, domains, tags, blogCategories, page
             <p className="text-xs text-slate-400 mt-0.5">Curate the products shown in the homepage constellation</p>
           </div>
           <HomepageProductsTab products={products} featuredIds={featuredProductIds} />
-        </section>
-      )}
-
-      {tab === 'logs' && (
-        <section>
-          <div className="mb-4">
-            <h2 className="text-base font-semibold text-slate-900">Activity Log</h2>
-            <p className="text-xs text-slate-400 mt-0.5">All content changes made by AEOs — click a row to see the diff</p>
-          </div>
-          <LogsTable initialLogs={initialLogs} initialTotal={initialLogsTotal} />
         </section>
       )}
     </div>

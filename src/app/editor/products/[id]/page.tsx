@@ -27,12 +27,13 @@ export default async function EditProductPage({ params }: Props) {
     status?: string
     shortDescription?: string
     uiScreenshot?: string
+    maintainedByAEO?: boolean
+    maintainerNote?: string
     productManagers?: { name: string; email: string }[]
     developers?: { name: string; email: string }[]
     overviewContent?: string
     whyWeBuiltThis?: string
     whatWeBuilt?: string
-    highlightStats?: { value: string; label: string }[]
     features?: { title: string; description: string }[]
     userQuotes?: { text: string; author: string }[]
     roadmap?: { quarter: string; description: string }[]
@@ -51,14 +52,14 @@ export default async function EditProductPage({ params }: Props) {
     websiteUrl: p.websiteUrl || '',
     deckUrl: p.deckUrl || '',
     contactUsUrl: (p as typeof p & { contactUsUrl?: string }).contactUsUrl || '',
+    maintainedByAEO: p.maintainedByAEO !== false,
+    maintainerNote: p.maintainerNote || '',
     productManagers: p.productManagers || [],
     developers: p.developers || [],
     overviewContent: p.overviewContent || '',
-    highlightStats: p.highlightStats || [],
-    useCases: (p.useCases || []).map((uc: { title: string; content: string; image?: string; functionTag?: string; isDraft?: boolean }) => ({
+    useCases: (p.useCases || []).map((uc: { title: string; content: string; functionTag?: string; isDraft?: boolean }) => ({
       title: uc.title,
       content: uc.content,
-      image: uc.image || '',
       functionTag: uc.functionTag || '',
       isDraft: uc.isDraft || false,
     })),

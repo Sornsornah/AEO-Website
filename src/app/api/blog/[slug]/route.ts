@@ -5,16 +5,15 @@ import { getSession } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { computeDiff, writeLog, TRACKED_FIELDS, serializeBlogSnapshot } from '@/lib/activityLog'
+import { sanitizeBlogHtml } from '@/lib/sanitizeHtml'
 
 function computeReadTime(content: string): number {
   const words = content.trim().split(/\s+/).filter(Boolean).length
   return Math.max(1, Math.round(words / 200))
 }
 
-function isVisible(post: { status?: string; publishedAt: Date }): boolean {
-  if (post.status === 'published') return true
-  if (post.status === 'scheduled' && post.publishedAt <= new Date()) return true
-  return false
+function isVisible(post: { status?: string }): boolean {
+  return post.status === 'published'
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -74,8 +73,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
   if (title !== undefined) post.title = title
   if (excerpt !== undefined) post.excerpt = excerpt
   if (content !== undefined) {
-    post.content = content
-    post.readTime = computeReadTime(content)
+    // Sanitise author-supplied HTML before storage — owners (incl. non-admins)
+    // can edit content that is later rendered via dangerouslySetInnerHTML.
+    const cleanContent = sanitizeBlogHtml(content)
+    post.content = cleanContent
+    post.readTime = computeReadTime(cleanContent)
   }
   if (coverImage !== undefined) post.coverImage = coverImage || undefined
   if (category !== undefined) post.category = category

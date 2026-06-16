@@ -37,12 +37,6 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
   await connectDB()
   void Tag // ensure Tag schema is registered for populate('tagIds')
 
-  // Auto-publish any updates whose scheduled time has passed
-  await Update.updateMany(
-    { isPublished: false, scheduledAt: { $lte: new Date() } },
-    { $set: { isPublished: true } }
-  )
-
   const currentView = searchParams.view || 'all'
   const isWhatsNewView = currentView === 'new'
 
@@ -54,9 +48,8 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
   }
 
   // Build query
-  const now = new Date()
   const andConditions: Record<string, unknown>[] = [
-    { $or: [{ isPublished: true }, { scheduledAt: { $lte: now } }] },
+    { isPublished: true },
   ]
 
   if (isWhatsNewView) {
@@ -185,7 +178,7 @@ export default async function UpdatesPage({ searchParams: searchParamsPromise }:
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <PageBanner pageKey="updates" />
+      <PageBanner banner={{ bannerEnabled: true, bannerText: 'Restricted Access — this page is intended for authorised internal users only.', bannerStyle: 'warning' }} />
 
       <main className="px-6 py-10">
         <UpdatesPageClient

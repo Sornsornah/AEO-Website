@@ -55,6 +55,8 @@ export interface IProduct extends Document {
   status: 'live' | 'beta' | 'coming_soon'
   shortDescription?: string
   uiScreenshot?: string
+  maintainedByAEO: boolean
+  maintainerNote?: string
   productManagers: ITeamMember[]
   developers: ITeamMember[]
   overviewContent?: string
@@ -100,6 +102,8 @@ const ProductSchema = new Schema<IProduct>(
     status: { type: String, enum: ['live', 'beta', 'coming_soon'], default: 'live' },
     shortDescription: { type: String, trim: true },
     uiScreenshot: { type: String, trim: true },
+    maintainedByAEO: { type: Boolean, default: true },
+    maintainerNote: { type: String, trim: true, default: '' },
     productManagers: [TeamMemberSchema],
     developers: [TeamMemberSchema],
     overviewContent: { type: String },

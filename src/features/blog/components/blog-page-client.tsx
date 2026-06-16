@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Search, Bookmark, ChevronLeft, ChevronRight, PenSquare, FileText } from 'lucide-react'
 import { BlogCard } from './blog-card'
+import { BlogCtaCard } from './blog-cta-card'
 import { FeaturedBlogCard } from './featured-blog-card'
 import { MyPostsTable } from './my-posts-table'
-import { ExternalArticlesSidebar, type ExternalArticleEntry } from './external-articles-sidebar'
 import { type BlogPostSummary, type CategoriesMap } from './blog-utils'
 
 interface BlogPageClientProps {
@@ -14,16 +15,19 @@ interface BlogPageClientProps {
   featured: BlogPostSummary[]
   myPosts: BlogPostSummary[]
   isLoggedIn: boolean
-  externalArticles: ExternalArticleEntry[]
   categoriesMap?: CategoriesMap
 }
 
-export function BlogPageClient({ posts: initialPosts, featured: initialFeatured, myPosts: initialMyPosts, isLoggedIn, externalArticles, categoriesMap = {} }: BlogPageClientProps) {
+export function BlogPageClient({ posts: initialPosts, featured: initialFeatured, myPosts: initialMyPosts, isLoggedIn, categoriesMap = {} }: BlogPageClientProps) {
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab')
   const [posts, setPosts] = useState(initialPosts)
-  const [activeTab, setActiveTab] = useState<'browse' | 'saved' | 'my-posts'>('browse')
+  const [activeTab, setActiveTab] = useState<'browse' | 'saved' | 'my-posts'>(
+    initialTab === 'my-posts' || initialTab === 'saved' ? initialTab : 'browse'
+  )
   const [search, setSearch] = useState('')
   const [featuredIdx, setFeaturedIdx] = useState(0)
-  const isPaused = useRef(false)
+  const [isPaused, setIsPaused] = useState(false)
 
   // Keep live-updated versions of featured posts (for like/save counts)
   const featuredPosts = useMemo(
@@ -31,17 +35,16 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
     [posts, initialFeatured]
   )
 
-  const activeIdx = featuredPosts.length > 0 ? featuredIdx % featuredPosts.length : 0
+  const slideCount = featuredPosts.length
+  const activeIdx = slideCount > 0 ? featuredIdx % slideCount : 0
 
   useEffect(() => {
-    if (featuredPosts.length <= 1) return
-    const interval = setInterval(() => {
-      if (!isPaused.current) {
-        setFeaturedIdx((i) => (i + 1) % featuredPosts.length)
-      }
+    if (slideCount <= 1 || isPaused) return
+    const timeout = setTimeout(() => {
+      setFeaturedIdx((i) => (i + 1) % slideCount)
     }, 15000)
-    return () => clearInterval(interval)
-  }, [featuredPosts.length])
+    return () => clearTimeout(timeout)
+  }, [activeIdx, slideCount, isPaused])
 
   async function handleSave(e: React.MouseEvent, slug: string) {
     e.preventDefault()
@@ -66,19 +69,32 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
   const savedPosts = useMemo(() => posts.filter((p) => p.saved), [posts])
 
   const showFeatured = featuredPosts.length > 0 && !search.trim() && activeTab === 'browse'
+  // "Write a post" CTA now leads the small-card grid (logged-in, not searching)
+  const showCtaCard = isLoggedIn && !search.trim() && activeTab === 'browse'
   const featuredIds = new Set(initialFeatured.map((f) => f._id))
   const grid = showFeatured ? browsePosts.filter((p) => !featuredIds.has(p._id)) : browsePosts
 
   return (
-    <div>
+    <div className="w-3/4 mx-auto">
 
 
       {/* Hero header */}
       <div className="pt-12 pb-8 text-center px-6">
-        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">Stories</h1>
-        <p className="text-stone-500 text-sm">
-          Explore the latest updates, product news, success stories and practical insights from AEO.
+        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">What&apos;s Happening</h1>
+        <p className="text-stone-500 text-sm max-w-xl mx-auto">
+          Explore the latest updates, product news, success stories and practical insights about AI, shared by CPF officers across the board.
         </p>
+        {isLoggedIn && (
+          <div className="mt-7 flex flex-col items-center gap-3">
+            <Link
+              href="/editor/blog/new?from=blog"
+              className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-700 hover:shadow-md transition-all"
+            >
+              <PenSquare className="w-4 h-4" />
+              Write a post
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Tab + filter bar */}
@@ -135,23 +151,12 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
               </div>
             </>
           )}
-          {isLoggedIn && (
-            <Link
-              href="/editor/blog/new"
-              className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full bg-orange-600 text-white hover:bg-orange-700 transition-colors"
-            >
-              <PenSquare className="w-3 h-3" />
-              Write a post
-            </Link>
-          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="px-6 py-10">
-        <div className="lg:grid lg:grid-cols-[1fr_288px] lg:gap-10 lg:items-start">
-          {/* Main column */}
-          <div>
+        <div>
             {activeTab === 'saved' ? (
               savedPosts.length === 0 ? (
                 <div className="text-center py-20">
@@ -174,28 +179,35 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                 {showFeatured && (
                   <div
                     className="mb-10"
-                    onMouseEnter={() => { isPaused.current = true }}
-                    onMouseLeave={() => { isPaused.current = false }}
+                    onMouseEnter={() => setIsPaused(true)}
+                    onMouseLeave={() => setIsPaused(false)}
                   >
                     <div className="relative">
-                      <div
-                        key={activeIdx}
-                        style={{ animation: 'blog-fade-in 0.5s ease-out' }}
-                      >
-                        <FeaturedBlogCard post={featuredPosts[activeIdx]} categoriesMap={categoriesMap} />
+                      {/* Sliding track: full-width featured cards, equal height, one in view */}
+                      <div className="overflow-hidden rounded-2xl">
+                        <div
+                          className="flex items-stretch transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                          style={{ transform: `translateX(-${activeIdx * 100}%)` }}
+                        >
+                          {featuredPosts.map((post) => (
+                            <div key={post._id} className="w-full shrink-0">
+                              <FeaturedBlogCard post={post} categoriesMap={categoriesMap} />
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
-                      {featuredPosts.length > 1 && (
+                      {slideCount > 1 && (
                         <>
                           <button
-                            onClick={() => setFeaturedIdx((i) => (i - 1 + featuredPosts.length) % featuredPosts.length)}
+                            onClick={() => setFeaturedIdx((i) => (i - 1 + slideCount) % slideCount)}
                             className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-[#FDFCFB]/90 border border-[#E8E0D6] shadow-sm flex items-center justify-center text-stone-600 hover:bg-[#FDFCFB] hover:shadow-md transition-all"
                             aria-label="Previous featured post"
                           >
                             <ChevronLeft className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setFeaturedIdx((i) => (i + 1) % featuredPosts.length)}
+                            onClick={() => setFeaturedIdx((i) => (i + 1) % slideCount)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-[#FDFCFB]/90 border border-[#E8E0D6] shadow-sm flex items-center justify-center text-stone-600 hover:bg-[#FDFCFB] hover:shadow-md transition-all"
                             aria-label="Next featured post"
                           >
@@ -205,9 +217,9 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                       )}
                     </div>
 
-                    {featuredPosts.length > 1 && (
+                    {slideCount > 1 && (
                       <div className="flex justify-center items-center gap-2 mt-4">
-                        {featuredPosts.map((_, i) => (
+                        {Array.from({ length: slideCount }).map((_, i) => (
                           <button
                             key={i}
                             onClick={() => setFeaturedIdx(i)}
@@ -225,13 +237,14 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                 )}
 
                 {/* Grid */}
-                {grid.length === 0 ? (
+                {grid.length === 0 && !showCtaCard ? (
                   <div className="text-center py-20">
                     <p className="text-stone-400 text-sm font-medium">No articles found</p>
                     <p className="text-stone-300 text-xs mt-1">Try adjusting your filters</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {showCtaCard && <BlogCtaCard key="cta" />}
                     {grid.map((post) => (
                       <BlogCard
                         key={post._id}
@@ -244,14 +257,6 @@ export function BlogPageClient({ posts: initialPosts, featured: initialFeatured,
                 )}
               </>
             )}
-          </div>
-
-          {/* Sidebar */}
-          {externalArticles.length > 0 && (
-            <aside className="hidden lg:block sticky top-24">
-              <ExternalArticlesSidebar articles={externalArticles} />
-            </aside>
-          )}
         </div>
       </div>
     </div>

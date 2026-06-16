@@ -102,6 +102,12 @@ export function toDateTimeLocalInput(iso: string | Date | null | undefined): str
   return format(isValid(d) ? d : new Date(), DATETIME_LOCAL_FMT)
 }
 
+/** ISO/Date -> `yyyy-MM-dd` for a date input; falls back to today. */
+export function toDateInput(iso: string | Date | null | undefined): string {
+  const d = iso != null ? new Date(iso) : new Date()
+  return format(isValid(d) ? d : new Date(), 'yyyy-MM-dd')
+}
+
 /** Today as `yyyy-MM-dd` — use for `max=` on backward-looking date inputs. */
 export function todayDateInput(): string {
   return format(new Date(), 'yyyy-MM-dd')

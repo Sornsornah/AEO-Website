@@ -11,7 +11,6 @@ interface UpdateRow {
   title: string
   date: string
   isPublished: boolean
-  scheduledAt?: string | null
   order: number
 }
 
@@ -219,8 +218,6 @@ export function UpdateReorderView({ updates: initial }: { updates: UpdateRow[] }
                   <div className="flex-shrink-0">
                     {update.isPublished ? (
                       <Badge className="bg-green-50 text-green-700 border-green-100 text-xs hover:bg-green-50">Published</Badge>
-                    ) : update.scheduledAt ? (
-                      <Badge className="bg-amber-50 text-amber-700 border-amber-100 text-xs hover:bg-amber-50">Scheduled</Badge>
                     ) : (
                       <Badge variant="secondary" className="text-xs">Draft</Badge>
                     )}

@@ -19,8 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (session.user.role === 'public') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  const isVisible = update.isPublished || (update.scheduledAt && new Date(update.scheduledAt as Date) <= new Date())
-  if (session.user.role === 'viewer' && !isVisible) {
+  if (session.user.role === 'viewer' && !update.isPublished) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
@@ -39,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!before) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
-  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished, scheduledAt } = body
+  const { title, summary, content, domainIds, productIds, tagIds, date, highlights, progressUpdates, nextSteps, learningPoints, media, isPublished } = body
 
   const updateData: Record<string, unknown> = {}
   if (title !== undefined) updateData.title = title
@@ -66,7 +65,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (learningPoints !== undefined) updateData.learningPoints = learningPoints
   if (media !== undefined) updateData.media = media
   if (isPublished !== undefined) updateData.isPublished = isPublished
-  if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null
   updateData.updatedBy = session.user.id
 
   const update = await Update.findByIdAndUpdate(id, updateData, { new: true })

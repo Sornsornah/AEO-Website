@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { ProductCardPreview } from './product-card-preview'
 
 interface CatalogueProduct {
@@ -41,7 +42,7 @@ export function ProductsCatalogueClient({ products }: ProductsCatalogueClientPro
         <p className="text-xs font-semibold tracking-[0.2em] text-orange-700 uppercase mb-3">
 The Full Catalogue
         </p>
-        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">Explore our products</h1>
+        <h1 className="text-4xl font-bold text-[#1C1512] mb-3">Explore available products</h1>
         <p className="text-stone-500 text-sm">
           Browse the full suite of products built for CPF officers to tackle operational challenges, streamline workflows, and unlock productivity across teams.
         </p>
@@ -86,8 +87,9 @@ The Full Catalogue
           {products.map((product) => {
             const isSelected = product._id === selectedId
             return (
-              <button
+              <Link
                 key={product._id}
+                href={`/products/${product.slug}`}
                 onMouseEnter={() => setSelectedId(product._id)}
                 className={`w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all ${
                   isSelected
@@ -111,7 +113,7 @@ The Full Catalogue
                     <p className="text-xs text-stone-500 truncate">{product.description}</p>
                   )}
                 </div>
-              </button>
+              </Link>
             )
           })}
         </div>
