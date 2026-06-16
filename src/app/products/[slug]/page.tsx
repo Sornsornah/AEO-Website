@@ -23,13 +23,14 @@ export default async function ProductPage({ params }: Props) {
     status?: string
     shortDescription?: string
     uiScreenshot?: string
+    maintainedByAEO?: boolean
+    maintainerNote?: string
     productManagers?: { name: string; email: string }[]
     developers?: { name: string; email: string }[]
     overviewContent?: string
     vision?: string
     mission?: string
     goals?: string
-    highlightStats?: { value: string; label: string }[]
     useCases?: { title: string; content: string; image?: string; functionTag?: string; department?: string; isDraft?: boolean }[]
     productUpdates?: { title: string; content: string; date?: Date }[]
   }
@@ -46,13 +47,14 @@ export default async function ProductPage({ params }: Props) {
     status: (p.status as 'live' | 'beta' | 'coming_soon') || 'live',
     websiteUrl: p.websiteUrl,
     deckUrl: p.deckUrl,
+    maintainedByAEO: p.maintainedByAEO !== false,
+    maintainerNote: p.maintainerNote || '',
     productManagers: p.productManagers || [],
     developers: p.developers || [],
     overviewContent: p.overviewContent,
     vision: p.vision,
     mission: p.mission,
     goals: p.goals,
-    highlightStats: p.highlightStats || [],
     useCases: (p.useCases || []).filter((uc: { isDraft?: boolean }) => !uc.isDraft).map((uc: { title: string; content: string; image?: string; functionTag?: string; department?: string }) => ({
       title: uc.title,
       content: uc.content,

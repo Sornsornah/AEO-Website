@@ -13,7 +13,6 @@ import {
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
-  scheduled: 'Scheduled',
   published: 'Published',
 }
 
@@ -30,8 +29,8 @@ export function BlogCard({ post, onSave, editHref, categoriesMap = {} }: BlogCar
   const gradient = hexToGradient(color)
 
   return (
-    <Link href={editHref ?? `/blog/${post.slug}`} className="group block">
-      <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all">
+    <Link href={editHref ?? `/blog/${post.slug}`} className="group block h-full">
+      <div className="h-full flex flex-col bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all">
         {/* Cover */}
         <div className="relative aspect-[16/9] overflow-hidden">
           {post.coverImage ? (
@@ -67,7 +66,7 @@ export function BlogCard({ post, onSave, editHref, categoriesMap = {} }: BlogCar
         </div>
 
         {/* Body */}
-        <div className="p-4">
+        <div className="p-4 flex flex-col flex-1">
           <p className="text-xs text-slate-400 mb-2 flex items-center gap-1.5">
             {format(new Date(post.publishedAt), 'MMM dd, yyyy')}
             <span>·</span>
@@ -89,7 +88,7 @@ export function BlogCard({ post, onSave, editHref, categoriesMap = {} }: BlogCar
               ))}
             </div>
           )}
-          <div className="flex items-center justify-between">
+          <div className="mt-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-xs text-slate-400">
                 <Heart className={`w-3.5 h-3.5 ${post.likeCount > 0 ? 'fill-rose-400 text-rose-400' : ''}`} />

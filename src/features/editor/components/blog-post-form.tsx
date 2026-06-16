@@ -1,23 +1,24 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useNavigationGuard } from '@/hooks/useNavigationGuard'
 import { format } from 'date-fns'
 import {
-  toDateTimeLocalInput,
+  toDateInput,
+  todayDateInput,
   utcToSgtInput,
   sgtInputToUtcIso,
   nowSgtInput,
-  nowDateTimeLocal,
+  isValidDateInput,
   isValidDateTimeLocal,
-  isFutureDateTimeLocal,
   isFutureSgtInput,
 } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
+import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getCategoryDisplay, hexToBadgeStyle, hexToGradient, getInitials, type CategoriesMap } from '@/features/blog/components/blog-utils'
 import type { BlogStatus } from '@/models/BlogPost'
@@ -25,13 +26,30 @@ import { ImagePlus, X, Clock, Check, ChevronDown } from 'lucide-react'
 
 type BlogCategory = string
 
+// Surface the server's real reason for a failed save. API routes return either
+// `{ error: string }` or, for Zod validation failures, `{ errors: Record<field, string[]> }`.
+async function extractErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = await res.json()
+    if (typeof data?.error === 'string') return data.error
+    if (data?.errors && typeof data.errors === 'object') {
+      const fields = Object.entries(data.errors as Record<string, string[]>)
+        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(', ')}`)
+        .filter(Boolean)
+      if (fields.length) return fields.join(' · ')
+    }
+  } catch {
+    // Non-JSON body — fall through to the generic message.
+  }
+  return 'Something went wrong.'
+}
+
 function sgDefaultFiveDays(): string {
   return utcToSgtInput(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000))
 }
 
 const STATUS_OPTIONS: { value: BlogStatus; label: string; description: string }[] = [
   { value: 'draft', label: 'Draft', description: 'Not visible to readers' },
-  { value: 'scheduled', label: 'Scheduled', description: 'Goes live on publish date' },
   { value: 'published', label: 'Published', description: 'Live and visible now' },
 ]
 
@@ -58,6 +76,7 @@ interface BlogPostFormProps {
 
 export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: BlogPostFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isEdit = !!initialData
 
   const [title, setTitle] = useState(initialData?.title ?? '')
@@ -69,8 +88,8 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
   const [authorName, setAuthorName] = useState(initialData?.authorName ?? currentUserName ?? '')
   const [publishedAt, setPublishedAt] = useState(
     initialData?.publishedAt
-      ? toDateTimeLocalInput(initialData.publishedAt)
-      : nowDateTimeLocal()
+      ? toDateInput(initialData.publishedAt)
+      : todayDateInput()
   )
   const [status, setStatus] = useState<BlogStatus>(initialData?.status ?? 'draft')
   const [isFeatured, setIsFeatured] = useState(initialData?.isFeatured ?? false)
@@ -151,25 +170,36 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
     })
   }, [content])
 
-  const exitHref = isAdmin ? '/editor?tab=blog' : '/blog'
+  // When the author arrived from the blog page (?from=blog), return them to
+  // blog → My Posts rather than the editor dashboard.
+  const exitHref =
+    searchParams.get('from') === 'blog'
+      ? '/blog?tab=my-posts'
+      : isAdmin
+        ? '/editor?tab=blog'
+        : '/blog'
 
   function handleCancel() {
     if (isDirty.current) setPendingNav(() => () => router.push(exitHref))
     else router.push(exitHref)
   }
 
+  // Cover images are encoded inline (no server upload) and downscaled to a max
+  // width of 1600px to keep the data URL small.
   async function handleImageUpload(file: File) {
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
-      if (res.ok) {
-        const { url } = await res.json()
-        setCoverImage(url)
-      }
+      setCoverImage(await encodeImageFile(file, 1600))
     } finally {
       setUploading(false)
+    }
+  }
+
+  function handleCoverPaste(e: React.ClipboardEvent) {
+    const file = imageFileFromClipboardData(e.clipboardData)
+    if (file) {
+      e.preventDefault()
+      handleImageUpload(file)
     }
   }
 
@@ -181,19 +211,9 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
       return false
     }
 
-    if (publishedAt && !isValidDateTimeLocal(publishedAt)) {
+    if (publishedAt && !isValidDateInput(publishedAt)) {
       setError('Please choose a valid publish date.')
       return false
-    }
-    if (status === 'scheduled') {
-      if (!publishedAt || !isValidDateTimeLocal(publishedAt)) {
-        setError('A scheduled post needs a valid publish date.')
-        return false
-      }
-      if (!isFutureDateTimeLocal(publishedAt)) {
-        setError('Scheduled publish date must be in the future.')
-        return false
-      }
     }
     if (isFeatured && featuredUntil) {
       if (!isValidDateTimeLocal(featuredUntil)) {
@@ -242,8 +262,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
         })
       }
       if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || 'Something went wrong.')
+        setError(await extractErrorMessage(res))
         return false
       }
       isDirty.current = false
@@ -273,7 +292,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
   const badgeStyle = hexToBadgeStyle(categoryColor)
   const parsedTags = tagInput.split(',').map((t) => t.trim()).filter(Boolean)
   const displayDate = format(
-    isValidDateTimeLocal(publishedAt) ? new Date(publishedAt) : new Date(),
+    isValidDateInput(publishedAt) ? new Date(publishedAt) : new Date(),
     'MMM dd, yyyy'
   )
 
@@ -310,7 +329,11 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
           </div>
 
           {/* Cover image */}
-          <div className="space-y-2">
+          <div
+            tabIndex={0}
+            onPaste={handleCoverPaste}
+            className="space-y-2 rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
+          >
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cover Image</Label>
             {coverImage ? (
               <div className="relative rounded-xl overflow-hidden aspect-[16/9]">
@@ -332,11 +355,11 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
               >
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20 group-hover:bg-black/30 transition-colors">
                   {uploading ? (
-                    <p className="text-white text-xs font-medium">Uploading...</p>
+                    <p className="text-white text-xs font-medium">Adding...</p>
                   ) : (
                     <>
                       <ImagePlus className="w-6 h-6 text-white/80" />
-                      <p className="text-white/80 text-xs font-medium">Click to upload</p>
+                      <p className="text-white/80 text-xs font-medium">Click to upload or paste (Ctrl/⌘+V)</p>
                     </>
                   )}
                 </div>
@@ -352,6 +375,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
                 if (file) handleImageUpload(file)
               }}
             />
+            <p className="text-xs text-slate-400">Cover images are scaled to 1600px wide.</p>
           </div>
 
           {/* Content */}
@@ -449,15 +473,13 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
             {/* Publish date */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                {status === 'scheduled' ? 'Publish Date *' : 'Publish Date'}
+                Publish Date
               </Label>
               <Input
-                type="datetime-local"
+                type="date"
                 value={publishedAt}
                 onChange={(e) => setPublishedAt(e.target.value)}
                 className="h-9 text-sm"
-                required={status === 'scheduled'}
-                min={status === 'scheduled' ? nowDateTimeLocal() : undefined}
               />
             </div>
           </div>
@@ -465,7 +487,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
           {/* Status */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</Label>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
@@ -475,8 +497,6 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
                     status === opt.value
                       ? opt.value === 'published'
                         ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                        : opt.value === 'scheduled'
-                        ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-slate-100 border-slate-300 text-slate-700'
                       : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
                   }`}
@@ -640,7 +660,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
         confirmLabel="Keep editing"
         cancelLabel="Cancel changes"
         onConfirm={() => setPendingNav(null)}
-        onCancel={() => { const run = pendingNav!; setPendingNav(null); run() }}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); isDirty.current = false; run() }}
       />
       <div
         className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${

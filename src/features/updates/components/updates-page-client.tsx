@@ -210,6 +210,51 @@ export function UpdatesPageClient({
     []
   )
 
+  // Section (domain) and Product/Tag are mutually exclusive filter groups:
+  // selecting in one group clears the other.
+  const toggleSection = useCallback(
+    (slug: string) => {
+      toggleValue(setPendingDomains, slug)
+      setPendingProducts([])
+      setPendingTags([])
+    },
+    [toggleValue]
+  )
+
+  const toggleAllSections = useCallback(() => {
+    setPendingDomains((cur) =>
+      cur.length === sortedDomains.length ? [] : sortedDomains.map((d) => d.slug)
+    )
+    setPendingProducts([])
+    setPendingTags([])
+  }, [sortedDomains])
+
+  const toggleProduct = useCallback(
+    (slug: string) => {
+      toggleValue(setPendingProducts, slug)
+      setPendingDomains([])
+    },
+    [toggleValue]
+  )
+
+  const toggleAllProducts = useCallback(() => {
+    setPendingProducts((cur) => (cur.length === products.length ? [] : products.map((p) => p.slug)))
+    setPendingDomains([])
+  }, [products])
+
+  const toggleTag = useCallback(
+    (slug: string) => {
+      toggleValue(setPendingTags, slug)
+      setPendingDomains([])
+    },
+    [toggleValue]
+  )
+
+  const toggleAllTags = useCallback(() => {
+    setPendingTags((cur) => (cur.length === tags.length ? [] : tags.map((t) => t.slug)))
+    setPendingDomains([])
+  }, [tags])
+
   const applyFilters = useCallback(() => {
     pushParams({
       domain: pendingDomains.length ? pendingDomains.join(',') : null,
@@ -280,28 +325,22 @@ export function UpdatesPageClient({
             label="Section"
             options={sortedDomains}
             selected={pendingDomains}
-            onToggle={(slug) => toggleValue(setPendingDomains, slug)}
-            onToggleAll={() =>
-              setPendingDomains((cur) => (cur.length === sortedDomains.length ? [] : sortedDomains.map((d) => d.slug)))
-            }
+            onToggle={toggleSection}
+            onToggleAll={toggleAllSections}
           />
           <FilterDropdown
             label="Product"
             options={products}
             selected={pendingProducts}
-            onToggle={(slug) => toggleValue(setPendingProducts, slug)}
-            onToggleAll={() =>
-              setPendingProducts((cur) => (cur.length === products.length ? [] : products.map((p) => p.slug)))
-            }
+            onToggle={toggleProduct}
+            onToggleAll={toggleAllProducts}
           />
           <FilterDropdown
             label="Tag"
             options={tags}
             selected={pendingTags}
-            onToggle={(slug) => toggleValue(setPendingTags, slug)}
-            onToggleAll={() =>
-              setPendingTags((cur) => (cur.length === tags.length ? [] : tags.map((t) => t.slug)))
-            }
+            onToggle={toggleTag}
+            onToggleAll={toggleAllTags}
           />
 
           {/* Apply */}

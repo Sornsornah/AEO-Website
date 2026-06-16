@@ -13,7 +13,7 @@ import { formatDateShort } from '@/lib/utils'
 interface UserRow {
   _id: string
   email: string
-  name: string
+  name?: string
   role: 'public' | 'viewer' | 'admin'
   createdAt: string
 }
@@ -73,7 +73,7 @@ export function UserTable({
   }
 
   async function deleteUser(user: UserRow) {
-    if (!confirm(`Delete ${user.name} (${user.email})? This cannot be undone.`)) return
+    if (!confirm(`Delete ${user.name || user.email} (${user.email})? This cannot be undone.`)) return
     setDeletingId(user._id)
     try {
       const res = await fetch(`/api/admin/users/${user._id}`, { method: 'DELETE' })
@@ -129,7 +129,11 @@ export function UserTable({
                 <TableRow key={user._id} className="hover:bg-slate-50/50">
                   <TableCell>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                      {user.name ? (
+                        <p className="text-sm font-medium text-slate-900">{user.name}</p>
+                      ) : (
+                        <p className="text-sm italic text-slate-400">Pending first login</p>
+                      )}
                       <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
                     </div>
                   </TableCell>

@@ -44,7 +44,7 @@ export default async function EditBlogPostPage({ params }: PageProps) {
     tags: raw.tags || [],
     authorName: raw.authorName,
     publishedAt: raw.publishedAt.toISOString(),
-    status: (raw.status || 'draft') as 'draft' | 'scheduled' | 'published',
+    status: (raw.status || 'draft') as 'draft' | 'published',
     isFeatured: raw.isFeatured,
     featuredUntil: raw.featuredUntil ? raw.featuredUntil.toISOString() : null,
   }

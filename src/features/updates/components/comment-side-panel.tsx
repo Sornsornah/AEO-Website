@@ -2,18 +2,21 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Trash2, Pencil, Check, Video, Image as ImageIcon, Link2, Link2Off, List, ListOrdered } from 'lucide-react'
+import { X, Trash2, Pencil, Check, Link2, Link2Off, List, ListOrdered, Reply, CornerUpLeft } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useSession } from '@/lib/use-session'
 import { track } from '@/lib/track'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useEditor, EditorContent, Node, mergeAttributes, Extension } from '@tiptap/react'
+import { useEditor, EditorContent, Node, mergeAttributes, Extension, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
+import Mention from '@tiptap/extension-mention'
+import { mentionSuggestion } from './comment-mention-suggestion'
+import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -27,7 +30,43 @@ interface Comment {
   text: string
   attachments: string[]
   mentions: string[]
+  parentId: string | null
   createdAt: string
+}
+
+// A shared Mention extension for both the compose and edit editors: '@' opens
+// the Management/AEO autocomplete and inserts a chip carrying the user id.
+const CommentMention = Mention.configure({
+  HTMLAttributes: { class: 'mention' },
+  suggestion: mentionSuggestion,
+})
+
+// Pasting a raw photo embeds it as a multi-MB base64 `data:` URI in the comment
+// HTML, and the Airbase edge rejects the oversized request body with a 403 (the
+// same reason direct server uploads are restricted in deploy). So we mirror the
+// blog cover / product image pattern: downscale the pasted image client-side
+// with `encodeImageFile`, then keep the (now small) base64 inline — no upload.
+// Comment thumbnails render tiny, so a modest width is plenty.
+const COMMENT_IMAGE_MAX_WIDTH = 1280
+
+async function insertPastedImage(editor: Editor, file: File) {
+  try {
+    const dataUrl = await encodeImageFile(file, COMMENT_IMAGE_MAX_WIDTH)
+    editor.chain().focus().setImage({ src: dataUrl }).run()
+  } catch {
+    toast.error('Could not add image')
+  }
+}
+
+// Intercept image paste/drop (clipboard or dragged file) and downscale it,
+// instead of letting Tiptap insert the original full-size base64.
+function handleImageInsert(editor: Editor | null, data: DataTransfer | null, event: Event): boolean {
+  if (!editor) return false
+  const file = imageFileFromClipboardData(data)
+  if (!file) return false
+  event.preventDefault()
+  void insertPastedImage(editor, file)
+  return true
 }
 
 interface UpdateData {
@@ -84,12 +123,33 @@ function isHtml(text: string) {
   return /<[a-z][\s\S]*>/i.test(text)
 }
 
+// Flatten a comment body (HTML or markdown) into a short plain-text snippet for
+// the Teams-style reply quote. Tags are stripped; if the body is only media
+// (pasted image/video as inline base64), fall back to a media label.
+function commentPreviewText(raw: string): string {
+  if (!raw) return ''
+  const hasVideo = /<video\b/i.test(raw)
+  const hasImage = /<img\b/i.test(raw) || /!\[/.test(raw)
+  const plain = raw
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (plain) return plain
+  if (hasVideo) return '🎬 Video'
+  if (hasImage) return '🖼️ Image'
+  return ''
+}
+
 function CommentBody({ text }: { text: string }) {
   if (!text) return null
   if (isHtml(text)) {
     const clean = DOMPurify.sanitize(text, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'a', 'img', 'video', 'source'],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'controls', 'class', 'type'],
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'a', 'img', 'video', 'source', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'controls', 'class', 'type', 'data-type', 'data-id', 'data-label'],
     })
     return (
       <div
@@ -120,14 +180,13 @@ const VideoNode = Node.create({
 export interface CommentEditorHandle {
   getHtml(): string
   clear(): void
+  focus(): void
 }
 
 const CommentTiptapEditor = forwardRef<CommentEditorHandle, { onSubmit: () => void }>(
 function CommentTiptapEditor({ onSubmit }, ref) {
-  const videoFileRef = useRef<HTMLInputElement>(null)
-  const imageFileRef = useRef<HTMLInputElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
+  const editorRef = useRef<Editor | null>(null)
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
 
@@ -163,16 +222,23 @@ function CommentTiptapEditor({ onSubmit }, ref) {
       Placeholder.configure({ placeholder: 'Add to the discussion… (Shift+Enter for new line, Enter to post)' }),
       Underline,
       Link.configure({ openOnClick: false, autolink: false }),
+      // Inline base64 is allowed, but pasted/dropped images are downscaled first
+      // (handlers below) so the comment body stays under the edge size limit.
       Image.configure({ allowBase64: true }),
       VideoNode,
+      CommentMention,
       SubmitKeymap,
     ],
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
+      handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
+      handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
     },
   })
+
+  useEffect(() => { editorRef.current = editor }, [editor])
 
   useImperativeHandle(ref, () => ({
     getHtml() {
@@ -185,28 +251,10 @@ function CommentTiptapEditor({ onSubmit }, ref) {
       setShowLinkInput(false)
       setLinkUrl('')
     },
+    focus() {
+      editor?.commands.focus('end')
+    },
   }), [editor])
-
-  async function uploadFile(file: File, type: 'image' | 'video') {
-    if (!editor) return
-    setUploading(type)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-      if (!res.ok) return
-      const { url } = await res.json()
-      if (type === 'image') {
-        editor.chain().focus().setImage({ src: url }).run()
-      } else {
-        editor.chain().focus().insertContent({ type: 'video', attrs: { src: url } }).run()
-      }
-    } finally {
-      setUploading(null)
-      if (type === 'image' && imageFileRef.current) imageFileRef.current.value = ''
-      if (type === 'video' && videoFileRef.current) videoFileRef.current.value = ''
-    }
-  }
 
   function handleLinkToggle() {
     if (!editor) return
@@ -248,28 +296,6 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     </button>
   )
 
-  const uploadBtn = (type: 'image' | 'video') => {
-    const isImg = type === 'image'
-    return (
-      <label
-        key={type}
-        title={isImg ? 'Upload photo' : 'Upload video'}
-        onMouseDown={(e) => e.preventDefault()}
-        className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${uploading === type ? 'opacity-50 cursor-wait' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
-      >
-        {uploading === type ? <span className="text-[10px]">…</span> : isImg ? <ImageIcon className="w-3 h-3" /> : <Video className="w-3 h-3" />}
-        <input
-          ref={isImg ? imageFileRef : videoFileRef}
-          type="file"
-          accept={isImg ? 'image/*' : 'video/mp4,video/webm,video/quicktime'}
-          className="hidden"
-          disabled={!!uploading}
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, type) }}
-        />
-      </label>
-    )
-  }
-
   return (
     <div className="rounded-xl border border-slate-200 bg-background focus-within:ring-2 focus-within:ring-slate-300 overflow-hidden">
       {/* Toolbar */}
@@ -290,8 +316,6 @@ function CommentTiptapEditor({ onSubmit }, ref) {
         >
           <Link2 className="w-3 h-3" />
         </button>
-        {uploadBtn('image')}
-        {uploadBtn('video')}
       </div>
 
       {/* Link input row */}
@@ -408,10 +432,8 @@ function EditCommentTiptapEditor({
   onCancel: () => void
   saving: boolean
 }) {
-  const videoFileRef = useRef<HTMLInputElement>(null)
-  const imageFileRef = useRef<HTMLInputElement>(null)
   const linkInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState<'image' | 'video' | null>(null)
+  const editorRef = useRef<Editor | null>(null)
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
 
@@ -449,33 +471,20 @@ function EditCommentTiptapEditor({
       Link.configure({ openOnClick: false, autolink: false }),
       Image.configure({ allowBase64: true }),
       VideoNode,
+      CommentMention,
       EditKeymap,
     ],
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
+      handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
+      handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
     },
     autofocus: true,
   })
 
-  async function uploadFile(file: File, type: 'image' | 'video') {
-    if (!editor) return
-    setUploading(type)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-      if (!res.ok) return
-      const { url } = await res.json()
-      if (type === 'image') editor.chain().focus().setImage({ src: url }).run()
-      else editor.chain().focus().insertContent({ type: 'video', attrs: { src: url } }).run()
-    } finally {
-      setUploading(null)
-      if (type === 'image' && imageFileRef.current) imageFileRef.current.value = ''
-      if (type === 'video' && videoFileRef.current) videoFileRef.current.value = ''
-    }
-  }
+  useEffect(() => { editorRef.current = editor }, [editor])
 
   function handleLinkToggle() {
     if (!editor) return
@@ -505,20 +514,6 @@ function EditCommentTiptapEditor({
     </button>
   )
 
-  const uploadBtn = (type: 'image' | 'video') => {
-    const isImg = type === 'image'
-    return (
-      <label key={type} title={isImg ? 'Upload photo' : 'Upload video'} onMouseDown={(e) => e.preventDefault()}
-        className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer ${uploading === type ? 'opacity-50 cursor-wait' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
-        {uploading === type ? <span className="text-[10px]">…</span> : isImg ? <ImageIcon className="w-3 h-3" /> : <Video className="w-3 h-3" />}
-        <input ref={isImg ? imageFileRef : videoFileRef} type="file"
-          accept={isImg ? 'image/*' : 'video/mp4,video/webm,video/quicktime'}
-          className="hidden" disabled={!!uploading}
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f, type) }} />
-      </label>
-    )
-  }
-
   const html = editor.getHTML()
   const isEmpty = !html || html === '<p></p>'
 
@@ -538,8 +533,6 @@ function EditCommentTiptapEditor({
             className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${editor.isActive('link') || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
             <Link2 className="w-3 h-3" />
           </button>
-          {uploadBtn('image')}
-          {uploadBtn('video')}
         </div>
         {showLinkInput && (
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
@@ -588,6 +581,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const queryClient = useQueryClient()
   const commentEditorRef = useRef<CommentEditorHandle>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string; text: string } | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -611,13 +605,13 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   }, [onClose])
 
   const submitMutation = useMutation({
-    mutationFn: (text: string) =>
+    mutationFn: ({ text, parentId }: { text: string; parentId: string | null }) =>
       fetch(`/api/updates/${updateId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, attachments: [] }),
+        body: JSON.stringify({ text, attachments: [], parentId }),
       }).then((r) => r.json()),
-    onMutate: async (text) => {
+    onMutate: async ({ text, parentId }) => {
       await queryClient.cancelQueries({ queryKey: ['comments', updateId] })
       const prev = queryClient.getQueryData<Comment[]>(['comments', updateId]) ?? []
       const optimistic: Comment = {
@@ -627,6 +621,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
         text,
         attachments: [],
         mentions: [],
+        parentId,
         createdAt: new Date().toISOString(),
       }
       const next = [...prev, optimistic]
@@ -696,8 +691,19 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   function submit() {
     const html = commentEditorRef.current?.getHtml() ?? ''
     if (!html || submitMutation.isPending) return
+    const parentId = replyingTo?.id ?? null
     commentEditorRef.current?.clear()
-    submitMutation.mutate(html)
+    setReplyingTo(null)
+    submitMutation.mutate({ text: html, parentId })
+  }
+
+  function startReply(c: Comment) {
+    setReplyingTo({ id: c._id, userName: c.userName, text: c.text })
+    setTimeout(() => commentEditorRef.current?.focus(), 0)
+  }
+
+  function scrollToComment(commentId: string) {
+    document.getElementById(`comment-${commentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const panel = (
@@ -725,20 +731,24 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
           className={`h-full flex-[1] min-w-[320px] max-w-[460px] bg-card shadow-2xl flex flex-col pointer-events-auto transition-transform duration-300 ease-out ${isVisible ? 'translate-x-0' : 'translate-x-full'}`}
         >
           {/* Header */}
-          <div className="flex items-start justify-between gap-3 px-6 py-5 border-b border-slate-100">
-            <div>
-              <p className="text-base font-semibold text-slate-900">Discussion</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {loading ? '…' : `${(comments as Comment[]).length} ${(comments as Comment[]).length === 1 ? 'comment' : 'comments'}`}
-              </p>
+          <div className="px-6 py-5 border-b border-slate-100">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900">Discussion</p>
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                  <span>
+                    {loading ? '…' : `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Close comments"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors"
-              aria-label="Close comments"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Comment list */}
@@ -748,8 +758,12 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
             ) : comments.length === 0 ? (
               <p className="text-xs text-slate-400">No comments yet. Be the first!</p>
             ) : (
-              comments.map((c) => (
-                <div key={c._id} className="flex gap-3">
+              comments.map((c) => {
+                const parent = c.parentId ? comments.find((p) => p._id === c.parentId) : null
+                const isOwn = c.userId === session?.user?.id
+                const isTemp = c._id.startsWith('temp-')
+                return (
+                <div key={c._id} id={`comment-${c._id}`} className="flex gap-3 scroll-mt-4">
                   <div
                     className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold ${getAvatarColor(c.userName)}`}
                   >
@@ -761,26 +775,60 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                       <span className="text-[11px] text-slate-400">
                         {formatDistanceToNow(new Date(c.createdAt), { addSuffix: true })}
                       </span>
-                      {c.userId === session?.user?.id && !c._id.startsWith('temp-') && editingId !== c._id && (
+                      {session && !isTemp && editingId !== c._id && (
                         <div className="ml-auto flex items-center gap-1.5">
                           <button
-                            onClick={() => startEdit(c)}
+                            onClick={() => startReply(c)}
                             className="text-slate-300 hover:text-slate-500 transition-colors"
-                            aria-label="Edit comment"
+                            aria-label="Reply to comment"
                           >
-                            <Pencil className="w-3 h-3" />
+                            <Reply className="w-3 h-3" />
                           </button>
-                          <button
-                            onClick={() => deleteComment(c._id)}
-                            disabled={deleteMutation.isPending}
-                            className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
-                            aria-label="Delete comment"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {isOwn && (
+                            <>
+                              <button
+                                onClick={() => startEdit(c)}
+                                className="text-slate-300 hover:text-slate-500 transition-colors"
+                                aria-label="Edit comment"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => deleteComment(c._id)}
+                                disabled={deleteMutation.isPending}
+                                className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
+                                aria-label="Delete comment"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
+
+                    {c.parentId && (
+                      parent ? (
+                        <button
+                          type="button"
+                          onClick={() => scrollToComment(parent._id)}
+                          className="block w-full text-left mb-1.5 pl-2 pr-2 py-1 rounded-md bg-slate-50 border-l-2 border-slate-300 hover:bg-slate-100 transition-colors"
+                        >
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                            <CornerUpLeft className="w-3 h-3 flex-shrink-0" />
+                            {parent.userName}
+                          </span>
+                          <span className="block text-[11px] text-slate-400 truncate">
+                            {commentPreviewText(parent.text)}
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1 mb-1 text-[11px] text-slate-400">
+                          <CornerUpLeft className="w-3 h-3 flex-shrink-0" />
+                          <span>Replying to a deleted comment</span>
+                        </div>
+                      )
+                    )}
 
                     {editingId === c._id ? (
                       <EditCommentTiptapEditor
@@ -808,7 +856,8 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                     )}
                   </div>
                 </div>
-              ))
+                )
+              })
             )}
             <div ref={bottomRef} />
           </div>
@@ -816,6 +865,31 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
           {/* Input */}
           {session && (
             <div className="px-6 py-4 border-t border-slate-100">
+              {replyingTo && (
+                <div className="flex items-start gap-1.5 mb-2 pl-2.5 pr-2 py-1.5 rounded-lg bg-slate-100 border-l-2 border-slate-400">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                      <CornerUpLeft className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">
+                        Replying to <span className="font-semibold text-slate-700">{replyingTo.userName}</span>
+                      </span>
+                    </div>
+                    {commentPreviewText(replyingTo.text) && (
+                      <p className="mt-0.5 text-[11px] text-slate-500 line-clamp-2 break-words">
+                        {commentPreviewText(replyingTo.text)}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors"
+                    aria-label="Cancel reply"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               <CommentTiptapEditor
                 ref={commentEditorRef}
                 onSubmit={submit}

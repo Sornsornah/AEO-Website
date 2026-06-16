@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
@@ -15,6 +15,7 @@ import { StatCard } from './stat-card'
 import { BarMetricChart, LineMetricChart } from './metric-chart'
 import { SortHead, useSort } from './sortable'
 import { UserActivityTab } from './user-activity-tab'
+import { ProductUsersModal, type ProductUserAction } from './product-users-modal'
 import {
   isValidDateRange,
   dateInputToStartIso,
@@ -28,7 +29,9 @@ interface ProductRow {
   views: number
   uniqueViewers: number
   visitWebsiteClicks: number
+  uniqueVisitWebsiteClicks: number
   shares: number
+  uniqueShares: number
 }
 
 interface BlogPostRow {
@@ -41,6 +44,7 @@ interface BlogPostRow {
   likes: number
   comments: number
   shares: number
+  uniqueShares: number
 }
 
 interface ContributorRow {
@@ -60,6 +64,7 @@ interface BlogCategoryRow {
   likes: number
   comments: number
   shares: number
+  uniqueShares: number
 }
 
 interface MetricsResponse {
@@ -78,7 +83,7 @@ interface MetricsResponse {
     topContributors: ContributorRow[]
   }
   retention: {
-    uniqueBlogViewersLastMonth: number
+    blogViewers: number
     authorsInRange: number
     firstTimeAuthors: number
   }
@@ -106,6 +111,10 @@ const COLORS = {
   violet: '#7c3aed',
   rose: '#e11d48',
   slate: '#64748b',
+  // lighter shades used for the "unique" companion series on each chart
+  blueLight: '#93c5fd',
+  greenLight: '#86efac',
+  amberLight: '#fcd34d',
 }
 
 export function DashboardClient() {
@@ -215,7 +224,7 @@ export function DashboardClient() {
           {data && (
             <>
               {tab === 'general' && <GeneralTab data={data} />}
-              {tab === 'products' && <ProductsTab data={data} />}
+              {tab === 'products' && <ProductsTab data={data} range={range} />}
               {tab === 'blogs' && <BlogsTab data={data} />}
             </>
           )}
@@ -230,10 +239,23 @@ function GeneralTab({ data }: { data: MetricsResponse }) {
   return (
     <section className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Total users" value={a.totalUsers} />
-        <StatCard label="Active users" value={a.uniqueActiveUsers} hint="unique site visits in range" />
+        <StatCard label="Total users" value={a.totalUsers} hint="visited at least once" />
+        <StatCard label="Active users" value={a.uniqueActiveUsers} hint="unique visitors in range" />
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>New users over time</CardTitle>
+            <CardDescription>New users (first visit) accessing the site per day</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BarMetricChart
+              data={a.newUsersPerDay}
+              xKey="date"
+              series={[{ key: 'count', name: 'New users', color: COLORS.green }]}
+            />
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Site access over time</CardTitle>
@@ -247,44 +269,67 @@ function GeneralTab({ data }: { data: MetricsResponse }) {
             />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>New users over time</CardTitle>
-            <CardDescription>New accounts logged in</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BarMetricChart
-              data={a.newUsersPerDay}
-              xKey="date"
-              series={[{ key: 'count', name: 'New users', color: COLORS.green }]}
-            />
-          </CardContent>
-        </Card>
       </div>
     </section>
   )
 }
 
-function ProductsTab({ data }: { data: MetricsResponse }) {
+function ProductsTab({ data, range }: { data: MetricsResponse; range: { from: string; to: string } }) {
   const { sorted, sort, toggle } = useSort<ProductRow, keyof ProductRow & string>(
     data.activation.products,
     { key: 'views', dir: 'desc' }
   )
+  // Drill-down modal state for a clicked unique metric.
+  const [drill, setDrill] = useState<
+    { productId: string; productName: string; action: ProductUserAction; actionLabel: string } | null
+  >(null)
+
+  // A unique-count cell that opens the per-user drill-down when clicked.
+  function UniqueCell({ value, product, action, actionLabel }: {
+    value: number
+    product: ProductRow
+    action: ProductUserAction
+    actionLabel: string
+  }) {
+    return (
+      <TableCell className="text-right">
+        <button
+          type="button"
+          onClick={() => setDrill({ productId: product.productId, productName: product.name, action, actionLabel })}
+          className="font-medium text-blue-600 underline-offset-2 hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline"
+          disabled={value === 0}
+          title={value > 0 ? 'View users' : undefined}
+        >
+          {value}
+        </button>
+      </TableCell>
+    )
+  }
+
   return (
     <section className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Product engagement</CardTitle>
-          <CardDescription>Views, &ldquo;Visit website&rdquo; clicks and shares per product</CardDescription>
+          <CardDescription>
+            <span className="block">Views: Number of times the product detail page has been accessed</span>
+            <span className="block">Unique Views: Number of unique users who visited the product detail page</span>
+            <span className="block">Visit Clicks: Number of times users click on &ldquo;Visit Website&rdquo;</span>
+            <span className="block">Unique Visit Clicks: Number of unique users that click on &ldquo;Visit Website&rdquo;</span>
+            <span className="block">Shares: Number of times users click on &ldquo;Share&rdquo;</span>
+            <span className="block">Unique Shares: Number of unique users that click on &ldquo;Share&rdquo;</span>
+            <span className="mt-2 block text-stone-400">Click a unique value to see the users who performed that action.</span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <BarMetricChart
-            data={data.activation.products.slice(0, 15)}
+            data={sorted}
             xKey="name"
+            scrollX
             series={[
-              { key: 'views', name: 'Views', color: COLORS.blue },
-              { key: 'visitWebsiteClicks', name: 'Visit website', color: COLORS.green },
-              { key: 'shares', name: 'Shares', color: COLORS.amber },
+              { key: 'uniqueViewers', name: 'Unique views', color: COLORS.blue },
+              { key: 'uniqueVisitWebsiteClicks', name: 'Unique visit clicks', color: COLORS.green },
+              { key: 'uniqueShares', name: 'Unique shares', color: COLORS.amber },
             ]}
           />
           <div className="max-h-[420px] overflow-y-auto rounded-lg border border-stone-100">
@@ -293,22 +338,26 @@ function ProductsTab({ data }: { data: MetricsResponse }) {
                 <TableRow>
                   <SortHead label="Product" sortKey="name" sort={sort} onToggle={toggle} align="left" defaultDir="asc" />
                   <SortHead label="Views" sortKey="views" sort={sort} onToggle={toggle} />
-                  <SortHead label="Unique users" sortKey="uniqueViewers" sort={sort} onToggle={toggle} />
+                  <SortHead label="Unique views" sortKey="uniqueViewers" sort={sort} onToggle={toggle} />
                   <SortHead label="Visit clicks" sortKey="visitWebsiteClicks" sort={sort} onToggle={toggle} />
+                  <SortHead label="Unique visit clicks" sortKey="uniqueVisitWebsiteClicks" sort={sort} onToggle={toggle} />
                   <SortHead label="Shares" sortKey="shares" sort={sort} onToggle={toggle} />
+                  <SortHead label="Unique shares" sortKey="uniqueShares" sort={sort} onToggle={toggle} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sorted.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-slate-400">No product activity yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-slate-400">No product activity yet.</TableCell></TableRow>
                 )}
                 {sorted.map((p) => (
                   <TableRow key={p.productId}>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-right">{p.views}</TableCell>
-                    <TableCell className="text-right">{p.uniqueViewers}</TableCell>
+                    <UniqueCell value={p.uniqueViewers} product={p} action="product_view" actionLabel="Unique views" />
                     <TableCell className="text-right">{p.visitWebsiteClicks}</TableCell>
+                    <UniqueCell value={p.uniqueVisitWebsiteClicks} product={p} action="product_visit_website" actionLabel="Unique visit clicks" />
                     <TableCell className="text-right">{p.shares}</TableCell>
+                    <UniqueCell value={p.uniqueShares} product={p} action="product_share" actionLabel="Unique shares" />
                   </TableRow>
                 ))}
               </TableBody>
@@ -316,9 +365,23 @@ function ProductsTab({ data }: { data: MetricsResponse }) {
           </div>
         </CardContent>
       </Card>
+
+      {drill && (
+        <ProductUsersModal
+          productId={drill.productId}
+          productName={drill.productName}
+          action={drill.action}
+          actionLabel={drill.actionLabel}
+          range={range}
+          onClose={() => setDrill(null)}
+        />
+      )}
     </section>
   )
 }
+
+const SORT_HINT = 'Click a column header to sort by ascending or descending order.'
+const CONTRIBUTORS_PER_PAGE = 10
 
 function BlogsTab({ data }: { data: MetricsResponse }) {
   const { blogPosts, blogCategories, topContributors } = data.activation
@@ -327,10 +390,19 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
   const cats = useSort<BlogCategoryRow, keyof BlogCategoryRow & string>(blogCategories, { key: 'views', dir: 'desc' })
   const contributors = useSort<ContributorRow, keyof ContributorRow & string>(topContributors, { key: 'views', dir: 'desc' })
 
+  // Top contributors: paginate 10 per page; reset to first page whenever the sort changes.
+  const [contribPage, setContribPage] = useState(0)
+  useEffect(() => {
+    setContribPage(0)
+  }, [contributors.sort])
+  const contribPageCount = Math.max(1, Math.ceil(contributors.sorted.length / CONTRIBUTORS_PER_PAGE))
+  const contribStart = contribPage * CONTRIBUTORS_PER_PAGE
+  const contribRows = contributors.sorted.slice(contribStart, contribStart + CONTRIBUTORS_PER_PAGE)
+
   return (
     <section className="space-y-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <StatCard label="Blog viewers" value={r.uniqueBlogViewersLastMonth} hint="unique viewers" />
+        <StatCard label="Blog viewers" value={r.blogViewers} hint="viewed a blog in range" />
         <StatCard label="Active authors" value={r.authorsInRange} hint="posted in range" />
         <StatCard label="First-time authors" value={r.firstTimeAuthors} hint="first post in range" />
       </div>
@@ -338,13 +410,14 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
       <Card>
         <CardHeader>
           <CardTitle>Top contributors</CardTitle>
-          <CardDescription>Posts and engagement aggregated per author</CardDescription>
+          <CardDescription>Posts and engagement aggregated per author. {SORT_HINT}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-h-[420px] overflow-y-auto rounded-lg border border-stone-100">
+          <div className="overflow-x-auto rounded-lg border border-stone-100">
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableHeader className="bg-card">
                 <TableRow>
+                  <TableHead className="w-12 text-right">#</TableHead>
                   <SortHead label="Author" sortKey="author" sort={contributors.sort} onToggle={contributors.toggle} align="left" defaultDir="asc" />
                   <SortHead label="Posts" sortKey="posts" sort={contributors.sort} onToggle={contributors.toggle} />
                   <SortHead label="Views" sortKey="views" sort={contributors.sort} onToggle={contributors.toggle} />
@@ -354,11 +427,12 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contributors.sorted.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-slate-400">No contributors yet.</TableCell></TableRow>
+                {contribRows.length === 0 && (
+                  <TableRow><TableCell colSpan={7} className="text-center text-slate-400">No contributors yet.</TableCell></TableRow>
                 )}
-                {contributors.sorted.map((c) => (
+                {contribRows.map((c, i) => (
                   <TableRow key={c.authorId}>
+                    <TableCell className="text-right text-slate-400 tabular-nums">{contribStart + i + 1}</TableCell>
                     <TableCell className="font-medium max-w-[220px] truncate">{c.author}</TableCell>
                     <TableCell className="text-right">{c.posts}</TableCell>
                     <TableCell className="text-right">{c.views}</TableCell>
@@ -370,56 +444,74 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
               </TableBody>
             </Table>
           </div>
+          {contributors.sorted.length > CONTRIBUTORS_PER_PAGE && (
+            <div className="mt-3 flex items-center justify-end gap-3 text-sm text-stone-500">
+              <button
+                type="button"
+                onClick={() => setContribPage((p) => Math.max(0, p - 1))}
+                disabled={contribPage === 0}
+                className="rounded-md border border-stone-200 px-2.5 py-1 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Previous
+              </button>
+              <span className="tabular-nums">Page {contribPage + 1} of {contribPageCount}</span>
+              <button
+                type="button"
+                onClick={() => setContribPage((p) => Math.min(contribPageCount - 1, p + 1))}
+                disabled={contribPage >= contribPageCount - 1}
+                className="rounded-md border border-stone-200 px-2.5 py-1 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Blog engagement by category</CardTitle>
-          <CardDescription>Views, likes, comments and shares aggregated per category</CardDescription>
+          <CardDescription>Views, likes, comments and shares aggregated per category. {SORT_HINT}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <BarMetricChart
-            data={blogCategories}
+            data={cats.sorted}
             xKey="category"
+            scrollX
             series={[
-              { key: 'views', name: 'Views', color: COLORS.blue },
+              { key: 'uniqueViewers', name: 'Unique views', color: COLORS.blue },
               { key: 'likes', name: 'Likes', color: COLORS.rose },
               { key: 'comments', name: 'Comments', color: COLORS.violet },
               { key: 'shares', name: 'Shares', color: COLORS.amber },
+              { key: 'uniqueShares', name: 'Unique shares', color: COLORS.amberLight },
             ]}
           />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Category breakdown</CardTitle>
-          <CardDescription>Views, likes, comments and shares per category</CardDescription>
-        </CardHeader>
-        <CardContent>
           <div className="max-h-[420px] overflow-y-auto rounded-lg border border-stone-100">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <SortHead label="Category" sortKey="category" sort={cats.sort} onToggle={cats.toggle} align="left" defaultDir="asc" />
                   <SortHead label="Views" sortKey="views" sort={cats.sort} onToggle={cats.toggle} />
+                  <SortHead label="Unique views" sortKey="uniqueViewers" sort={cats.sort} onToggle={cats.toggle} />
                   <SortHead label="Likes" sortKey="likes" sort={cats.sort} onToggle={cats.toggle} />
                   <SortHead label="Comments" sortKey="comments" sort={cats.sort} onToggle={cats.toggle} />
                   <SortHead label="Shares" sortKey="shares" sort={cats.sort} onToggle={cats.toggle} />
+                  <SortHead label="Unique shares" sortKey="uniqueShares" sort={cats.sort} onToggle={cats.toggle} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cats.sorted.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center text-slate-400">No blog activity yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-slate-400">No blog activity yet.</TableCell></TableRow>
                 )}
                 {cats.sorted.map((c) => (
                   <TableRow key={c.category}>
                     <TableCell className="font-medium">{c.category}</TableCell>
                     <TableCell className="text-right">{c.views}</TableCell>
+                    <TableCell className="text-right">{c.uniqueViewers}</TableCell>
                     <TableCell className="text-right">{c.likes}</TableCell>
                     <TableCell className="text-right">{c.comments}</TableCell>
                     <TableCell className="text-right">{c.shares}</TableCell>
+                    <TableCell className="text-right">{c.uniqueShares}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -431,7 +523,7 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
       <Card>
         <CardHeader>
           <CardTitle>Top blog posts</CardTitle>
-          <CardDescription>Views, likes, comments and shares per article</CardDescription>
+          <CardDescription>Views, unique views, likes, comments, shares and unique shares per article. {SORT_HINT}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="max-h-[420px] overflow-y-auto rounded-lg border border-stone-100">
@@ -442,14 +534,16 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
                   <SortHead label="Author" sortKey="author" sort={posts.sort} onToggle={posts.toggle} align="left" defaultDir="asc" />
                   <TableHead>Category</TableHead>
                   <SortHead label="Views" sortKey="views" sort={posts.sort} onToggle={posts.toggle} />
+                  <SortHead label="Unique views" sortKey="uniqueViewers" sort={posts.sort} onToggle={posts.toggle} />
                   <SortHead label="Likes" sortKey="likes" sort={posts.sort} onToggle={posts.toggle} />
                   <SortHead label="Comments" sortKey="comments" sort={posts.sort} onToggle={posts.toggle} />
                   <SortHead label="Shares" sortKey="shares" sort={posts.sort} onToggle={posts.toggle} />
+                  <SortHead label="Unique shares" sortKey="uniqueShares" sort={posts.sort} onToggle={posts.toggle} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {posts.sorted.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-slate-400">No blog activity yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-slate-400">No blog activity yet.</TableCell></TableRow>
                 )}
                 {posts.sorted.map((p) => (
                   <TableRow key={p.postId}>
@@ -457,9 +551,11 @@ function BlogsTab({ data }: { data: MetricsResponse }) {
                     <TableCell className="text-slate-500 max-w-[160px] truncate">{p.author}</TableCell>
                     <TableCell className="text-slate-500">{p.category}</TableCell>
                     <TableCell className="text-right">{p.views}</TableCell>
+                    <TableCell className="text-right">{p.uniqueViewers}</TableCell>
                     <TableCell className="text-right">{p.likes}</TableCell>
                     <TableCell className="text-right">{p.comments}</TableCell>
                     <TableCell className="text-right">{p.shares}</TableCell>
+                    <TableCell className="text-right">{p.uniqueShares}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

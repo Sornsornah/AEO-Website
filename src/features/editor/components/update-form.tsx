@@ -9,15 +9,10 @@ import { Label } from '@/components/ui/label'
 import { MarkdownEditor } from '@/features/editor/components/markdown-editor'
 import { UpdateCardPreview } from '@/features/editor/components/update-card-preview'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { Clock, ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, Plus } from 'lucide-react'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
 import {
   toMonthInput,
-  utcToSgtInput,
-  sgtInputToUtcIso,
-  nowSgtInput,
-  isValidDateTimeLocal,
-  isFutureSgtInput,
   isValidMonthInput,
 } from '@/lib/date'
 
@@ -32,18 +27,29 @@ function MultiSelect({
   selected,
   onChange,
   placeholder,
+  onAddNew,
+  addNewLabel,
 }: {
   options: MultiSelectOption[]
   selected: string[]
   onChange: (ids: string[]) => void
   placeholder: string
+  onAddNew?: (name: string) => Promise<void>
+  addNewLabel?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [addBusy, setAddBusy] = useState(false)
+  const [addError, setAddError] = useState('')
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setAdding(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -53,6 +59,22 @@ function MultiSelect({
 
   function toggle(id: string) {
     onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
+  }
+
+  async function submitNew() {
+    const name = newName.trim()
+    if (!name || !onAddNew || addBusy) return
+    setAddBusy(true)
+    setAddError('')
+    try {
+      await onAddNew(name)
+      setNewName('')
+      setAdding(false)
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add.')
+    } finally {
+      setAddBusy(false)
+    }
   }
 
   return (
@@ -106,6 +128,54 @@ function MultiSelect({
               )
             })
           )}
+          {onAddNew && (
+            <div className="sticky bottom-0 border-t border-slate-100 bg-white">
+              {adding ? (
+                <div className="p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          submitNew()
+                        } else if (e.key === 'Escape') {
+                          setAdding(false)
+                          setNewName('')
+                          setAddError('')
+                        }
+                      }}
+                      autoFocus
+                      placeholder={addNewLabel || 'New name…'}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      onClick={submitNew}
+                      disabled={addBusy || !newName.trim()}
+                      className="h-8 px-2.5 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                    >
+                      <Check size={14} />
+                    </Button>
+                  </div>
+                  {addError && <p className="text-xs text-red-600">{addError}</p>}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdding(true)
+                    setAddError('')
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus size={14} />
+                  <span>{addNewLabel || 'Add new'}</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -138,34 +208,32 @@ interface UpdateFormProps {
     tagIds?: string[]
     date?: string
     isPublished?: boolean
-    scheduledAt?: string
     progressUpdates?: string
     nextSteps?: string
     learningPoints?: string
   }
 }
 
-export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultValues = {} }: UpdateFormProps) {
-  const router = useRouter()
-  const sortedDomains = [...allDomains].sort((a, b) => {
+function sortDomainOptions(list: { _id: string; name: string }[]) {
+  return [...list].sort((a, b) => {
     if (a.name.toLowerCase() === 'general') return -1
     if (b.name.toLowerCase() === 'general') return 1
     return a.name.localeCompare(b.name)
   })
+}
+
+export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultValues = {} }: UpdateFormProps) {
+  const router = useRouter()
+  const [domainOptions, setDomainOptions] = useState(() => sortDomainOptions(allDomains))
+  const [tagOptions, setTagOptions] = useState(allTags)
   const [title, setTitle] = useState(defaultValues.title || '')
   const [summary, setSummary] = useState(defaultValues.summary || '')
   const [domainIds, setDomainIds] = useState<string[]>(defaultValues.domainIds || [])
   const [productIds, setProductIds] = useState<string[]>(defaultValues.productIds || [])
   const [tagIds, setTagIds] = useState<string[]>(defaultValues.tagIds || [])
   const [date, setDate] = useState(toMonthInput(defaultValues.date))
-  const initialPublishState = defaultValues.isPublished
-    ? 'publish'
-    : defaultValues.scheduledAt
-    ? 'schedule'
-    : 'draft'
-  const [publishState, setPublishState] = useState<'draft' | 'publish' | 'schedule'>(initialPublishState)
-  const [scheduledAt, setScheduledAt] = useState(
-    defaultValues.scheduledAt ? utcToSgtInput(defaultValues.scheduledAt) : ''
+  const [publishState, setPublishState] = useState<'draft' | 'publish'>(
+    defaultValues.isPublished ? 'publish' : 'draft'
   )
   const [progressUpdates, setProgressUpdates] = useState<string>(defaultValues.progressUpdates ?? '')
   const [nextSteps, setNextSteps] = useState<string>(defaultValues.nextSteps ?? '')
@@ -181,7 +249,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
   useEffect(() => {
     if (mounted.current) isDirty.current = true
     else mounted.current = true
-  }, [title, summary, domainIds, productIds, tagIds, date, publishState, scheduledAt, progressUpdates, nextSteps, learningPoints])
+  }, [title, summary, domainIds, productIds, tagIds, date, publishState, progressUpdates, nextSteps, learningPoints])
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => { if (isDirty.current) e.preventDefault() }
@@ -200,6 +268,36 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
   }
 
   const availableProducts = domainGroups.flatMap((g) => g.products)
+
+  async function createTaxonomy(url: string, name: string, fallback: string): Promise<{ _id: string; name: string }> {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) {
+      let msg = fallback
+      try {
+        const data = await res.json()
+        if (data?.error) msg = data.error
+      } catch {}
+      throw new Error(msg)
+    }
+    const created = await res.json()
+    return { _id: String(created._id), name: created.name as string }
+  }
+
+  async function addSection(name: string) {
+    const opt = await createTaxonomy('/api/domains', name, 'Failed to add section.')
+    setDomainOptions((prev) => sortDomainOptions([...prev, opt]))
+    setDomainIds((prev) => (prev.includes(opt._id) ? prev : [...prev, opt._id]))
+  }
+
+  async function addTag(name: string) {
+    const opt = await createTaxonomy('/api/admin/tags', name, 'Failed to add tag.')
+    setTagOptions((prev) => [...prev, opt])
+    setTagIds((prev) => (prev.includes(opt._id) ? prev : [...prev, opt._id]))
+  }
 
   async function submitForm(): Promise<boolean> {
     setError('')
@@ -221,17 +319,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       setError('Add content to at least one of Key Milestones, Next Steps, or Learning Points.')
       return false
     }
-    if (publishState === 'schedule') {
-      if (!scheduledAt || !isValidDateTimeLocal(scheduledAt)) {
-        setError('Please select a valid date and time for scheduled publishing.')
-        return false
-      }
-      if (!isFutureSgtInput(scheduledAt)) {
-        setError('Scheduled publish time must be in the future.')
-        return false
-      }
-    }
-
     setLoading(true)
 
     try {
@@ -252,7 +339,6 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
           nextSteps,
           learningPoints,
           isPublished: publishState === 'publish',
-          scheduledAt: publishState === 'schedule' ? sgtInputToUtcIso(scheduledAt) : null,
         }),
       })
 
@@ -326,13 +412,15 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
             Section <span className="text-red-500">*</span>
           </Label>
           <MultiSelect
-            options={sortedDomains}
+            options={domainOptions}
             selected={domainIds}
             onChange={(ids) => {
               const nextDomainIds = ids
               setDomainIds(nextDomainIds)
             }}
             placeholder="Select sections..."
+            onAddNew={addSection}
+            addNewLabel="Add new section"
           />
         </div>
 
@@ -366,10 +454,12 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-slate-700">Tags</Label>
         <MultiSelect
-          options={allTags}
+          options={tagOptions}
           selected={tagIds}
           onChange={setTagIds}
-          placeholder={allTags.length === 0 ? 'No tags yet' : 'Select tags...'}
+          placeholder={tagOptions.length === 0 ? 'No tags yet' : 'Select tags...'}
+          onAddNew={addTag}
+          addNewLabel="Add new tag"
         />
       </div>
 
@@ -410,7 +500,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         <div>
           <p className="text-sm font-medium text-slate-700 mb-1">Visibility</p>
           <div className="inline-flex rounded-lg border border-slate-200 bg-white overflow-hidden">
-            {(['draft', 'publish', 'schedule'] as const).map((state) => (
+            {(['draft', 'publish'] as const).map((state) => (
               <button
                 key={state}
                 type="button"
@@ -419,37 +509,20 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
                   publishState === state
                     ? state === 'publish'
                       ? 'bg-green-600 text-white'
-                      : state === 'schedule'
-                      ? 'bg-amber-500 text-white'
                       : 'bg-slate-900 text-white'
                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                {state === 'draft' ? 'Draft' : state === 'publish' ? 'Publish Now' : 'Schedule'}
+                {state === 'draft' ? 'Draft' : 'Publish Now'}
               </button>
             ))}
           </div>
           <p className="text-xs text-slate-400 mt-1.5">
             {publishState === 'publish'
               ? 'Visible to all users immediately'
-              : publishState === 'schedule'
-              ? 'Will become visible at the selected time'
               : 'Only visible to editors'}
           </p>
         </div>
-        {publishState === 'schedule' && (
-          <div className="flex items-center gap-2">
-            <Clock size={14} className="text-slate-400 flex-shrink-0" />
-            <Input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="h-8 text-sm w-auto"
-              min={nowSgtInput()}
-            />
-            <span className="text-xs text-slate-400 font-medium">SGT</span>
-          </div>
-        )}
       </div>
 
       {error && (
@@ -501,7 +574,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         confirmLabel="Keep editing"
         cancelLabel="Cancel changes"
         onConfirm={() => setPendingNav(null)}
-        onCancel={() => { const run = pendingNav!; setPendingNav(null); run() }}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); isDirty.current = false; run() }}
       />
       <div
         className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${

@@ -16,7 +16,7 @@ export default async function DashboardPage() {
 
       <main className="px-6 py-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900 mb-1">Metrics Tracking</h1>
           <p className="text-sm text-slate-500">Success metrics across acquisition, activation, retention, and referral.</p>
         </div>
 

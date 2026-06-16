@@ -16,7 +16,7 @@ export function MyPostsTable({ posts, categoriesMap = {} }: MyPostsTableProps) {
       <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl mt-6">
         <PenSquare className="w-7 h-7 text-slate-200 mx-auto mb-3" />
         <p className="text-slate-400 text-sm font-medium mb-1">No posts yet</p>
-        <Link href="/editor/blog/new" className="text-xs text-blue-500 hover:underline">
+        <Link href="/editor/blog/new?from=blog" className="text-xs text-blue-500 hover:underline">
           Write your first post
         </Link>
       </div>
@@ -39,12 +39,6 @@ export function MyPostsTable({ posts, categoriesMap = {} }: MyPostsTableProps) {
         <tbody className="divide-y divide-slate-100">
           {posts.map((post) => {
             const { name: catName, color } = getCategoryDisplay(post.category, categoriesMap)
-            // A scheduled post whose publish time has passed is live everywhere else
-            // (read filters never flip the stored status), so reflect that here too.
-            const effectiveStatus =
-              post.status === 'scheduled' && new Date(post.publishedAt) <= new Date()
-                ? 'published'
-                : post.status
             return (
               <tr key={post._id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3">
@@ -67,13 +61,10 @@ export function MyPostsTable({ posts, categoriesMap = {} }: MyPostsTableProps) {
                   {format(new Date(post.publishedAt), 'MMM d, yyyy')}
                 </td>
                 <td className="px-4 py-3">
-                  {effectiveStatus === 'published' && (
+                  {post.status === 'published' && (
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Published</span>
                   )}
-                  {effectiveStatus === 'scheduled' && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Scheduled</span>
-                  )}
-                  {effectiveStatus === 'draft' && (
+                  {post.status === 'draft' && (
                     <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Draft</span>
                   )}
                 </td>

@@ -7,16 +7,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ProductDetailClient } from '@/features/products/components/product-detail-client'
 import { ProductCardPreview } from '@/features/products/components/product-card-preview'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
+import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 
 interface TeamMember { name: string; email: string }
-interface HighlightStat { value: string; label: string }
-interface UseCase { title: string; content: string; image: string; functionTag: string; isDraft: boolean }
+interface UseCase { title: string; content: string; functionTag: string; isDraft: boolean }
 interface ProductUpdate { title: string; content: string; date: string; isDraft: boolean }
 
 type Tab = 'card' | 'overview' | 'usecases' | 'content'
@@ -42,10 +43,11 @@ interface ProductDetailFormProps {
     websiteUrl: string
     deckUrl: string
     contactUsUrl: string
+    maintainedByAEO: boolean
+    maintainerNote: string
     productManagers: TeamMember[]
     developers: TeamMember[]
     overviewContent: string
-    highlightStats: HighlightStat[]
     useCases: UseCase[]
     productUpdates: ProductUpdate[]
   }
@@ -96,10 +98,11 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
   const [websiteUrl, setWebsiteUrl] = useState(defaultValues.websiteUrl)
   const [deckUrl, setDeckUrl] = useState(defaultValues.deckUrl)
   const [contactUsUrl, setContactUsUrl] = useState(defaultValues.contactUsUrl)
+  const [maintainedByAEO, setMaintainedByAEO] = useState(defaultValues.maintainedByAEO)
+  const [maintainerNote, setMaintainerNote] = useState(defaultValues.maintainerNote)
   const [productManagers, setProductManagers] = useState<TeamMember[]>(defaultValues.productManagers)
   const [developers, setDevelopers] = useState<TeamMember[]>(defaultValues.developers)
   const [overviewContent, setOverviewContent] = useState(defaultValues.overviewContent)
-  const [highlightStats, setHighlightStats] = useState<HighlightStat[]>(defaultValues.highlightStats)
   const [useCases, setUseCases] = useState<UseCase[]>(defaultValues.useCases)
   const [productUpdates, setProductUpdates] = useState<ProductUpdate[]>(defaultValues.productUpdates)
 
@@ -121,9 +124,9 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       websiteUrl: websiteUrl || '',
       deckUrl: deckUrl || '',
       contactUsUrl: contactUsUrl || '',
+      maintainedByAEO, maintainerNote,
       productManagers, developers,
       overviewContent: normHtml(overviewContent),
-      highlightStats,
       useCases: overrides?.useCases ?? useCases,
       productUpdates: overrides?.productUpdates ?? productUpdates,
     })
@@ -165,7 +168,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
   }
   function openNewUcAccordion() {
     setActiveUcIndex(-1)
-    setUcDraft({ title: '', content: '', image: '', functionTag: '', isDraft: false })
+    setUcDraft({ title: '', content: '', functionTag: '', isDraft: false })
   }
   async function saveUcAccordion(isDraft: boolean) {
     if (!ucDraft) return
@@ -206,31 +209,37 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     }
   }
 
-  async function uploadFile(file: File, field: string): Promise<string> {
-    setUploading(field)
-    const fd = new FormData()
-    fd.append('file', file)
-    const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-    setUploading(null)
-    if (!res.ok) throw new Error('Upload failed')
-    const data = await res.json()
-    return data.url as string
+  // Encode a picked/pasted image to an inline data URL. Logos keep their
+  // original size; screenshots are downscaled to a max width of 1600px.
+  async function setImageFromFile(file: File, target: 'logo' | 'screenshot') {
+    setUploading(target)
+    try {
+      const dataUrl = await encodeImageFile(file, target === 'screenshot' ? 1600 : undefined)
+      if (target === 'logo') setLogoUrl(dataUrl)
+      else setUiScreenshot(dataUrl)
+    }
+    catch { setError(`Could not read ${target} image.`) }
+    finally { setUploading(null) }
   }
 
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    try { setLogoUrl(await uploadFile(file, 'logo')) }
-    catch { setError('Logo upload failed.') }
+    if (file) setImageFromFile(file, 'logo')
     e.target.value = ''
   }
 
-  async function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
-    try { setUiScreenshot(await uploadFile(file, 'screenshot')) }
-    catch { setError('Screenshot upload failed.') }
+    if (file) setImageFromFile(file, 'screenshot')
     e.target.value = ''
+  }
+
+  function handleImagePaste(e: React.ClipboardEvent, target: 'logo' | 'screenshot') {
+    const file = imageFileFromClipboardData(e.clipboardData)
+    if (file) {
+      e.preventDefault()
+      setImageFromFile(file, target)
+    }
   }
 
   async function submitForm(overrides?: { useCases?: UseCase[]; productUpdates?: ProductUpdate[] }): Promise<boolean> {
@@ -244,8 +253,9 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           name, description, shortDescription, status, color,
           logoUrl: logoUrl || null, uiScreenshot: uiScreenshot || null,
           websiteUrl: websiteUrl || null, deckUrl: deckUrl || null, contactUsUrl: contactUsUrl || null,
+          maintainedByAEO, maintainerNote,
           productManagers, developers,
-          overviewContent, highlightStats,
+          overviewContent,
           useCases: overrides?.useCases ?? useCases,
           productUpdates: overrides?.productUpdates ?? productUpdates,
         }),
@@ -309,14 +319,15 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     websiteUrl: websiteUrl || undefined,
     deckUrl: deckUrl || undefined,
     contactUsUrl: contactUsUrl || undefined,
+    maintainedByAEO,
+    maintainerNote,
     productManagers: productManagers.filter((m) => m.name || m.email),
     developers: developers.filter((d) => d.name || d.email),
     overviewContent: overviewContent || undefined,
     vision: undefined,
     mission: undefined,
     goals: undefined,
-    highlightStats: highlightStats.filter((s) => s.value || s.label),
-    useCases: previewUseCases.map((uc) => ({ title: uc.title, content: uc.content, image: uc.image || undefined, functionTag: uc.functionTag || undefined, isDraft: uc.isDraft })),
+    useCases: previewUseCases.map((uc) => ({ title: uc.title, content: uc.content, functionTag: uc.functionTag || undefined, isDraft: uc.isDraft })),
     productUpdates: previewProductUpdates.map((u) => ({ title: u.title, content: u.content, date: u.date, isDraft: u.isDraft })),
   }
 
@@ -358,7 +369,11 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           {/* Logo */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-700">Logo</Label>
-            <div className="flex items-center gap-4">
+            <div
+              tabIndex={0}
+              onPaste={(e) => handleImagePaste(e, 'logo')}
+              className="flex items-center gap-4 rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
+            >
               {logoUrl ? (
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -379,9 +394,10 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'logo' ? 'opacity-50 pointer-events-none' : ''}`}>
                 <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={!!uploading} />
                 <ImagePlus className="w-4 h-4" />
-                {uploading === 'logo' ? 'Uploading...' : 'Upload logo'}
+                {uploading === 'logo' ? 'Adding...' : 'Upload logo'}
               </label>
             </div>
+            <p className="text-xs text-slate-400">Or click the logo area above and paste an image (Ctrl/⌘+V).</p>
           </div>
 
           {/* Brand color */}
@@ -445,6 +461,11 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           {/* Product UI screenshot */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-700">Product UI screenshot</Label>
+            <div
+              tabIndex={0}
+              onPaste={(e) => handleImagePaste(e, 'screenshot')}
+              className="rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
+            >
             {uiScreenshot ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -457,9 +478,11 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'screenshot' ? 'opacity-50 pointer-events-none' : ''}`}>
                 <input type="file" accept="image/*" className="hidden" onChange={handleScreenshotUpload} disabled={!!uploading} />
                 <ImagePlus className="w-4 h-4" />
-                {uploading === 'screenshot' ? 'Uploading...' : 'Upload screenshot'}
+                {uploading === 'screenshot' ? 'Adding...' : 'Upload screenshot'}
               </label>
             )}
+            </div>
+            <p className="text-xs text-slate-400">Or click the screenshot area above and paste an image (Ctrl/⌘+V). Screenshots are scaled to 1600px wide.</p>
           </div>
 
           {/* Short description */}
@@ -529,6 +552,31 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
 
           <section>
             <SectionHeader title="Team" />
+
+            {/* Maintained-by-AEO toggle */}
+            <div className="flex items-start justify-between gap-4 mb-5 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Maintained by AEO</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Turn off if another department owns this product — you&apos;ll add a contact note instead of a team.
+                </p>
+              </div>
+              <Switch checked={maintainedByAEO} onCheckedChange={setMaintainedByAEO} className="mt-0.5" />
+            </div>
+
+            {!maintainedByAEO ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="maintainerNote" className="text-sm font-medium text-slate-700">Maintainer note</Label>
+                <Input
+                  id="maintainerNote"
+                  value={maintainerNote}
+                  onChange={(e) => setMaintainerNote(e.target.value)}
+                  placeholder="Maintained by the X team — contact name@company.com"
+                  className="h-10"
+                />
+                <p className="text-xs text-slate-400">Shown to users in place of the Product Managers / Developers boxes.</p>
+              </div>
+            ) : (
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <p className="text-xs font-medium text-slate-500 mb-2">Product Managers</p>
@@ -563,6 +611,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                 </div>
               </div>
             </div>
+            )}
           </section>
 
           <section>
@@ -574,23 +623,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                 <TiptapEditor value={overviewContent} onChange={setOverviewContent} placeholder="Write an overview — headings, bullet lists, bold, links..." minHeight="240px" />
               </div>
 
-              {/* Highlights */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-slate-700">Highlights</Label>
-                <div className="space-y-2">
-                  {highlightStats.map((s, i) => (
-                    <RepeatableRow key={i} onRemove={() => setDeleteConfirm({ message: 'Remove this highlight stat?', action: () => setHighlightStats((prev) => prev.filter((_, j) => j !== i)) })}>
-                      <div className="flex gap-2">
-                        <Input value={s.value} onChange={(e) => setHighlightStats((prev) => prev.map((item, j) => j === i ? { ...item, value: e.target.value } : item))} placeholder="80" className="h-9 text-sm w-28 flex-shrink-0" />
-                        <Input value={s.label} onChange={(e) => setHighlightStats((prev) => prev.map((item, j) => j === i ? { ...item, label: e.target.value } : item))} placeholder="different users onboarded" className="h-9 text-sm" />
-                      </div>
-                    </RepeatableRow>
-                  ))}
-                  <button type="button" onClick={() => setHighlightStats((prev) => [...prev, { value: '', label: '' }])} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors">
-                    <Plus className="w-3.5 h-3.5" /> Add stat
-                  </button>
-                </div>
-              </div>
             </div>
           </section>
 
@@ -650,32 +682,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                     <Label className="text-xs font-medium text-slate-500">Content</Label>
                     <TiptapEditor value={ucDraft.content} onChange={(v) => setUcDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this use case..." minHeight="140px" />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-slate-500">Cover image</Label>
-                    {ucDraft.image ? (
-                      <div className="relative rounded-lg overflow-hidden border border-slate-200 h-32">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={ucDraft.image} alt="" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => setUcDraft((d) => d && ({ ...d, image: '' }))} className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5 text-white"><X className="w-3 h-3" /></button>
-                      </div>
-                    ) : (
-                      <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'uc-accordion' ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <input type="file" accept="image/*" className="hidden" disabled={!!uploading} onChange={async (e) => {
-                          const file = e.target.files?.[0]; if (!file) return
-                          try {
-                            setUploading('uc-accordion')
-                            const fd = new FormData(); fd.append('file', file)
-                            const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-                            const data = await res.json()
-                            setUcDraft((d) => d && ({ ...d, image: data.url }))
-                          } catch { setError('Image upload failed.') }
-                          finally { setUploading(null); e.target.value = '' }
-                        }} />
-                        <ImagePlus className="w-4 h-4" />
-                        {uploading === 'uc-accordion' ? 'Uploading...' : 'Upload cover image'}
-                      </label>
-                    )}
-                  </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                     <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
                     <button type="button" disabled={loading} onClick={() => saveUcAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
@@ -710,32 +716,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-slate-500">Content</Label>
                   <TiptapEditor value={ucDraft.content} onChange={(v) => setUcDraft((d) => d && ({ ...d, content: v }))} placeholder="Describe this use case..." minHeight="140px" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-slate-500">Cover image</Label>
-                  {ucDraft.image ? (
-                    <div className="relative rounded-lg overflow-hidden border border-slate-200 h-32">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={ucDraft.image} alt="" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => setUcDraft((d) => d && ({ ...d, image: '' }))} className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5 text-white"><X className="w-3 h-3" /></button>
-                    </div>
-                  ) : (
-                    <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'uc-accordion' ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <input type="file" accept="image/*" className="hidden" disabled={!!uploading} onChange={async (e) => {
-                        const file = e.target.files?.[0]; if (!file) return
-                        try {
-                          setUploading('uc-accordion')
-                          const fd = new FormData(); fd.append('file', file)
-                          const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-                          const data = await res.json()
-                          setUcDraft((d) => d && ({ ...d, image: data.url }))
-                        } catch { setError('Image upload failed.') }
-                        finally { setUploading(null); e.target.value = '' }
-                      }} />
-                      <ImagePlus className="w-4 h-4" />
-                      {uploading === 'uc-accordion' ? 'Uploading...' : 'Upload cover image'}
-                    </label>
-                  )}
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                   <button type="button" onClick={() => { setActiveUcIndex(null); setUcDraft(null) }} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
@@ -878,9 +858,9 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           const nav = pendingNav!
           setPendingNav(null)
           const ok = await submitForm()
-          if (ok) nav()
+          if (ok) { baseline.current = makeSnapshot(); nav() }
         }}
-        onTertiary={() => { const nav = pendingNav!; setPendingNav(null); nav() }}
+        onTertiary={() => { const nav = pendingNav!; setPendingNav(null); baseline.current = makeSnapshot(); nav() }}
         onCancel={() => setPendingNav(null)}
       />
       {/* Published toast */}

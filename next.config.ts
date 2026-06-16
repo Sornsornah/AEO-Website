@@ -6,7 +6,14 @@ const __impeccableLiveDev =
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // jsdom (pulled in by isomorphic-dompurify for server-side HTML sanitisation)
+  // has dynamic requires that must not go through the bundler.
+  serverExternalPackages: ['isomorphic-dompurify'],
   images: {
+    // The deploy target (airbase) runs on a read-only root filesystem, so the
+    // on-demand image optimizer cannot write its cache to /app/.next/cache/images
+    // (EACCES). Serving images unoptimized avoids any disk write entirely.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
     ],

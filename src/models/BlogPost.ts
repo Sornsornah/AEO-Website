@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Types } from 'mongoose'
 
 export type BlogCategory = string
-export type BlogStatus = 'draft' | 'scheduled' | 'published'
+export type BlogStatus = 'draft' | 'published'
 
 export interface IBlogPost extends Document {
   title: string
@@ -42,7 +42,7 @@ const BlogPostSchema = new Schema<IBlogPost>(
     readTime: { type: Number, default: 1 },
     status: {
       type: String,
-      enum: ['draft', 'scheduled', 'published'],
+      enum: ['draft', 'published'],
       default: 'draft',
     },
     isFeatured: { type: Boolean, default: false },

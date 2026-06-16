@@ -31,10 +31,9 @@ export async function GET(req: NextRequest) {
     const to = searchParams.get('to') ? new Date(searchParams.get('to')!) : now
     const range = { $gte: from, $lte: to }
 
-    const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-
     const [
       usersByRole,
+      totalUsersVisitedAgg,
       newUsersPerDay,
       siteAccessPerDay,
       siteAccessUniqueAgg,
@@ -46,28 +45,38 @@ export async function GET(req: NextRequest) {
       blogViewByCategory,
       blogCommentByPost,
       blogShareByPost,
+      blogShareByCategory,
       blogPosts,
       categories,
-      uniqueBlogViewersLastMonthAgg,
+      blogViewersAgg,
       authorsInRange,
       firstPostPerAuthor,
     ] = await Promise.all([
-      // --- Acquisition ---
+      // --- Acquisition (registered users only: userId present) ---
       User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
-      User.aggregate([
-        { $match: { createdAt: range, role: 'public' } },
-        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+      // Total users = all-time unique registered users who accessed the site at least once
+      AnalyticsEvent.aggregate([
+        { $match: { type: 'site_access', userId: { $ne: null } } },
+        { $group: { _id: null, ids: { $addToSet: '$userId' } } },
+        { $project: { count: { $size: '$ids' } } },
+      ]),
+      // New users = registered users whose first-ever site_access falls in range, bucketed by day
+      AnalyticsEvent.aggregate([
+        { $match: { type: 'site_access', userId: { $ne: null } } },
+        { $group: { _id: '$userId', firstAt: { $min: '$createdAt' } } },
+        { $match: { firstAt: range } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$firstAt' } }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ]),
       AnalyticsEvent.aggregate([
-        { $match: { type: 'site_access', createdAt: range } },
-        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, ids: { $addToSet: IDENTITY } } },
+        { $match: { type: 'site_access', createdAt: range, userId: { $ne: null } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, ids: { $addToSet: '$userId' } } },
         { $project: { count: { $size: '$ids' } } },
         { $sort: { _id: 1 } },
       ]),
       AnalyticsEvent.aggregate([
-        { $match: { type: 'site_access', createdAt: range } },
-        { $group: { _id: null, ids: { $addToSet: IDENTITY } } },
+        { $match: { type: 'site_access', createdAt: range, userId: { $ne: null } } },
+        { $group: { _id: null, ids: { $addToSet: '$userId' } } },
         { $project: { count: { $size: '$ids' } } },
       ]),
 
@@ -79,11 +88,13 @@ export async function GET(req: NextRequest) {
       ]),
       AnalyticsEvent.aggregate([
         { $match: { type: 'product_visit_website', createdAt: range } },
-        { $group: { _id: '$entityId', clicks: { $sum: 1 } } },
+        { $group: { _id: '$entityId', clicks: { $sum: 1 }, clickers: { $addToSet: IDENTITY } } },
+        { $project: { clicks: 1, uniqueClicks: { $size: '$clickers' } } },
       ]),
       AnalyticsEvent.aggregate([
         { $match: { type: 'product_share', createdAt: range } },
-        { $group: { _id: '$entityId', shares: { $sum: 1 } } },
+        { $group: { _id: '$entityId', shares: { $sum: 1 }, sharers: { $addToSet: IDENTITY } } },
+        { $project: { shares: 1, uniqueShares: { $size: '$sharers' } } },
       ]),
       Product.find().select('_id name slug').lean(),
 
@@ -104,14 +115,21 @@ export async function GET(req: NextRequest) {
       ]),
       AnalyticsEvent.aggregate([
         { $match: { type: 'blog_share', createdAt: range } },
-        { $group: { _id: '$entityId', shares: { $sum: 1 }, category: { $first: '$category' } } },
+        { $group: { _id: '$entityId', shares: { $sum: 1 }, sharers: { $addToSet: IDENTITY }, category: { $first: '$category' } } },
+        { $project: { shares: 1, uniqueShares: { $size: '$sharers' }, category: 1 } },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { type: 'blog_share', createdAt: range, category: { $ne: null } } },
+        { $group: { _id: '$category', shares: { $sum: 1 }, sharers: { $addToSet: IDENTITY } } },
+        { $project: { shares: 1, uniqueShares: { $size: '$sharers' } } },
       ]),
       BlogPost.find().select('_id title slug category likes createdBy').lean(),
       BlogCategory.find().select('name slug').lean(),
 
       // --- Retention: blog ---
+      // Blog viewers = unique viewers (incl. anonymous) of any blog post within the selected range
       AnalyticsEvent.aggregate([
-        { $match: { type: 'blog_view', createdAt: { $gte: lastMonth } } },
+        { $match: { type: 'blog_view', createdAt: range } },
         { $group: { _id: null, ids: { $addToSet: IDENTITY } } },
         { $project: { count: { $size: '$ids' } } },
       ]),
@@ -149,39 +167,49 @@ export async function GET(req: NextRequest) {
     for (const r of usersByRole) roleCounts[r._id as string] = r.count
 
     // ---- Activation: product (merge views + clicks + shares per product) ----
-    const clicksByProduct = new Map<string, number>(productVisitAgg.map((d) => [id(d._id), d.clicks]))
-    const sharesByProduct = new Map<string, number>(productShareAgg.map((d) => [id(d._id), d.shares]))
+    const productViewsMap = new Map(productViewAgg.map((d) => [id(d._id), d]))
+    const productVisitMap = new Map(productVisitAgg.map((d) => [id(d._id), d]))
+    const productShareMap = new Map(productShareAgg.map((d) => [id(d._id), d]))
     const productIds = new Set<string>([
-      ...productViewAgg.map((d) => id(d._id)),
-      ...clicksByProduct.keys(),
-      ...sharesByProduct.keys(),
+      ...productViewsMap.keys(),
+      ...productVisitMap.keys(),
+      ...productShareMap.keys(),
     ])
-    const productMetrics = [...productIds].map((pid) => ({
-      productId: pid,
-      name: productName.get(pid)?.name ?? 'Unknown product',
-      views: productViewAgg.find((d) => id(d._id) === pid)?.views ?? 0,
-      uniqueViewers: productViewAgg.find((d) => id(d._id) === pid)?.uniqueViewers ?? 0,
-      visitWebsiteClicks: clicksByProduct.get(pid) ?? 0,
-      shares: sharesByProduct.get(pid) ?? 0,
-    })).sort((a, b) => b.views - a.views)
+
+    // Exclude products that no longer exist — deleted products are dropped
+    // from the table and charts entirely.
+    const productMetrics = [...productIds]
+      .filter((pid) => productName.has(pid))
+      .map((pid) => ({
+        productId: pid,
+        name: productName.get(pid)!.name,
+        views: productViewsMap.get(pid)?.views ?? 0,
+        uniqueViewers: productViewsMap.get(pid)?.uniqueViewers ?? 0,
+        visitWebsiteClicks: productVisitMap.get(pid)?.clicks ?? 0,
+        uniqueVisitWebsiteClicks: productVisitMap.get(pid)?.uniqueClicks ?? 0,
+        shares: productShareMap.get(pid)?.shares ?? 0,
+        uniqueShares: productShareMap.get(pid)?.uniqueShares ?? 0,
+      }))
+      .sort((a, b) => b.views - a.views)
 
     // ---- Activation: blog (per post: views, likes, comments, shares) ----
     const likesByPost = new Map<string, number>(
       blogPosts.map((b) => [String(b._id), Array.isArray(b.likes) ? b.likes.length : 0])
     )
     const commentsByPost = new Map<string, number>(blogCommentByPost.map((d) => [id(d._id), d.count]))
-    const blogSharesByPost = new Map<string, number>(blogShareByPost.map((d) => [id(d._id), d.shares]))
+    const blogShareByPostMap = new Map(blogShareByPost.map((d) => [id(d._id), d]))
     const blogViewsByPostMap = new Map(blogViewByPost.map((d) => [id(d._id), d]))
 
     const postIds = new Set<string>([
       ...blogViewsByPostMap.keys(),
       ...likesByPost.keys(),
       ...commentsByPost.keys(),
-      ...blogSharesByPost.keys(),
+      ...blogShareByPostMap.keys(),
     ])
     const blogPostMetrics = [...postIds].map((bid) => {
       const meta = blogName.get(bid)
       const v = blogViewsByPostMap.get(bid)
+      const s = blogShareByPostMap.get(bid)
       const authorId = postAuthorId.get(bid)
       return {
         postId: bid,
@@ -192,7 +220,8 @@ export async function GET(req: NextRequest) {
         uniqueViewers: v?.uniqueViewers ?? 0,
         likes: likesByPost.get(bid) ?? 0,
         comments: commentsByPost.get(bid) ?? 0,
-        shares: blogSharesByPost.get(bid) ?? 0,
+        shares: s?.shares ?? 0,
+        uniqueShares: s?.uniqueShares ?? 0,
       }
     }).sort((a, b) => b.views - a.views)
 
@@ -211,14 +240,14 @@ export async function GET(req: NextRequest) {
       c.views += blogViewsByPostMap.get(pid)?.views ?? 0
       c.likes += Array.isArray(b.likes) ? b.likes.length : 0
       c.comments += commentsByPost.get(pid) ?? 0
-      c.shares += blogSharesByPost.get(pid) ?? 0
+      c.shares += blogShareByPostMap.get(pid)?.shares ?? 0
     }
     const topContributors = [...contribMap.values()].sort((a, b) => b.views - a.views)
 
     // ---- Activation: blog per category (views + likes + comments + shares aggregated) ----
-    const catAgg = new Map<string, { views: number; uniqueViewers: number; likes: number; comments: number; shares: number }>()
+    const catAgg = new Map<string, { views: number; uniqueViewers: number; likes: number; comments: number; shares: number; uniqueShares: number }>()
     const ensureCat = (slug: string) => {
-      if (!catAgg.has(slug)) catAgg.set(slug, { views: 0, uniqueViewers: 0, likes: 0, comments: 0, shares: 0 })
+      if (!catAgg.has(slug)) catAgg.set(slug, { views: 0, uniqueViewers: 0, likes: 0, comments: 0, shares: 0, uniqueShares: 0 })
       return catAgg.get(slug)!
     }
     for (const c of blogViewByCategory) {
@@ -234,8 +263,10 @@ export async function GET(req: NextRequest) {
       const slug = blogName.get(id(c._id))?.category
       if (slug) ensureCat(slug).comments += c.count
     }
-    for (const s of blogShareByPost) {
-      if (s.category) ensureCat(s.category).shares += s.shares
+    for (const s of blogShareByCategory) {
+      const e = ensureCat(id(s._id))
+      e.shares += s.shares
+      e.uniqueShares += s.uniqueShares
     }
     const blogCategoryMetrics = [...catAgg.entries()].map(([slug, m]) => ({
       category: categoryName.get(slug) ?? slug,
@@ -252,7 +283,7 @@ export async function GET(req: NextRequest) {
       range: { from: from.toISOString(), to: to.toISOString() },
       acquisition: {
         usersByRole: roleCounts,
-        totalUsers: Object.values(roleCounts).reduce((a, b) => a + b, 0),
+        totalUsers: totalUsersVisitedAgg[0]?.count ?? 0,
         newUsersPerDay: newUsersPerDay.map((d) => ({ date: d._id, count: d.count })),
         siteAccessPerDay: siteAccessPerDay.map((d) => ({ date: d._id, count: d.count })),
         uniqueActiveUsers: siteAccessUniqueAgg[0]?.count ?? 0,
@@ -264,7 +295,7 @@ export async function GET(req: NextRequest) {
         topContributors,
       },
       retention: {
-        uniqueBlogViewersLastMonth: uniqueBlogViewersLastMonthAgg[0]?.count ?? 0,
+        blogViewers: blogViewersAgg[0]?.count ?? 0,
         authorsInRange: authorsInRangeSet.size,
         firstTimeAuthors,
       },

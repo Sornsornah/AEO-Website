@@ -15,52 +15,53 @@ import type { CategoriesMap } from '@/features/blog/components/blog-utils'
 export default async function Home() {
   await connectDB()
 
-  const now = new Date()
-
   const HOME_MAX_PRODUCTS = 8
 
   const [homeConfig, rawPosts, rawCategories] = await Promise.all([
     HomeConfig.findOne({ key: 'home' }).lean(),
-    BlogPost.find({
-      $or: [{ status: 'published' }, { status: 'scheduled', publishedAt: { $lte: now } }],
-    })
+    BlogPost.find({ status: 'published' })
       .sort({ publishedAt: -1 })
       .limit(3)
       .lean(),
     BlogCategory.find().lean(),
   ])
 
-  // Curated homepage products (admin-ordered); fall back to catalogue order when unset.
-  const featuredIds = (
-    ((homeConfig as { featuredProductIds?: { toString(): string }[] } | null)?.featuredProductIds) ?? []
+  // Curated homepage products, kept in their exact constellation slots: the
+  // stored array is positional (index = slot), `null` = an empty slot. Falls
+  // back to catalogue order (filling slots 0..n) when nothing is configured.
+  const slotIds = (
+    ((homeConfig as { featuredProductIds?: ({ toString(): string } | null)[] } | null)
+      ?.featuredProductIds) ?? []
   )
-    .map((id) => id.toString())
     .slice(0, HOME_MAX_PRODUCTS)
+    .map((id) => (id == null ? null : id.toString()))
 
-  let rawProducts
-  if (featuredIds.length > 0) {
-    const found = await Product.find({ _id: { $in: featuredIds }, isHidden: { $ne: true } }).lean()
-    const byId = new Map(found.map((p) => [p._id.toString(), p]))
-    rawProducts = featuredIds.map((id) => byId.get(id)).filter(Boolean)
-  } else {
-    rawProducts = await Product.find({ isHidden: { $ne: true } })
-      .sort({ order: 1, name: 1 })
-      .limit(HOME_MAX_PRODUCTS)
-      .lean()
+  type RawProduct = {
+    _id: { toString(): string }
+    name: string
+    slug: string
+    description?: string
+    shortDescription?: string
+    color: string
+    logoUrl?: string
+    uiScreenshot?: string
   }
 
-  const products: HomeProduct[] = (
-    rawProducts as Array<{
-      _id: { toString(): string }
-      name: string
-      slug: string
-      description?: string
-      shortDescription?: string
-      color: string
-      logoUrl?: string
-      uiScreenshot?: string
-    }>
-  ).map((p) => ({
+  let rawSlots: (RawProduct | null)[]
+  if (slotIds.some((id) => id !== null)) {
+    const ids = slotIds.filter((id): id is string => id !== null)
+    const found = await Product.find({ _id: { $in: ids }, isHidden: { $ne: true } }).lean()
+    const byId = new Map((found as RawProduct[]).map((p) => [p._id.toString(), p]))
+    // Hidden / deleted products collapse to an empty slot rather than shifting others.
+    rawSlots = slotIds.map((id) => (id ? byId.get(id) ?? null : null))
+  } else {
+    rawSlots = (await Product.find({ isHidden: { $ne: true } })
+      .sort({ order: 1, name: 1 })
+      .limit(HOME_MAX_PRODUCTS)
+      .lean()) as RawProduct[]
+  }
+
+  const toHomeProduct = (p: RawProduct): HomeProduct => ({
     _id: p._id.toString(),
     name: p.name,
     slug: p.slug,
@@ -69,7 +70,10 @@ export default async function Home() {
     color: p.color,
     logoUrl: p.logoUrl,
     uiScreenshot: p.uiScreenshot,
-  }))
+  })
+
+  // Positional list: index = constellation slot, `null` = empty slot.
+  const products: (HomeProduct | null)[] = rawSlots.map((p) => (p ? toHomeProduct(p) : null))
 
   const posts: HomeStoryPost[] = (
     rawPosts as Array<{

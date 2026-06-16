@@ -9,16 +9,15 @@ import { connectDB } from '@/lib/mongodb'
 import { Update } from '@/models/Update'
 import { Product } from '@/models/Product'
 import { Domain } from '@/models/Domain'
+import { Tag } from '@/models/Tag'
 import { Navbar } from '@/components/layout/navbar'
 import { UpdateTable } from '@/features/editor/components/update-table'
 import { UpdateReorderView } from '@/features/editor/components/update-reorder-view'
 import { FilterBar } from '@/features/updates/components/filter-bar'
 import { EditorProductsList } from '@/features/editor/components/editor-products-list'
 import { BlogTable } from '@/features/editor/components/blog-table'
-import { ExternalArticlesTable } from '@/features/editor/components/external-articles-table'
 import { Button } from '@/components/ui/button'
 import { BlogPost } from '@/models/BlogPost'
-import { ExternalArticle } from '@/models/ExternalArticle'
 import { BlogCategory } from '@/models/BlogCategory'
 
 const PAGE_SIZE = 20
@@ -26,7 +25,6 @@ const PAGE_SIZE = 20
 interface PageProps {
   searchParams: Promise<{
     tab?: string
-    subtab?: string
     product?: string
     domain?: string
     year?: string
@@ -46,15 +44,9 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
 
   await connectDB()
 
-  const nowForPublish = new Date()
-  // Auto-publish scheduled updates
-  await Update.updateMany(
-    { isPublished: false, scheduledAt: { $lte: nowForPublish } },
-    { $set: { isPublished: true } }
-  )
   // Auto-unfeature expired blog posts
   await BlogPost.updateMany(
-    { isFeatured: true, featuredUntil: { $exists: true, $lte: nowForPublish } },
+    { isFeatured: true, featuredUntil: { $exists: true, $lte: new Date() } },
     { $set: { isFeatured: false }, $unset: { featuredUntil: '' } }
   )
 
@@ -62,8 +54,6 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
 
   // Blog tab
   if (activeTab === 'blog') {
-    const blogSubtab = searchParams.subtab === 'external' ? 'external' : 'posts'
-
     const [blogPosts, rawCategories] = await Promise.all([
       BlogPost.find().sort({ publishedAt: -1 }).lean(),
       BlogCategory.find().lean(),
@@ -80,20 +70,10 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
       category: p.category,
       authorName: p.authorName,
       publishedAt: p.publishedAt.toISOString(),
-      status: (p.status || 'draft') as 'draft' | 'scheduled' | 'published',
+      status: (p.status || 'draft') as 'draft' | 'published',
       isFeatured: p.isFeatured,
       featuredUntil: p.featuredUntil ? p.featuredUntil.toISOString() : null,
       likeCount: p.likes?.length ?? 0,
-    }))
-
-    const rawExternal = await ExternalArticle.find().sort({ order: 1, createdAt: -1 }).lean()
-    const serializedExternal = rawExternal.map((a) => ({
-      _id: a._id.toString(),
-      title: a.title,
-      description: a.description,
-      url: a.url,
-      order: a.order,
-      isHidden: (a as { isHidden?: boolean }).isHidden ?? false,
     }))
 
     return (
@@ -101,54 +81,26 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
         <Navbar />
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
+            <h1 className="text-2xl font-bold text-stone-900">Editor</h1>
           </div>
 
           {/* Main tabs */}
           <div className="flex items-center gap-1 border-b border-slate-200 mb-6">
-            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Updates</Link>
             <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Products</Link>
             <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Blog</Link>
+            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Internal Updates</Link>
           </div>
 
-          {/* Blog subtabs + New Post button */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-1">
-              <Link
-                href="/editor?tab=blog"
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                  blogSubtab === 'posts'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                Posts
-              </Link>
-              <Link
-                href="/editor?tab=blog&subtab=external"
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                  blogSubtab === 'external'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                Articles to Check Out
-              </Link>
-            </div>
-            {blogSubtab === 'posts' && (
-              <Link href="/editor/blog/new">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-                  + New Post
-                </Button>
-              </Link>
-            )}
+          {/* New Post button */}
+          <div className="flex items-center justify-end mb-6">
+            <Link href="/editor/blog/new">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                + New Post
+              </Button>
+            </Link>
           </div>
 
-          {blogSubtab === 'posts' ? (
-            <BlogTable posts={serializedPosts} categories={serializedCategories} />
-          ) : (
-            <ExternalArticlesTable articles={serializedExternal} />
-          )}
+          <BlogTable posts={serializedPosts} categories={serializedCategories} />
         </main>
       </div>
     )
@@ -182,13 +134,13 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
         <Navbar />
         <main className="px-6 py-10">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
+            <h1 className="text-2xl font-bold text-stone-900">Editor</h1>
           </div>
           {/* Tab switcher */}
           <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
-            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Updates</Link>
             <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Products</Link>
             <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
+            <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Internal Updates</Link>
           </div>
           {/* Products list */}
           <EditorProductsList initialProducts={serializedProducts} />
@@ -208,23 +160,30 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
   // Status filter
   if (searchParams.status === 'published') {
     query.isPublished = true
-  } else if (searchParams.status === 'scheduled') {
-    query.isPublished = false
-    query.scheduledAt = { $exists: true, $ne: null }
   } else if (searchParams.status === 'draft') {
     query.isPublished = false
-    andConditions.push({ $or: [{ scheduledAt: { $exists: false } }, { scheduledAt: null }] })
   }
 
-  // Product / domain filter
+  // Product / domain filter — match both singular and plural fields
   if (searchParams.product) {
     const product = await Product.findOne({ slug: searchParams.product })
-    if (product) query.productId = product._id
+    if (product) {
+      andConditions.push({ $or: [
+        { productId: product._id },
+        { productIds: product._id },
+      ]})
+    }
   } else if (searchParams.domain) {
     const domain = await Domain.findOne({ slug: searchParams.domain })
     if (domain) {
       const domainProducts = await Product.find({ domainId: domain._id }, { _id: 1 }).lean()
-      query.productId = { $in: domainProducts.map((p) => p._id) }
+      const productIds = domainProducts.map((p) => p._id)
+      andConditions.push({ $or: [
+        { productId: { $in: productIds } },
+        { productIds: { $in: productIds } },
+        { domainId: domain._id },
+        { domainIds: domain._id },
+      ]})
     }
   }
 
@@ -258,13 +217,15 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
 
   const skip = isReorderMode ? 0 : (currentPage - 1) * PAGE_SIZE
 
-  const [allProducts, allDomains, updates, totalCount] = await Promise.all([
+  const [allProducts, allDomains, allTags, updates, totalCount] = await Promise.all([
     Product.find({}).populate('domainId').sort({ name: 1 }).lean(),
     Domain.find().sort({ name: 1 }).lean(),
+    Tag.find().sort({ name: 1 }).lean(),
     Update.find(query)
       .populate({ path: 'productId', populate: { path: 'domainId' } })
       .populate({ path: 'productIds', populate: { path: 'domainId' } })
       .populate('domainIds')
+      .populate('tagIds')
       .populate('updatedBy', 'name email')
       .populate('createdBy', 'name email')
       .sort({ date: sortDir, order: 1 })
@@ -311,6 +272,7 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
 
   type PopulatedProduct = { _id: { toString(): string }; name: string; color: string; domainId?: { name: string } }
   type PopulatedDomain = { _id: { toString(): string }; name: string }
+  type PopulatedTag = { _id: { toString(): string }; name: string }
   type PopulatedUser = { _id: { toString(): string }; name?: string; email?: string }
 
   const serialized = (updates as Array<{
@@ -320,11 +282,11 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
     date: Date
     order?: number
     isPublished: boolean
-    scheduledAt?: Date
     updatedAt: Date
     productId: unknown
     productIds: unknown[]
     domainIds: unknown[]
+    tagIds: unknown[]
     updatedBy?: PopulatedUser
     createdBy?: PopulatedUser
   }>).map((u) => {
@@ -336,6 +298,7 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
     ].filter(Boolean)
 
     const allDomains: PopulatedDomain[] = Array.isArray(u.domainIds) ? u.domainIds as PopulatedDomain[] : []
+    const allTagsForUpdate: PopulatedTag[] = Array.isArray(u.tagIds) ? u.tagIds as PopulatedTag[] : []
 
     // Also collect domains from products if domainIds is empty
     const domainNamesFromProducts = allProducts.map((p) => p.domainId?.name).filter(Boolean) as string[]
@@ -351,7 +314,6 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
       date: u.date.toISOString(),
       order: u.order ?? 0,
       isPublished: u.isPublished,
-      scheduledAt: u.scheduledAt ? u.scheduledAt.toISOString() : null,
       updatedAt: u.updatedAt.toISOString(),
       lastUpdatedBy: lastEditor?.name || lastEditor?.email || null,
       products: allProducts.map((p) => ({
@@ -360,8 +322,12 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
         color: p.color,
       })),
       domainNames: Array.from(new Set(domainNames)),
+      tags: allTagsForUpdate.map((t) => ({ _id: t._id.toString(), name: t.name })),
     }
   })
+
+  const allSectionOptions = allDomains.map((d) => ({ _id: d._id.toString(), name: d.name }))
+  const allTagOptions = allTags.map((t) => ({ _id: t._id.toString(), name: t.name }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -369,14 +335,14 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
 
       <main className="px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-stone-900">Editor Dashboard</h1>
+          <h1 className="text-2xl font-bold text-stone-900">Editor</h1>
         </div>
 
         {/* Tab switcher */}
         <div className="flex items-center gap-1 border-b border-slate-200 mb-6">
-          <Link href="/editor" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Updates</Link>
           <Link href="/editor?tab=products" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Products</Link>
           <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
+          <Link href="/editor" className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors border-slate-900 text-slate-900">Internal Updates</Link>
         </div>
 
         {isReorderMode ? (
@@ -402,7 +368,6 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
               const statusTabs = [
                 { value: 'all', label: 'All', href: '/editor' },
                 { value: 'published', label: 'Published', href: '/editor?status=published' },
-                { value: 'scheduled', label: 'Scheduled', href: '/editor?status=scheduled' },
                 { value: 'draft', label: 'Draft', href: '/editor?status=draft' },
               ]
               return (
@@ -458,6 +423,8 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
             totalCount={totalCount}
             currentPage={currentPage}
             pageSize={PAGE_SIZE}
+            allSections={allSectionOptions}
+            allTags={allTagOptions}
           />
         )}
       </main>

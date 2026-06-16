@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
-import { NotificationBell } from './notification-bell'
 import { Lock } from 'lucide-react'
 
 interface NavLink {
@@ -108,8 +107,6 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {session?.user && (
             <>
-              <NotificationBell />
-
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -147,7 +144,7 @@ export function Navbar() {
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                         >
-                          Dashboard
+                          Metrics Tracking
                         </Link>
                       </>
                     )}

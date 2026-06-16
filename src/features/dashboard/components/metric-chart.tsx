@@ -24,13 +24,15 @@ interface ChartProps {
   xKey: string
   series: SeriesDef[]
   height?: number
+  /** When true, the chart keeps a per-group min width and scrolls horizontally instead of squeezing every group into view. */
+  scrollX?: boolean
 }
 
 const AXIS = { fontSize: 11, fill: '#94a3b8' }
 
-export function BarMetricChart({ data, xKey, series, height = 280 }: ChartProps) {
+export function BarMetricChart({ data, xKey, series, height = 280, scrollX = false }: ChartProps) {
   if (data.length === 0) return <EmptyChart />
-  return (
+  const chart = (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -43,6 +45,14 @@ export function BarMetricChart({ data, xKey, series, height = 280 }: ChartProps)
         ))}
       </BarChart>
     </ResponsiveContainer>
+  )
+  if (!scrollX) return chart
+  // Reserve ~16px per bar plus padding per group so many groups stay legible behind a horizontal scrollbar.
+  const minWidth = Math.max(data.length * (series.length * 16 + 36), 320)
+  return (
+    <div className="overflow-x-auto">
+      <div style={{ minWidth }}>{chart}</div>
+    </div>
   )
 }
 

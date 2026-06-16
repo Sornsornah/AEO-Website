@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic'
 import { connectDB } from '@/lib/mongodb'
 import { BlogPost } from '@/models/BlogPost'
 import { BlogComment } from '@/models/BlogComment'
-import { ExternalArticle } from '@/models/ExternalArticle'
 import { BlogCategory } from '@/models/BlogCategory'
 import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
@@ -11,7 +10,6 @@ import { Navbar } from '@/components/layout/navbar'
 import { PageBanner } from '@/components/layout/page-banner'
 import { BlogPageClient } from '@/features/blog/components/blog-page-client'
 import type { BlogPostSummary, CategoriesMap } from '@/features/blog/components/blog-utils'
-import type { ExternalArticleEntry } from '@/features/blog/components/external-articles-sidebar'
 import { Types } from 'mongoose'
 
 export default async function BlogPage() {
@@ -25,9 +23,7 @@ export default async function BlogPage() {
     { $set: { isFeatured: false }, $unset: { featuredUntil: '' } }
   )
 
-  const rawPosts = await BlogPost.find({
-    $or: [{ status: 'published' }, { status: 'scheduled', publishedAt: { $lte: now } }],
-  }).sort({ publishedAt: -1 }).lean()
+  const rawPosts = await BlogPost.find({ status: 'published' }).sort({ publishedAt: -1 }).lean()
   const userId = session?.user?.id
 
   const rawMyPosts =
@@ -76,19 +72,7 @@ export default async function BlogPage() {
 
   const featured = posts.filter((p) => p.isFeatured)
 
-  const [rawExternal, rawCategories] = await Promise.all([
-    ExternalArticle.find().sort({ order: 1, createdAt: -1 }).lean(),
-    BlogCategory.find().lean(),
-  ])
-
-  const externalArticles: ExternalArticleEntry[] = rawExternal.map((a) => ({
-    _id: a._id.toString(),
-    title: a.title,
-    description: a.description,
-    url: a.url,
-    category: a.category,
-    order: a.order,
-  }))
+  const rawCategories = await BlogCategory.find().lean()
 
   const categoriesMap: CategoriesMap = Object.fromEntries(
     rawCategories.map((c) => [c.slug, { name: c.name, color: c.color }])
@@ -98,7 +82,7 @@ export default async function BlogPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <PageBanner pageKey="blog" />
-      <BlogPageClient posts={posts} featured={featured} myPosts={myPosts} isLoggedIn={!!session} externalArticles={externalArticles} categoriesMap={categoriesMap} />
+      <BlogPageClient posts={posts} featured={featured} myPosts={myPosts} isLoggedIn={!!session} categoriesMap={categoriesMap} />
     </div>
   )
 }
