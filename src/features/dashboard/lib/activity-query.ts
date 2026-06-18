@@ -12,6 +12,8 @@ export interface ActivityRow {
   entityType: 'product' | 'blog' | 'update' | null
   entityId: string | null
   entityName: string | null
+  /** Byline author of the blog post (blog entities only; null otherwise). */
+  entityAuthor: string | null
   category: string | null
   path: string | null
   href: string | null
@@ -50,7 +52,7 @@ export async function resolveActivityRows(events: RawEvent[]): Promise<ActivityR
       ? Product.find({ _id: { $in: [...productIds] } }).select('_id name slug').lean()
       : [],
     blogIds.size
-      ? BlogPost.find({ _id: { $in: [...blogIds] } }).select('_id title slug').lean()
+      ? BlogPost.find({ _id: { $in: [...blogIds] } }).select('_id title slug authorName').lean()
       : [],
     updateIds.size
       ? Update.find({ _id: { $in: [...updateIds] } }).select('_id title').lean()
@@ -59,13 +61,14 @@ export async function resolveActivityRows(events: RawEvent[]): Promise<ActivityR
 
   const productMap = new Map<string, { name: string; slug: string }>()
   for (const p of products) productMap.set(String(p._id), { name: p.name, slug: p.slug })
-  const blogMap = new Map<string, { title: string; slug: string }>()
-  for (const b of posts) blogMap.set(String(b._id), { title: b.title, slug: b.slug })
+  const blogMap = new Map<string, { title: string; slug: string; authorName: string }>()
+  for (const b of posts) blogMap.set(String(b._id), { title: b.title, slug: b.slug, authorName: b.authorName })
   const updateMap = new Map<string, { title: string }>()
   for (const u of updates) updateMap.set(String(u._id), { title: u.title })
 
   return events.map((e) => {
     let entityName: string | undefined
+    let entityAuthor: string | undefined
     let href: string | undefined
     if (e.entityId && e.entityType === 'product') {
       const p = productMap.get(String(e.entityId))
@@ -74,6 +77,7 @@ export async function resolveActivityRows(events: RawEvent[]): Promise<ActivityR
     } else if (e.entityId && e.entityType === 'blog') {
       const b = blogMap.get(String(e.entityId))
       entityName = b?.title
+      entityAuthor = b?.authorName
       href = b ? `/blog/${b.slug}` : undefined
     } else if (e.entityId && e.entityType === 'update') {
       const u = updateMap.get(String(e.entityId))
@@ -87,6 +91,7 @@ export async function resolveActivityRows(events: RawEvent[]): Promise<ActivityR
       entityType: e.entityType ?? null,
       entityId: e.entityId ? String(e.entityId) : null,
       entityName: entityName ?? null,
+      entityAuthor: entityAuthor ?? null,
       category: e.category ?? null,
       path: e.path ?? null,
       href: href ?? (e.type === 'page_view' ? e.path ?? null : null),

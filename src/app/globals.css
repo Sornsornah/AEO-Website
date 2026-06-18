@@ -123,9 +123,24 @@ button:disabled,
 .prose a { color: rgb(37 99 235); text-decoration: underline; text-underline-offset: 2px; }
 .prose hr { border-color: rgb(231 229 228); margin: 1.5rem 0; }
 
-/* Content images are click-to-zoom (see ImageLightbox), except while editing. */
-.prose img { cursor: zoom-in; }
+/* Content images are click-to-zoom (see ImageLightbox), except while editing.
+   Fit images to the column and cap height so tall/narrow screenshots don't take
+   over the page; width/height auto keeps the aspect ratio and never upscales. */
+.prose img {
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  max-height: 70vh;
+  display: block;
+  margin: 0.5rem auto;
+  cursor: zoom-in;
+}
 [contenteditable="true"] img, .ProseMirror img { cursor: default; }
+
+/* In the comments panel (height = viewport minus the 3.5rem top bar), cap a
+   posted image to at most a quarter of the panel height. The compound selector
+   outranks `.prose img` above. */
+.prose.comment-body img { max-height: calc((100vh - 3.5rem) / 4); }
 
 @keyframes float-soft {
   0%, 100% { transform: translateY(0); }

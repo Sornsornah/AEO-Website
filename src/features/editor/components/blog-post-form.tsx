@@ -18,11 +18,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
-import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
+import { uploadImage, imageFileFromClipboardData, fileFromUrl } from '@/features/editor/lib/image-data-url'
+import { useImageCrop } from '@/features/editor/components/image-crop-dialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getCategoryDisplay, hexToBadgeStyle, hexToGradient, getInitials, type CategoriesMap } from '@/features/blog/components/blog-utils'
 import type { BlogStatus } from '@/models/BlogPost'
 import { ImagePlus, X, Clock, Check, ChevronDown } from 'lucide-react'
+import { track } from '@/lib/track'
 
 type BlogCategory = string
 
@@ -105,8 +107,8 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const { cropDialog, requestCrop } = useImageCrop()
   const [saved, setSaved] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/blog/categories')
@@ -184,12 +186,17 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
     else router.push(exitHref)
   }
 
-  // Cover images are encoded inline (no server upload) and downscaled to a max
-  // width of 1600px to keep the data URL small.
+  // Cover images are downscaled to max 1600px wide and uploaded to GridFS; the
+  // stored value is the returned URL (never inline base64 — the deploy WAF 403s
+  // any body containing ";base64,").
   async function handleImageUpload(file: File) {
+    const cropped = await requestCrop(file, { aspect: 16 / 9, title: 'Crop cover image' })
+    if (!cropped) return // user cancelled the crop dialog
     setUploading(true)
     try {
-      setCoverImage(await encodeImageFile(file, 1600))
+      setCoverImage(await uploadImage(cropped, 1600))
+    } catch {
+      setError('Could not upload cover image.')
     } finally {
       setUploading(false)
     }
@@ -201,6 +208,14 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
       e.preventDefault()
       handleImageUpload(file)
     }
+  }
+
+  // Click the existing cover to re-open the crop dialog on it.
+  async function recropCover() {
+    if (!coverImage) return
+    try {
+      await handleImageUpload(await fileFromUrl(coverImage, 'cover'))
+    } catch { setError('Could not load cover image.') }
   }
 
   async function submitForm(): Promise<boolean> {
@@ -264,6 +279,12 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
       if (!res.ok) {
         setError(await extractErrorMessage(res))
         return false
+      }
+      const savedPost = await res.json().catch(() => null)
+      if (status === 'published') {
+        track('blog_post', { entityId: savedPost?._id, entityType: 'blog', category })
+      } else if (status === 'draft') {
+        track('blog_draft', { entityId: savedPost?._id, entityType: 'blog', category })
       }
       isDirty.current = false
       setSaved(true)
@@ -332,13 +353,14 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
           <div
             tabIndex={0}
             onPaste={handleCoverPaste}
+            onClick={(e) => (e.currentTarget as HTMLElement).focus()}
             className="space-y-2 rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
           >
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cover Image</Label>
             {coverImage ? (
               <div className="relative rounded-xl overflow-hidden aspect-[16/9]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={coverImage} alt="Cover" className="w-full h-full object-cover" />
+                <img src={coverImage} alt="Cover" title="Click to re-crop" onClick={recropCover} className="w-full h-full object-cover cursor-pointer" />
                 <button
                   type="button"
                   onClick={() => setCoverImage('')}
@@ -349,9 +371,8 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
               </div>
             ) : (
               <div
-                className="relative rounded-xl overflow-hidden aspect-[16/9] cursor-pointer group"
+                className="relative rounded-xl overflow-hidden aspect-[16/9] cursor-text group"
                 style={{ background: previewGradient }}
-                onClick={() => fileInputRef.current?.click()}
               >
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20 group-hover:bg-black/30 transition-colors">
                   {uploading ? (
@@ -359,23 +380,12 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
                   ) : (
                     <>
                       <ImagePlus className="w-6 h-6 text-white/80" />
-                      <p className="text-white/80 text-xs font-medium">Click to upload or paste (Ctrl/⌘+V)</p>
+                      <p className="text-white/80 text-xs font-medium">Paste (Ctrl + V) your image here</p>
                     </>
                   )}
                 </div>
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleImageUpload(file)
-              }}
-            />
-            <p className="text-xs text-slate-400">Cover images are scaled to 1600px wide.</p>
           </div>
 
           {/* Content */}
@@ -670,6 +680,8 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
         <Check size={14} className="text-emerald-400 flex-shrink-0" />
         {isEdit ? 'Changes saved' : 'Post created'}
       </div>
+
+      {cropDialog}
     </form>
   )
 }

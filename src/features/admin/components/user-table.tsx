@@ -8,6 +8,7 @@ import { Trash2, Users } from 'lucide-react'
 import { UserMembershipModal } from './user-membership-modal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDateShort } from '@/lib/utils'
 
 interface UserRow {
@@ -57,6 +58,7 @@ export function UserTable({
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<UserRow | null>(null)
 
   async function changeRole(userId: string, role: string) {
     setLoadingId(userId)
@@ -73,7 +75,7 @@ export function UserTable({
   }
 
   async function deleteUser(user: UserRow) {
-    if (!confirm(`Delete ${user.name || user.email} (${user.email})? This cannot be undone.`)) return
+    setDeleteConfirm(null)
     setDeletingId(user._id)
     try {
       const res = await fetch(`/api/admin/users/${user._id}`, { method: 'DELETE' })
@@ -179,7 +181,7 @@ export function UserTable({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deleteUser(user)}
+                          onClick={() => setDeleteConfirm(user)}
                           disabled={deletingId === user._id}
                           className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
                         >
@@ -194,6 +196,21 @@ export function UserTable({
         </TableBody>
       </Table>
     </div>
+
+    <ConfirmDialog
+      open={!!deleteConfirm}
+      title="Delete user?"
+      message={
+        deleteConfirm
+          ? `${deleteConfirm.name || deleteConfirm.email} (${deleteConfirm.email}) will be permanently deleted. This cannot be undone.`
+          : ''
+      }
+      confirmLabel="Delete"
+      cancelLabel="Cancel"
+      variant="danger"
+      onConfirm={() => deleteConfirm && deleteUser(deleteConfirm)}
+      onCancel={() => setDeleteConfirm(null)}
+    />
     </>
   )
 }

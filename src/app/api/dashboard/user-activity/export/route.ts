@@ -8,12 +8,40 @@ import { handleApiError } from '@/lib/handle-api-error'
 import { AnalyticsEvent } from '@/models/AnalyticsEvent'
 import { User } from '@/models/User'
 import { resolveActivityRows, type ActivityRow } from '@/features/dashboard/lib/activity-query'
-import { activityVerb, activityLabel, activityTarget } from '@/features/dashboard/lib/event-meta'
+import { activityLabel } from '@/features/dashboard/lib/event-meta'
+import { EXPORT_COLUMN_KEYS } from '@/features/dashboard/lib/export-columns'
+import { SGT_OFFSET_MS } from '@/lib/date'
 
 // Hard ceiling so a huge range can't exhaust memory building the CSV string.
 const MAX_ROWS = 50_000
 
-const CSV_HEADER = ['User', 'Email', 'Timestamp', 'Action', 'Page', 'Type']
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+/** Pre-bucketed SGT (UTC+8) date parts so charts can group without parsing. */
+function sgtParts(iso: string): { date: string; hour: string; dow: string } {
+  const sgt = new Date(new Date(iso).getTime() + SGT_OFFSET_MS)
+  return {
+    date: sgt.toISOString().slice(0, 10),
+    hour: String(sgt.getUTCHours()).padStart(2, '0'),
+    dow: DOW[sgt.getUTCDay()],
+  }
+}
+
+/** Per-column cell resolvers, keyed by the column's CSV header. */
+const CELL: Record<string, (r: ActivityRow, user: { name: string; email: string } | undefined) => string> = {
+  timestamp_utc: (r) => r.createdAt,
+  date: (r) => sgtParts(r.createdAt).date,
+  hour: (r) => sgtParts(r.createdAt).hour,
+  day_of_week: (r) => sgtParts(r.createdAt).dow,
+  user_name: (_r, u) => u?.name ?? '(unknown)',
+  user_email: (_r, u) => u?.email ?? '',
+  event_label: (r) => activityLabel(r.type),
+  entity_type: (r) => r.entityType ?? '',
+  entity_name: (r) => r.entityName ?? '',
+  blog_post_author: (r) => (r.entityType === 'blog' ? r.entityAuthor ?? '' : ''),
+  category: (r) => r.category ?? '',
+  path: (r) => r.path ?? '',
+}
 
 /** RFC-4180 cell escaping: quote when the value contains a comma, quote or newline. */
 function csvCell(value: string): string {
@@ -49,6 +77,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid date range' }, { status: 400 })
     }
 
+    // Optional column selection — keep canonical order, ignore unknown keys,
+    // fall back to all columns when none are specified.
+    const requested = new Set(
+      (searchParams.get('columns') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+    )
+    const selectedKeys = requested.size
+      ? EXPORT_COLUMN_KEYS.filter((k) => requested.has(k))
+      : EXPORT_COLUMN_KEYS
+    const columns = selectedKeys.length ? selectedKeys : EXPORT_COLUMN_KEYS
+
     await connectDB()
 
     const [users, events] = await Promise.all([
@@ -65,19 +103,10 @@ export async function GET(req: NextRequest) {
 
     const rows: ActivityRow[] = await resolveActivityRows(events)
 
-    const lines = [csvRow(CSV_HEADER)]
+    const lines = [csvRow(columns)]
     for (const r of rows) {
       const u = r.userId ? userMap.get(r.userId) : undefined
-      lines.push(
-        csvRow([
-          u?.name ?? '(unknown)',
-          u?.email ?? '',
-          r.createdAt,
-          activityVerb(r.type),
-          activityTarget(r),
-          activityLabel(r.type),
-        ])
-      )
+      lines.push(csvRow(columns.map((k) => CELL[k](r, u))))
     }
 
     // Prepend a BOM so Excel reads the UTF-8 verbatim (em-dashes, smart quotes).
