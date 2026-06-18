@@ -60,8 +60,11 @@ export function Navbar() {
 
   const initials = session?.user?.name ? getInitials(session.user.name) : '?'
 
+  // `adminOnly` nav links are internal pages (e.g. /updates), not public. Both
+  // admin (AEO) and viewer (Management) are authorised internal roles, so both
+  // see the link; the pages themselves redirect non-internal (public) users.
   const visibleLinks = navLinks.filter(
-    (link) => !link.adminOnly || session?.user?.role === 'admin'
+    (link) => !link.adminOnly || session?.user?.role === 'admin' || session?.user?.role === 'viewer'
   )
 
   return (

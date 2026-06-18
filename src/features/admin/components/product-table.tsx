@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EditProductModal } from './edit-product-modal'
 
 interface Domain {
@@ -36,14 +37,18 @@ export function ProductTable({ products, domains, users }: { products: ProductRo
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<ProductRow | null>(null)
 
-  async function handleDelete(product: ProductRow) {
+  function requestDelete(product: ProductRow) {
     if (product.updateCount > 0) {
       alert(`Cannot delete "${product.name}" — it has ${product.updateCount} update(s). Remove or reassign them first.`)
       return
     }
-    if (!confirm(`Delete product "${product.name}"? This cannot be undone.`)) return
+    setDeleteConfirm(product)
+  }
 
+  async function handleDelete(product: ProductRow) {
+    setDeleteConfirm(null)
     setDeletingId(product._id)
     try {
       const res = await fetch(`/api/products/${product._id}`, { method: 'DELETE' })
@@ -113,7 +118,7 @@ export function ProductTable({ products, domains, users }: { products: ProductRo
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(product)}
+                      onClick={() => requestDelete(product)}
                       disabled={deletingId === product._id}
                       className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 disabled:opacity-40"
                     >
@@ -135,6 +140,17 @@ export function ProductTable({ products, domains, users }: { products: ProductRo
           onClose={() => setEditingProduct(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete product?"
+        message={deleteConfirm ? `"${deleteConfirm.name}" will be permanently deleted. This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </>
   )
 }

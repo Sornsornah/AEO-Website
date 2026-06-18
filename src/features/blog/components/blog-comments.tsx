@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Trash2, MessageCircle, Send, Pencil, Check, X } from 'lucide-react'
 import { track } from '@/lib/track'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getInitials } from './blog-utils'
 
 export interface BlogCommentData {
@@ -30,6 +31,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
@@ -48,7 +50,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
         const comment = await res.json()
         setComments((prev) => [...prev, comment])
         setText('')
-        track('blog_comment', { entityId: postId, entityType: 'blog', category })
+        track('blog_comment_add', { entityId: postId, entityType: 'blog', category })
       }
     } finally {
       setSubmitting(false)
@@ -81,6 +83,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
         )
         setEditingId(null)
         setEditText('')
+        track('blog_comment_edit', { entityId: postId, entityType: 'blog', category })
       }
     } finally {
       setSavingEdit(false)
@@ -88,11 +91,14 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this comment?')) return
+    setDeleteConfirmId(null)
     setDeletingId(id)
     try {
       const res = await fetch(`/api/blog/${slug}/comments/${id}`, { method: 'DELETE' })
-      if (res.ok) setComments((prev) => prev.filter((c) => c._id !== id))
+      if (res.ok) {
+        setComments((prev) => prev.filter((c) => c._id !== id))
+        track('blog_comment_delete', { entityId: postId, entityType: 'blog', category })
+      }
     } finally {
       setDeletingId(null)
     }
@@ -175,7 +181,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
                     )}
                     {canDelete && (
                       <button
-                        onClick={() => handleDelete(comment._id)}
+                        onClick={() => setDeleteConfirmId(comment._id)}
                         disabled={deletingId === comment._id}
                         className="p-1.5 text-slate-300 hover:text-red-400 transition-colors"
                         title="Delete comment"
@@ -216,6 +222,17 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
           Sign in to leave a comment.
         </p>
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        title="Delete comment?"
+        message="This comment will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   )
 }

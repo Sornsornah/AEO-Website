@@ -8,6 +8,8 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import { useEffect, useRef, useState } from 'react'
 import { Link2, Link2Off, Code, Quote } from 'lucide-react'
+import { uploadImage, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
+import { toast } from 'sonner'
 
 // Custom video node — renders as <video controls>
 const VideoNode = Node.create({
@@ -25,6 +27,28 @@ const VideoNode = Node.create({
   },
 })
 
+// Pasted/dropped images are downscaled and uploaded to GridFS, then inserted by
+// URL — never inline base64 (the deploy WAF 403s any body containing ";base64,").
+const EDITOR_IMAGE_MAX_WIDTH = 1600
+
+async function insertUploadedImage(editor: Editor | null, file: File) {
+  if (!editor) return
+  try {
+    const url = await uploadImage(file, EDITOR_IMAGE_MAX_WIDTH)
+    editor.chain().focus().setImage({ src: url }).run()
+  } catch {
+    toast.error('Could not add image')
+  }
+}
+
+function handleImageInsert(editor: Editor | null, data: DataTransfer | null, event: Event): boolean {
+  const file = imageFileFromClipboardData(data)
+  if (!file) return false
+  event.preventDefault()
+  void insertUploadedImage(editor, file)
+  return true
+}
+
 interface TiptapEditorProps {
   value: string
   onChange: (html: string) => void
@@ -35,6 +59,7 @@ interface TiptapEditorProps {
 
 export function TiptapEditor({ value, onChange, placeholder = 'Start writing...', minHeight = '120px', limitedToolbar = false }: TiptapEditorProps) {
   const lastHtml = useRef(value)
+  const editorRef = useRef<Editor | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -58,8 +83,12 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
         class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through [&_pre]:bg-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_blockquote]:italic [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:[line-height:1.25] [&_li]:[line-height:1.25] [&_h1]:[line-height:1.25] [&_h2]:[line-height:1.25] [&_h3]:[line-height:1.25]',
         style: `min-height: ${minHeight}`,
       },
+      handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
+      handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
     },
   })
+
+  editorRef.current = editor
 
   useEffect(() => {
     if (!editor) return

@@ -9,9 +9,17 @@ export const ANALYTICS_EVENT_TYPES = [
   'blog_view',
   'blog_share',
   'blog_like',
+  'blog_unlike',
   'blog_save',
-  'blog_comment',
-  'update_comment',
+  'blog_unsave',
+  'blog_comment_add',
+  'blog_comment_edit',
+  'blog_comment_delete',
+  'blog_post',
+  'blog_draft',
+  'update_comment_add',
+  'update_comment_edit',
+  'update_comment_delete',
 ] as const
 
 export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number]

@@ -8,6 +8,7 @@ import { useSession } from '@/lib/use-session'
 import { track } from '@/lib/track'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useEditor, EditorContent, Node, mergeAttributes, Extension, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -16,7 +17,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import { mentionSuggestion } from './comment-mention-suggestion'
-import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
+import { uploadImage, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -41,18 +42,28 @@ const CommentMention = Mention.configure({
   suggestion: mentionSuggestion,
 })
 
-// Pasting a raw photo embeds it as a multi-MB base64 `data:` URI in the comment
-// HTML, and the Airbase edge rejects the oversized request body with a 403 (the
-// same reason direct server uploads are restricted in deploy). So we mirror the
-// blog cover / product image pattern: downscale the pasted image client-side
-// with `encodeImageFile`, then keep the (now small) base64 inline — no upload.
-// Comment thumbnails render tiny, so a modest width is plenty.
+// Pasted/dropped photos must NOT be inlined as base64 `data:` URIs: the Airbase
+// WAF rejects any request body containing ";base64," with a 403 (which surfaced
+// as a generic "Failed to post comment"). Instead we downscale client-side, then
+// upload to GridFS via /api/uploads (multipart — no ";base64," in the body) and
+// insert the returned URL. This also keeps comment documents small.
 const COMMENT_IMAGE_MAX_WIDTH = 1280
+
+// Build a human-readable error from a failed comment request. The Airbase WAF
+// returns a 403 HTML page (not JSON) for blocked bodies, so don't assume JSON.
+async function commentRequestError(res: Response): Promise<Error> {
+  if (res.status === 401) return new Error('Please sign in to comment')
+  if (res.status === 403) return new Error('Comment blocked by the server — if it has an image, try removing and re-adding it')
+  const body = await res.json().catch(() => null)
+  if (body?.error) return new Error(body.error)
+  return new Error(`Couldn’t save comment (error ${res.status})`)
+}
 
 async function insertPastedImage(editor: Editor, file: File) {
   try {
-    const dataUrl = await encodeImageFile(file, COMMENT_IMAGE_MAX_WIDTH)
-    editor.chain().focus().setImage({ src: dataUrl }).run()
+    // Downscale + upload to GridFS, then insert the URL — never inline base64.
+    const url = await uploadImage(file, COMMENT_IMAGE_MAX_WIDTH)
+    editor.chain().focus().setImage({ src: url }).run()
   } catch {
     toast.error('Could not add image')
   }
@@ -153,13 +164,13 @@ function CommentBody({ text }: { text: string }) {
     })
     return (
       <div
-        className="text-sm text-slate-600 leading-relaxed prose prose-sm prose-slate max-w-none prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_video]:max-h-48 [&_video]:rounded-lg [&_video]:w-full"
+        className="comment-body text-sm text-slate-600 leading-relaxed prose prose-sm prose-slate max-w-none prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_video]:max-h-48 [&_video]:rounded-lg [&_video]:w-full"
         dangerouslySetInnerHTML={{ __html: clean }}
       />
     )
   }
   return (
-    <div className="text-sm text-slate-600 leading-relaxed prose prose-sm prose-slate max-w-none prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+    <div className="comment-body text-sm text-slate-600 leading-relaxed prose prose-sm prose-slate max-w-none prose-p:my-0.5 prose-ul:my-0.5 prose-ol:my-0.5 prose-li:my-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{sanitizeMarkdown(text)}</ReactMarkdown>
     </div>
   )
@@ -231,7 +242,7 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
+        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
       handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
       handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
@@ -476,7 +487,7 @@ function EditCommentTiptapEditor({
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
+        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
       handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
       handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
@@ -581,6 +592,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   const queryClient = useQueryClient()
   const commentEditorRef = useRef<CommentEditorHandle>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string; text: string } | null>(null)
   const [isVisible, setIsVisible] = useState(false)
 
@@ -605,12 +617,15 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   }, [onClose])
 
   const submitMutation = useMutation({
-    mutationFn: ({ text, parentId }: { text: string; parentId: string | null }) =>
-      fetch(`/api/updates/${updateId}/comments`, {
+    mutationFn: async ({ text, parentId }: { text: string; parentId: string | null }) => {
+      const r = await fetch(`/api/updates/${updateId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, attachments: [], parentId }),
-      }).then((r) => r.json()),
+      })
+      if (!r.ok) throw await commentRequestError(r)
+      return r.json()
+    },
     onMutate: async ({ text, parentId }) => {
       await queryClient.cancelQueries({ queryKey: ['comments', updateId] })
       const prev = queryClient.getQueryData<Comment[]>(['comments', updateId]) ?? []
@@ -634,28 +649,32 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
       queryClient.setQueryData<Comment[]>(['comments', updateId], (old = []) =>
         old.map((c) => (c._id === ctx?.optimisticId ? saved : c))
       )
-      track('update_comment', { entityId: updateId, entityType: 'update' })
+      track('update_comment_add', { entityId: updateId, entityType: 'update' })
     },
-    onError: (_err, _text, ctx) => {
+    onError: (err, _text, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['comments', updateId], ctx.prev)
-      toast.error('Failed to post comment')
+      toast.error(err instanceof Error ? err.message : 'Failed to post comment')
     },
   })
 
   const editMutation = useMutation({
-    mutationFn: ({ commentId, html }: { commentId: string; html: string }) =>
-      fetch(`/api/updates/${updateId}/comments/${commentId}`, {
+    mutationFn: async ({ commentId, html }: { commentId: string; html: string }) => {
+      const r = await fetch(`/api/updates/${updateId}/comments/${commentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: html }),
-      }).then((r) => r.json()),
+      })
+      if (!r.ok) throw await commentRequestError(r)
+      return r.json()
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData<Comment[]>(['comments', updateId], (old = []) =>
         old.map((c) => (c._id === updated._id ? updated : c))
       )
       setEditingId(null)
+      track('update_comment_edit', { entityId: updateId, entityType: 'update' })
     },
-    onError: () => toast.error('Failed to save edit'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to save edit'),
   })
 
   const deleteMutation = useMutation({
@@ -667,6 +686,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
         onCountChange(next.length)
         return next
       })
+      track('update_comment_delete', { entityId: updateId, entityType: 'update' })
     },
     onError: () => toast.error('Failed to delete comment'),
   })
@@ -685,6 +705,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
   }
 
   function deleteComment(commentId: string) {
+    setDeleteConfirmId(null)
     deleteMutation.mutate(commentId)
   }
 
@@ -794,7 +815,7 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
                                 <Pencil className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => deleteComment(c._id)}
+                                onClick={() => setDeleteConfirmId(c._id)}
                                 disabled={deleteMutation.isPending}
                                 className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
                                 aria-label="Delete comment"
@@ -911,5 +932,20 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
     </>
   )
 
-  return createPortal(panel, document.body)
+  return createPortal(
+    <>
+      {panel}
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        title="Delete comment?"
+        message="This comment will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirmId && deleteComment(deleteConfirmId)}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
+    </>,
+    document.body
+  )
 }
