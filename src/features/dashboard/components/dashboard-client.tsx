@@ -15,6 +15,7 @@ import { StatCard } from './stat-card'
 import { BarMetricChart, LineMetricChart } from './metric-chart'
 import { SortHead, useSort } from './sortable'
 import { UserActivityTab } from './user-activity-tab'
+import { ExportModal } from './export-modal'
 import { ProductUsersModal, type ProductUserAction } from './product-users-modal'
 import {
   isValidDateRange,
@@ -119,6 +120,7 @@ const COLORS = {
 
 export function DashboardClient() {
   const [tab, setTab] = useState<TabId>('general')
+  const [exportOpen, setExportOpen] = useState(false)
   const [rangeMode, setRangeMode] = useState<string>('30') // preset value or 'custom'
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -151,6 +153,21 @@ export function DashboardClient() {
 
   return (
     <div className="space-y-8">
+      {/* Download CSV — sits above the date range selector, available on every tab */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setExportOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#1C1512] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#2c211b]"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+            <path d="M10 2.5a.75.75 0 01.75.75v7.19l2.22-2.22a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 111.06-1.06l2.22 2.22V3.25A.75.75 0 0110 2.5z" />
+            <path d="M3.5 12.75a.75.75 0 01.75.75v1.25c0 .414.336.75.75.75h10a.75.75 0 00.75-.75V13.5a.75.75 0 011.5 0v1.25A2.25 2.25 0 0115 17H5a2.25 2.25 0 01-2.25-2.25V13.5a.75.75 0 01.75-.75z" />
+          </svg>
+          Download CSV
+        </button>
+      </div>
+
       {/* Tabs (left) + date filter (right) */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-1">
@@ -230,6 +247,8 @@ export function DashboardClient() {
           )}
         </>
       )}
+
+      {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
     </div>
   )
 }

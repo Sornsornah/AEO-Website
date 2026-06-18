@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Pencil, Trash2, Check, X } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 const PRESET_COLORS = [
   { label: 'Orange', hex: '#f97316' },
@@ -75,6 +76,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
   const [editColor, setEditColor] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<BlogCategoryRow | null>(null)
   const [error, setError] = useState('')
 
   function startEdit(cat: BlogCategoryRow) {
@@ -112,7 +114,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
   }
 
   async function handleDelete(cat: BlogCategoryRow) {
-    if (!confirm(`Delete "${cat.name}"? Blog posts using this category will retain the slug but it won't appear in the list.`)) return
+    setDeleteConfirm(null)
     setDeleting(cat._id)
     try {
       await fetch(`/api/admin/blog-categories/${cat._id}`, { method: 'DELETE' })
@@ -163,7 +165,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
                     <Button
                       variant="ghost" size="sm"
                       className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete(cat)}
+                      onClick={() => setDeleteConfirm(cat)}
                       disabled={deleting === cat._id}
                     >
                       {deleting === cat._id ? '…' : <Trash2 size={14} />}
@@ -202,6 +204,21 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
           ))}
         </tbody>
       </table>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete category?"
+        message={
+          deleteConfirm
+            ? `"${deleteConfirm.name}" will be deleted. Blog posts using this category keep their slug but it won't appear in the list. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   )
 }
