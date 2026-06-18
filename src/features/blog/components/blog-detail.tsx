@@ -58,6 +58,8 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
         setLikeCount(data.likeCount)
         if (data.liked) {
           track('blog_like', { entityId: post._id, entityType: 'blog', category: post.category })
+        } else {
+          track('blog_unlike', { entityId: post._id, entityType: 'blog', category: post.category })
         }
       }
     } catch {
@@ -76,6 +78,8 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
         setSaved(data.saved)
         if (data.saved) {
           track('blog_save', { entityId: post._id, entityType: 'blog', category: post.category })
+        } else {
+          track('blog_unsave', { entityId: post._id, entityType: 'blog', category: post.category })
         }
       }
     } catch {

@@ -206,16 +206,20 @@ export async function GET(req: NextRequest) {
       ...commentsByPost.keys(),
       ...blogShareByPostMap.keys(),
     ])
-    const blogPostMetrics = [...postIds].map((bid) => {
-      const meta = blogName.get(bid)
+    const blogPostMetrics = [...postIds]
+      // Exclude posts that no longer exist — analytics rows can outlive a
+      // deleted post, but a "(Unknown post)" row is noise in the table.
+      .filter((bid) => blogName.has(bid))
+      .map((bid) => {
+      const meta = blogName.get(bid)!
       const v = blogViewsByPostMap.get(bid)
       const s = blogShareByPostMap.get(bid)
       const authorId = postAuthorId.get(bid)
       return {
         postId: bid,
-        title: meta?.title ?? 'Unknown post',
+        title: meta.title,
         author: authorId ? authorName.get(authorId) ?? 'Unknown' : 'Unknown',
-        category: meta ? categoryName.get(meta.category) ?? meta.category : '—',
+        category: categoryName.get(meta.category) ?? meta.category,
         views: v?.views ?? 0,
         uniqueViewers: v?.uniqueViewers ?? 0,
         likes: likesByPost.get(bid) ?? 0,

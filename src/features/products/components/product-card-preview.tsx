@@ -75,7 +75,7 @@ export function ProductCardPreview({ product }: { product: CardProduct }) {
         {product.uiScreenshot && (
           <div className="rounded-xl overflow-hidden mb-5 border border-black/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={product.uiScreenshot} alt={`${product.name} UI`} className="w-full object-contain" />
+            <img src={product.uiScreenshot} alt={`${product.name} UI`} className="max-w-full h-auto object-contain mx-auto" />
           </div>
         )}
 

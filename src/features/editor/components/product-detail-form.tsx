@@ -14,7 +14,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ProductDetailClient } from '@/features/products/components/product-detail-client'
 import { ProductCardPreview } from '@/features/products/components/product-card-preview'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
-import { encodeImageFile, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
+import { uploadImage, imageFileFromClipboardData, fileFromUrl } from '@/features/editor/lib/image-data-url'
+import { useImageCrop } from '@/features/editor/components/image-crop-dialog'
 
 interface TeamMember { name: string; email: string }
 interface UseCase { title: string; content: string; functionTag: string; isDraft: boolean }
@@ -108,6 +109,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const { cropDialog, requestCrop } = useImageCrop()
   const [error, setError] = useState('')
   const [showPublished, setShowPublished] = useState(false)
 
@@ -209,29 +211,20 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     }
   }
 
-  // Encode a picked/pasted image to an inline data URL. Logos keep their
-  // original size; screenshots are downscaled to a max width of 1600px.
+  // Upload a picked/pasted image to GridFS and store the returned URL. Logos
+  // keep their original size; screenshots are downscaled to max 1600px wide.
+  // Never inline base64 — the deploy WAF 403s any body containing ";base64,".
   async function setImageFromFile(file: File, target: 'logo' | 'screenshot') {
+    const cropped = await requestCrop(file, { title: target === 'logo' ? 'Crop logo' : 'Crop screenshot' })
+    if (!cropped) return // user cancelled the crop dialog
     setUploading(target)
     try {
-      const dataUrl = await encodeImageFile(file, target === 'screenshot' ? 1600 : undefined)
-      if (target === 'logo') setLogoUrl(dataUrl)
-      else setUiScreenshot(dataUrl)
+      const url = await uploadImage(cropped, target === 'screenshot' ? 1600 : undefined)
+      if (target === 'logo') setLogoUrl(url)
+      else setUiScreenshot(url)
     }
-    catch { setError(`Could not read ${target} image.`) }
+    catch { setError(`Could not upload ${target} image.`) }
     finally { setUploading(null) }
-  }
-
-  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) setImageFromFile(file, 'logo')
-    e.target.value = ''
-  }
-
-  function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) setImageFromFile(file, 'screenshot')
-    e.target.value = ''
   }
 
   function handleImagePaste(e: React.ClipboardEvent, target: 'logo' | 'screenshot') {
@@ -240,6 +233,15 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       e.preventDefault()
       setImageFromFile(file, target)
     }
+  }
+
+  // Click an existing logo/screenshot to re-open the crop dialog on it.
+  async function recropImage(target: 'logo' | 'screenshot') {
+    const current = target === 'logo' ? logoUrl : uiScreenshot
+    if (!current) return
+    try {
+      await setImageFromFile(await fileFromUrl(current, target), target)
+    } catch { setError(`Could not load ${target} image.`) }
   }
 
   async function submitForm(overrides?: { useCases?: UseCase[]; productUpdates?: ProductUpdate[] }): Promise<boolean> {
@@ -372,12 +374,13 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             <div
               tabIndex={0}
               onPaste={(e) => handleImagePaste(e, 'logo')}
+              onClick={(e) => (e.currentTarget as HTMLElement).focus()}
               className="flex items-center gap-4 rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
             >
               {logoUrl ? (
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                  <img src={logoUrl} alt="Logo" title="Click to re-crop" onClick={() => recropImage('logo')} className="w-full h-full object-contain p-1 cursor-pointer" />
                   <button
                     type="button"
                     onClick={() => setLogoUrl('')}
@@ -391,13 +394,12 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                   <span className="text-white text-lg font-bold">{name.charAt(0)}</span>
                 </div>
               )}
-              <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'logo' ? 'opacity-50 pointer-events-none' : ''}`}>
-                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={!!uploading} />
+              <span className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 cursor-text transition-colors ${uploading === 'logo' ? 'opacity-50' : ''}`}>
                 <ImagePlus className="w-4 h-4" />
-                {uploading === 'logo' ? 'Adding...' : 'Upload logo'}
-              </label>
+                {uploading === 'logo' ? 'Adding...' : 'Paste (Ctrl + V) your image here'}
+              </span>
             </div>
-            <p className="text-xs text-slate-400">Or click the logo area above and paste an image (Ctrl/⌘+V).</p>
+            <p className="text-xs text-slate-400">Click the logo area, then paste your image (Ctrl/⌘+V).</p>
           </div>
 
           {/* Brand color */}
@@ -464,25 +466,25 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             <div
               tabIndex={0}
               onPaste={(e) => handleImagePaste(e, 'screenshot')}
+              onClick={(e) => (e.currentTarget as HTMLElement).focus()}
               className="rounded-xl outline-none focus:ring-2 focus:ring-slate-300"
             >
             {uiScreenshot ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={uiScreenshot} alt="UI screenshot" className="w-full object-cover max-h-48" />
+                <img src={uiScreenshot} alt="UI screenshot" title="Click to re-crop" onClick={() => recropImage('screenshot')} className="max-w-full h-auto max-h-[28rem] object-contain mx-auto block cursor-pointer" />
                 <button type="button" onClick={() => setUiScreenshot('')} className="absolute top-2 right-2 bg-black/50 rounded-full p-1 text-white">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
-              <label className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-slate-400 cursor-pointer transition-colors ${uploading === 'screenshot' ? 'opacity-50 pointer-events-none' : ''}`}>
-                <input type="file" accept="image/*" className="hidden" onChange={handleScreenshotUpload} disabled={!!uploading} />
+              <span className={`inline-flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 cursor-text transition-colors ${uploading === 'screenshot' ? 'opacity-50' : ''}`}>
                 <ImagePlus className="w-4 h-4" />
-                {uploading === 'screenshot' ? 'Adding...' : 'Upload screenshot'}
-              </label>
+                {uploading === 'screenshot' ? 'Adding...' : 'Paste (Ctrl + V) your image here'}
+              </span>
             )}
             </div>
-            <p className="text-xs text-slate-400">Or click the screenshot area above and paste an image (Ctrl/⌘+V). Screenshots are scaled to 1600px wide.</p>
+            <p className="text-xs text-slate-400">Click the screenshot area, then paste your image (Ctrl/⌘+V).</p>
           </div>
 
           {/* Short description */}
@@ -881,6 +883,8 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
         onConfirm={() => { deleteConfirm?.action(); setDeleteConfirm(null) }}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {cropDialog}
     </form>
   )
 }

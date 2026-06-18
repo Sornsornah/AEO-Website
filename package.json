@@ -27,7 +27,9 @@
     "migrate-roles": "tsx src/scripts/migrate-editor-to-admin.ts",
     "migrate-db": "tsx src/scripts/migrate-db.ts",
     "remove-scheduling": "tsx src/scripts/remove-scheduling.ts",
-    "backfill-blog-createdby": "tsx src/scripts/backfill-blog-createdby.ts"
+    "backfill-blog-createdby": "tsx src/scripts/backfill-blog-createdby.ts",
+    "migrate-inline-images": "tsx src/scripts/migrate-inline-images.ts",
+    "migrate-analytics-events": "tsx src/scripts/migrate-analytics-events.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -72,6 +74,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-easy-crop": "^6.0.2",
     "react-hook-form": "^7.54.0",
     "react-markdown": "^10.1.0",
     "recharts": "^2.15.0",
