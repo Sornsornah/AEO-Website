@@ -15,6 +15,18 @@ export interface AuthSession {
   user: AuthSessionUser
 }
 
+// Emails listed in ADMIN_EMAILS (comma-separated) are always granted the
+// `admin` role on every session — no manual promotion needed, and re-applied
+// even if the user was previously created/demoted with a lower role.
+function getAdminEmails(): Set<string> {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean)
+  )
+}
+
 function readGatewayHeaders(headers: Headers) {
   const gatewayId = headers.get('x-auth-user-id')
   const email = headers.get('x-auth-user-email')
@@ -45,13 +57,16 @@ export async function getSession(headers: Headers): Promise<AuthSession | null> 
   if (!gw) return null
 
   await connectDB()
+  // Emails in ADMIN_EMAILS are forced to `admin` on every login ("no matter
+  // what"); a field can't appear in both $set and $setOnInsert, so branch.
+  const isForcedAdmin = getAdminEmails().has(gw.email)
+  const update = isForcedAdmin
+    ? { $setOnInsert: { email: gw.email }, $set: { name: gw.name, role: 'admin' as UserRole } }
+    : { $setOnInsert: { email: gw.email, role: 'public' }, $set: { name: gw.name } }
   // Match by email — preserves all existing createdBy/authorId/saved/likes references.
   const user = await User.findOneAndUpdate(
     { email: gw.email },
-    {
-      $setOnInsert: { email: gw.email, role: 'public' },
-      $set: { name: gw.name },
-    },
+    update,
     { returnDocument: 'after', upsert: true }
   ).lean<{ _id: { toString(): string }; email: string; name: string; role: UserRole }>()
 

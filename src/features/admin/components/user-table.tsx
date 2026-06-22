@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Trash2, Users } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Search, Trash2, Users } from 'lucide-react'
 import { UserMembershipModal } from './user-membership-modal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -40,7 +41,7 @@ const roleColors: Record<string, string> = {
 const roleLabels: Record<string, string> = {
   admin: 'AEO',
   viewer: 'Management',
-  public: 'CPF officers',
+  public: 'CPF Officer',
 }
 
 export function UserTable({
@@ -59,6 +60,15 @@ export function UserTable({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<UserRow | null>(null)
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRow['role']>('all')
+  const [search, setSearch] = useState('')
+
+  const query = search.trim().toLowerCase()
+  const filteredUsers = users.filter((u) => {
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false
+    if (!query) return true
+    return (u.name ?? '').toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+  })
 
   async function changeRole(userId: string, role: string) {
     setLoadingId(userId)
@@ -112,6 +122,32 @@ export function UserTable({
         />
       )
     })()}
+    <div className="flex items-center gap-2 mb-3">
+      <div className="relative">
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or email"
+          className="h-7 w-60 pl-8 text-xs"
+        />
+      </div>
+      <span className="text-xs font-medium text-slate-500">Filter by role</span>
+      <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as 'all' | UserRow['role'])}>
+        <SelectTrigger className="h-7 w-36 text-xs border-slate-200">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All roles</SelectItem>
+          <SelectItem value="public">CPF Officer</SelectItem>
+          <SelectItem value="viewer">Management</SelectItem>
+          <SelectItem value="admin">AEO</SelectItem>
+        </SelectContent>
+      </Select>
+      <span className="text-xs text-slate-400">
+        {filteredUsers.length} of {users.length}
+      </span>
+    </div>
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <Table>
         <TableHeader>
@@ -123,7 +159,14 @@ export function UserTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map((user) => {
+          {filteredUsers.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-8 text-sm text-slate-400">
+                No users match your filters.
+              </TableCell>
+            </TableRow>
+          )}
+          {filteredUsers.map((user) => {
             const isSelf = user._id === currentUserId
             const isLoading = loadingId === user._id
 
@@ -154,7 +197,7 @@ export function UserTable({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="public">CPF officers</SelectItem>
+                          <SelectItem value="public">CPF Officer</SelectItem>
                           <SelectItem value="viewer">Management</SelectItem>
                           <SelectItem value="admin">AEO</SelectItem>
                         </SelectContent>
