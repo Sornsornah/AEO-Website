@@ -94,7 +94,7 @@ export function AdminTabs({ users, products, domains, blogCategories, featuredPr
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Role permissions</p>
             <ul className="space-y-2.5">
               <li className="flex items-start gap-3">
-                <span className="flex-shrink-0 inline-flex justify-center w-28 px-2 py-0.5 rounded-full border text-xs font-medium bg-stone-50 text-stone-500 border-stone-200">CPF officers</span>
+                <span className="flex-shrink-0 inline-flex justify-center w-28 px-2 py-0.5 rounded-full border text-xs font-medium bg-stone-50 text-stone-500 border-stone-200">CPF Officer</span>
                 <span className="text-xs text-slate-600 leading-relaxed">Can view the homepage, about us, products, and blog pages.</span>
               </li>
               <li className="flex items-start gap-3">

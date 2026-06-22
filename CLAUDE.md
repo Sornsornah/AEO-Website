@@ -36,6 +36,7 @@ pnpm migrate-db          # Generic DB migration entrypoint
 - `MONGODB_URI` — Mongo connection string
 - `DEV_USER_EMAIL` (dev only) — simulates a logged-in user when the gateway isn't fronting the app. Optional: `DEV_USER_ID`, `DEV_USER_NAME`.
 - `EMAIL_USER` + nodemailer config (optional) — if unset, email send paths effectively no-op.
+- `ADMIN_EMAILS` (optional) — comma-separated list of email addresses always granted the `admin` role. Applied in `getSession()` on every login (re-promotes even existing/demoted users); case-insensitive.
 
 There is **no NextAuth** in this codebase. `NEXTAUTH_URL` / `NEXTAUTH_SECRET` are not used; ignore older references.
 
