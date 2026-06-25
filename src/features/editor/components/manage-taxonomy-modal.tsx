@@ -177,7 +177,7 @@ export function ManageTaxonomyModal({
             type="button"
             onClick={handleCreate}
             disabled={busy || !newName.trim()}
-            className="h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            className="h-9 px-3 bg-orange-600 hover:bg-orange-700 text-white shrink-0"
           >
             <Plus size={14} className="mr-1" /> Add
           </Button>

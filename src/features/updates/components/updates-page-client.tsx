@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { SlidersHorizontal, Inbox, ChevronDown } from 'lucide-react'
 import { formatMonthYear } from '@/lib/utils'
+import { compareDomainsByOrder } from '@/features/updates/lib/domain-order'
 import { SocialUpdateCard } from './social-update-card'
 import {
   DropdownMenu,
@@ -83,16 +84,6 @@ function FilterDropdown({
   )
 }
 
-const DOMAIN_ORDER = [
-  'General',
-  'Products',
-  'Central Solutions',
-  'Frontier',
-  'Performance',
-  'AI Governance',
-  'Strategy, Partnerships & Cap Dev',
-  'People & Culture',
-]
 
 interface UpdateItem {
   _id: string
@@ -192,14 +183,9 @@ export function UpdatesPageClient({
     [router, pathname, searchParams]
   )
 
-  const sortedDomains = [...domains].sort((a, b) => {
-    const ai = DOMAIN_ORDER.indexOf(a.name)
-    const bi = DOMAIN_ORDER.indexOf(b.name)
-    if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
-    if (ai === -1) return 1
-    if (bi === -1) return -1
-    return ai - bi
-  })
+  const sortedDomains = [...domains].sort(compareDomainsByOrder)
+  const sortedProducts = [...products].sort((a, b) => a.name.localeCompare(b.name))
+  const sortedTags = [...tags].sort((a, b) => a.name.localeCompare(b.name))
 
   const toggleValue = useCallback(
     (setter: React.Dispatch<React.SetStateAction<string[]>>, slug: string) => {
@@ -330,14 +316,14 @@ export function UpdatesPageClient({
           />
           <FilterDropdown
             label="Product"
-            options={products}
+            options={sortedProducts}
             selected={pendingProducts}
             onToggle={toggleProduct}
             onToggleAll={toggleAllProducts}
           />
           <FilterDropdown
             label="Tag"
-            options={tags}
+            options={sortedTags}
             selected={pendingTags}
             onToggle={toggleTag}
             onToggleAll={toggleAllTags}

@@ -153,7 +153,7 @@ export function UserTable({
         <TableHeader>
           <TableRow className="bg-slate-50 hover:bg-slate-50">
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">User</TableHead>
-            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-36">Role</TableHead>
+            <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-48">Role</TableHead>
             <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Added</TableHead>
             <TableHead className="w-20" />
           </TableRow>
@@ -193,7 +193,7 @@ export function UserTable({
                         onValueChange={(v) => changeRole(user._id, v)}
                         disabled={isLoading}
                       >
-                        <SelectTrigger className="h-7 w-28 text-xs border-slate-200">
+                        <SelectTrigger className="h-7 w-40 text-xs border-slate-200">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

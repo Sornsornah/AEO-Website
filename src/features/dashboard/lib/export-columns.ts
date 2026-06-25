@@ -13,7 +13,7 @@ export interface ExportColumn {
 }
 
 export const EXPORT_COLUMNS: ExportColumn[] = [
-  { key: 'timestamp_utc', label: 'Timestamp (UTC)', description: 'Exact event time in UTC (ISO 8601).' },
+  { key: 'timestamp_sgt', label: 'Timestamp (SGT)', description: 'Exact event time in SGT (UTC+8).' },
   { key: 'date', label: 'Date (SGT)', description: 'Calendar date of the event in SGT (UTC+8). Best for daily charts.' },
   { key: 'hour', label: 'Hour (SGT)', description: 'Hour of day, 00–23, in SGT. For time-of-day charts.' },
   { key: 'day_of_week', label: 'Day of week', description: 'Day name (Mon–Sun) in SGT. For weekly-pattern charts.' },

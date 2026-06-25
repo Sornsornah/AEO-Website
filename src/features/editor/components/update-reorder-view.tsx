@@ -164,7 +164,11 @@ export function UpdateReorderView({ updates: initial }: { updates: UpdateRow[] }
         <button
           onClick={handleSaveOrder}
           disabled={!isDirty || saving}
-          className="text-sm font-medium h-9 px-4 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-slate-300 text-slate-700 hover:bg-slate-50 enabled:hover:border-slate-400"
+          className={`text-sm font-medium h-9 px-4 rounded-lg border transition-colors disabled:cursor-not-allowed ${
+            isDirty
+              ? 'border-transparent bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-70'
+              : 'border-slate-300 text-slate-700 opacity-40'
+          }`}
         >
           {saving ? 'Saving…' : 'Save order'}
         </button>

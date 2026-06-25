@@ -85,7 +85,9 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
   const [excerpt, setExcerpt] = useState(initialData?.excerpt ?? '')
   const [content, setContent] = useState(initialData?.content ?? '')
   const [coverImage, setCoverImage] = useState(initialData?.coverImage ?? '')
-  const [category, setCategory] = useState<BlogCategory>(initialData?.category ?? 'thought')
+  // New posts start empty; the categories-fetch effect below snaps this to the
+  // first real category once the admin-managed list loads.
+  const [category, setCategory] = useState<BlogCategory>(initialData?.category ?? '')
   const [tagInput, setTagInput] = useState(initialData?.tags.join(', ') ?? '')
   const [authorName, setAuthorName] = useState(initialData?.authorName ?? currentUserName ?? '')
   const [publishedAt, setPublishedAt] = useState(
@@ -114,9 +116,22 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
     fetch('/api/blog/categories')
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setCategories(data.map((c: { slug: string; name: string; color: string; purpose?: string }) => ({ slug: c.slug, name: c.name, color: c.color, purpose: c.purpose })))
+        if (!Array.isArray(data)) return
+        const cats = data.map((c: { slug: string; name: string; color: string; purpose?: string }) => ({ slug: c.slug, name: c.name, color: c.color, purpose: c.purpose }))
+        setCategories(cats)
+        // The selected category defaults to a hardcoded slug before the real list
+        // loads. If that slug isn't a real category (e.g. legacy 'thought'), snap
+        // it to the first available one so new posts can't be saved with a
+        // phantom category that doesn't exist in admin.
+        if (cats.length && !cats.some((c) => c.slug === category)) {
+          setCategory(cats[0].slug)
+          // Keep the dirty-tracking baseline in sync so this auto-correction
+          // isn't mistaken for a user edit.
+          if (baseline.current) baseline.current = { ...baseline.current, category: cats[0].slug }
+        }
       })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -137,14 +152,18 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
 
   const previewContentRef = useRef<HTMLDivElement>(null)
 
+  // --- Unsaved-changes tracking ------------------------------------------------
+  // Dirty = any editable field differs from its baseline. We compare against a
+  // captured baseline instead of flagging "any state change after mount" so that
+  // programmatic post-load changes — the category auto-snapping to the first real
+  // category, or React Strict Mode re-running effects — don't count as user edits.
+  const fields = { title, excerpt, content, coverImage, category, tagInput, authorName, publishedAt, status, isFeatured, featuredUntil }
+  const baseline = useRef<typeof fields | null>(null)
+  if (baseline.current === null) baseline.current = fields
   const isDirty = useRef(false)
-  const mounted = useRef(false)
-  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null)
+  isDirty.current = (Object.keys(fields) as (keyof typeof fields)[]).some((k) => fields[k] !== baseline.current![k])
 
-  useEffect(() => {
-    if (mounted.current) isDirty.current = true
-    else mounted.current = true
-  }, [title, excerpt, content, coverImage, category, tagInput, authorName, publishedAt, status, isFeatured, featuredUntil])
+  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null)
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => { if (isDirty.current) e.preventDefault() }
@@ -172,14 +191,12 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
     })
   }, [content])
 
-  // When the author arrived from the blog page (?from=blog), return them to
-  // blog → My Posts rather than the editor dashboard.
-  const exitHref =
-    searchParams.get('from') === 'blog'
-      ? '/blog?tab=my-posts'
-      : isAdmin
-        ? '/editor?tab=blog'
-        : '/blog'
+  // A successful save always lands on the blog page's My Posts tab. Cancelling
+  // instead returns the author to where they came from: the blog page when they
+  // arrived via ?from=blog (My Posts edit/new links), otherwise the editor's
+  // blog tab.
+  const successHref = '/blog?tab=my-posts'
+  const exitHref = searchParams.get('from') === 'blog' ? '/blog?tab=my-posts' : '/editor?tab=blog'
 
   function handleCancel() {
     if (isDirty.current) setPendingNav(() => () => router.push(exitHref))
@@ -286,7 +303,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
       } else if (status === 'draft') {
         track('blog_draft', { entityId: savedPost?._id, entityType: 'blog', category })
       }
-      isDirty.current = false
+      baseline.current = fields // saved → no longer dirty
       setSaved(true)
       router.refresh()
       return true
@@ -303,7 +320,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
     const ok = await submitForm()
     if (ok) {
       await new Promise((r) => setTimeout(r, 900))
-      router.push(exitHref)
+      router.push(successHref)
     }
   }
 
@@ -391,7 +408,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
           {/* Content */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Content</Label>
-            <TiptapEditor value={content} onChange={setContent} minHeight="300px" />
+            <TiptapEditor value={content} onChange={setContent} minHeight="300px" contentClassName="blog-prose" />
           </div>
 
           <div className="border-t border-slate-100 pt-5 grid grid-cols-2 gap-4">
@@ -640,7 +657,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
                 )}
                 <div
                   ref={previewContentRef}
-                  className="prose prose-slate prose-sm max-w-none mb-6 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-orange-400 prose-blockquote:pl-4 prose-blockquote:text-slate-500 prose-blockquote:not-italic prose-blockquote:bg-transparent prose-blockquote:border-r-0 prose-blockquote:border-t-0 prose-blockquote:border-b-0"
+                  className="blog-prose prose prose-slate prose-sm max-w-none mb-6 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-orange-400 prose-blockquote:pl-4 prose-blockquote:text-slate-500 prose-blockquote:not-italic prose-blockquote:bg-transparent prose-blockquote:border-r-0 prose-blockquote:border-t-0 prose-blockquote:border-b-0"
                 />
 
                 {/* Tags */}
@@ -670,7 +687,7 @@ export function BlogPostForm({ users, isAdmin, currentUserName, initialData }: B
         confirmLabel="Keep editing"
         cancelLabel="Cancel changes"
         onConfirm={() => setPendingNav(null)}
-        onCancel={() => { const run = pendingNav!; setPendingNav(null); isDirty.current = false; run() }}
+        onCancel={() => { const run = pendingNav!; setPendingNav(null); baseline.current = fields; run() }}
       />
       <div
         className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 ${

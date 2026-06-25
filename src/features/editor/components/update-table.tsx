@@ -94,7 +94,7 @@ export function UpdateTable({ updates, hasFilters = false, totalCount = 0, curre
           <>
             <p className="text-slate-400 text-sm mb-3">No updates yet.</p>
             <Link href="/editor/new">
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
                 Create your first update
               </Button>
             </Link>

@@ -77,6 +77,8 @@ export default async function AdminPage() {
     _id: p._id.toString(),
     name: p.name,
     slug: p.slug,
+    description: p.description,
+    isHidden: p.isHidden ?? false,
     logoUrl: p.logoUrl,
     color: p.color,
     members: ((p.members as unknown) as { _id: { toString(): string }; name: string }[] || []).map((m) => ({

@@ -8,14 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { ImagePlus, X, Plus, Trash2, FileEdit, CheckCircle2, ArrowLeft, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ProductDetailClient } from '@/features/products/components/product-detail-client'
 import { ProductCardPreview } from '@/features/products/components/product-card-preview'
 import { TiptapEditor } from '@/features/editor/components/tiptap-editor'
-import { uploadImage, imageFileFromClipboardData, fileFromUrl } from '@/features/editor/lib/image-data-url'
-import { useImageCrop } from '@/features/editor/components/image-crop-dialog'
+import { uploadImage, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
 
 interface TeamMember { name: string; email: string }
 interface UseCase { title: string; content: string; functionTag: string; isDraft: boolean }
@@ -85,6 +84,54 @@ function normHtml(s: string) {
   return (!s || s === '<p></p>' || s === '<p><br class="ProseMirror-trailingBreak"></p>') ? '' : s
 }
 
+// Pointer-based drag-to-reorder for a flat list (mirrors update-reorder-view).
+// `onReorder` is called as the drag moves (and once with null to clear the
+// dragging highlight); `onDrop` fires once on release with the final order.
+function beginPointerReorder<T>(
+  e: React.PointerEvent,
+  startIndex: number,
+  list: T[],
+  listEl: HTMLElement | null,
+  onReorder: (next: T[], draggingIndex: number | null) => void,
+  onDrop: (next: T[]) => void,
+) {
+  e.preventDefault()
+  let items = [...list]
+  let draggedIdx = startIndex
+  onReorder(items, startIndex)
+
+  function indexAtY(y: number): number {
+    if (!listEl) return draggedIdx
+    const children = Array.from(listEl.children) as HTMLElement[]
+    for (let i = 0; i < children.length; i++) {
+      const rect = children[i].getBoundingClientRect()
+      if (y < rect.top + rect.height / 2) return i
+    }
+    return children.length - 1
+  }
+
+  function onMove(ev: PointerEvent) {
+    const targetIdx = indexAtY(ev.clientY)
+    if (targetIdx === draggedIdx) return
+    const next = [...items]
+    const [item] = next.splice(draggedIdx, 1)
+    next.splice(targetIdx, 0, item)
+    items = next
+    draggedIdx = targetIdx
+    onReorder(items, draggedIdx)
+  }
+
+  function onUp() {
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+    onReorder(items, null)
+    onDrop(items)
+  }
+
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', onUp)
+}
+
 export function ProductDetailForm({ productId, productSlug, defaultValues }: ProductDetailFormProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('card')
@@ -109,7 +156,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
 
   const [uploading, setUploading] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { cropDialog, requestCrop } = useImageCrop()
   const [error, setError] = useState('')
   const [showPublished, setShowPublished] = useState(false)
 
@@ -161,6 +207,30 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     else router.push('/editor?tab=products')
   }
 
+  // Drag-to-reorder for the use case / release note lists
+  const ucListRef = useRef<HTMLDivElement | null>(null)
+  const puListRef = useRef<HTMLDivElement | null>(null)
+  const [ucDragIndex, setUcDragIndex] = useState<number | null>(null)
+  const [puDragIndex, setPuDragIndex] = useState<number | null>(null)
+
+  function startUcDrag(e: React.PointerEvent, index: number) {
+    if (useCases.length < 2 || activeUcIndex !== null) return
+    beginPointerReorder(
+      e, index, useCases, ucListRef.current,
+      (next, d) => { setUseCases(next); setUcDragIndex(d) },
+      (next) => { void submitForm({ useCases: next }) },
+    )
+  }
+
+  function startPuDrag(e: React.PointerEvent, index: number) {
+    if (productUpdates.length < 2 || activePuIndex !== null) return
+    beginPointerReorder(
+      e, index, productUpdates, puListRef.current,
+      (next, d) => { setProductUpdates(next); setPuDragIndex(d) },
+      (next) => { void submitForm({ productUpdates: next }) },
+    )
+  }
+
   // Accordion state for use cases
   const [activeUcIndex, setActiveUcIndex] = useState<number | null>(null)
   const [ucDraft, setUcDraft] = useState<UseCase | null>(null)
@@ -176,7 +246,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     if (!ucDraft) return
     const entry = { ...ucDraft, isDraft }
     const next = activeUcIndex === -1
-      ? [...useCases, entry]
+      ? [entry, ...useCases]
       : useCases.map((uc, i) => i === activeUcIndex ? entry : uc)
     setUseCases(next)
     const ok = await submitForm({ useCases: next })
@@ -201,7 +271,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     if (!puDraft) return
     const entry = { ...puDraft, isDraft }
     const next = activePuIndex === -1
-      ? [...productUpdates, entry]
+      ? [entry, ...productUpdates]
       : productUpdates.map((u, i) => i === activePuIndex ? entry : u)
     setProductUpdates(next)
     const ok = await submitForm({ productUpdates: next })
@@ -211,15 +281,13 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
     }
   }
 
-  // Upload a picked/pasted image to GridFS and store the returned URL. Logos
-  // keep their original size; screenshots are downscaled to max 1600px wide.
-  // Never inline base64 — the deploy WAF 403s any body containing ";base64,".
+  // Upload a picked/pasted image to GridFS and store the returned URL. Both the
+  // logo and the UI screenshot are uploaded as-is (screenshots are downscaled to
+  // max 1600px wide). Never inline base64 — the deploy WAF 403s any body with ";base64,".
   async function setImageFromFile(file: File, target: 'logo' | 'screenshot') {
-    const cropped = await requestCrop(file, { title: target === 'logo' ? 'Crop logo' : 'Crop screenshot' })
-    if (!cropped) return // user cancelled the crop dialog
     setUploading(target)
     try {
-      const url = await uploadImage(cropped, target === 'screenshot' ? 1600 : undefined)
+      const url = await uploadImage(file, target === 'screenshot' ? 1600 : undefined)
       if (target === 'logo') setLogoUrl(url)
       else setUiScreenshot(url)
     }
@@ -233,15 +301,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       e.preventDefault()
       setImageFromFile(file, target)
     }
-  }
-
-  // Click an existing logo/screenshot to re-open the crop dialog on it.
-  async function recropImage(target: 'logo' | 'screenshot') {
-    const current = target === 'logo' ? logoUrl : uiScreenshot
-    if (!current) return
-    try {
-      await setImageFromFile(await fileFromUrl(current, target), target)
-    } catch { setError(`Could not load ${target} image.`) }
   }
 
   async function submitForm(overrides?: { useCases?: UseCase[]; productUpdates?: ProductUpdate[] }): Promise<boolean> {
@@ -295,7 +354,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       if (activeUcIndex === i && ucDraft) return ucDraft
       return uc
     })
-    if (activeUcIndex === -1 && ucDraft) return [...base, ucDraft]
+    if (activeUcIndex === -1 && ucDraft) return [ucDraft, ...base]
     return base
   })()
 
@@ -304,7 +363,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       if (activePuIndex === i && puDraft) return puDraft
       return u
     })
-    if (activePuIndex === -1 && puDraft) return [...base, puDraft]
+    if (activePuIndex === -1 && puDraft) return [puDraft, ...base]
     return base
   })()
 
@@ -334,18 +393,20 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
   }
 
   return (
-    <form onSubmit={(e) => e.preventDefault()} className="flex gap-8 items-start">
-      {/* ── Left: editor ── */}
-      <div className="flex-1 min-w-0 pb-8">
-      {/* Back button */}
+    <form onSubmit={(e) => e.preventDefault()}>
+      {/* Back button — above the page heading */}
       <button
         type="button"
         onClick={handleCancel}
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to dashboard
+        Back to editor
       </button>
+      <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
+      <div className="flex gap-8 items-start">
+      {/* ── Left: editor ── */}
+      <div className="flex-1 min-w-0 pb-8">
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-slate-200 mb-8">
         {TABS.map((tab) => (
@@ -380,7 +441,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               {logoUrl ? (
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={logoUrl} alt="Logo" title="Click to re-crop" onClick={() => recropImage('logo')} className="w-full h-full object-contain p-1 cursor-pointer" />
+                  <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                   <button
                     type="button"
                     onClick={() => setLogoUrl('')}
@@ -472,7 +533,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             {uiScreenshot ? (
               <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={uiScreenshot} alt="UI screenshot" title="Click to re-crop" onClick={() => recropImage('screenshot')} className="max-w-full h-auto max-h-[28rem] object-contain mx-auto block cursor-pointer" />
+                <img src={uiScreenshot} alt="UI screenshot" className="max-w-full h-auto max-h-[28rem] object-contain mx-auto block" />
                 <button type="button" onClick={() => setUiScreenshot('')} className="absolute top-2 right-2 bg-black/50 rounded-full p-1 text-white">
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -506,7 +567,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             <Button type="button" variant="ghost" onClick={handleCancel} className="h-9 px-4 text-slate-600">
               Cancel
             </Button>
-            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-5">
+            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-5">
               {loading ? 'Publishing...' : 'Publish changes'}
             </Button>
           </div>
@@ -527,9 +588,9 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="live">● Live</SelectItem>
-                    <SelectItem value="beta">● Beta</SelectItem>
-                    <SelectItem value="coming_soon">● Coming Soon</SelectItem>
+                    <SelectItem value="live"><span className="text-emerald-500">●</span> Live</SelectItem>
+                    <SelectItem value="beta"><span className="text-amber-500">●</span> Beta</SelectItem>
+                    <SelectItem value="coming_soon"><span className="text-slate-400">●</span> Coming Soon</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -634,7 +695,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
             <Button type="button" variant="ghost" onClick={handleCancel} className="h-9 px-4 text-slate-600">
               Cancel
             </Button>
-            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-5">
+            <Button type="button" disabled={loading} onClick={() => submitForm()} className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-5">
               {loading ? 'Publishing...' : 'Publish changes'}
             </Button>
           </div>
@@ -645,13 +706,24 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       {activeTab === 'usecases' && (
         <div className="space-y-2">
           {error && <p className="text-sm text-red-600">{error}</p>}
+          <div ref={ucListRef} className="space-y-2">
           {useCases.map((uc, i) => (
-            <div key={i} className={cn('border rounded-xl bg-white overflow-hidden', activeUcIndex === i ? 'border-slate-400' : uc.isDraft ? 'border-amber-200' : 'border-slate-200')}>
+            <div key={i} className={cn('border rounded-xl bg-white overflow-hidden transition-opacity', ucDragIndex === i && 'opacity-40', activeUcIndex === i ? 'border-slate-400' : uc.isDraft ? 'border-amber-200' : 'border-slate-200')}>
               {/* Collapsed header */}
               <div className="flex items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
+                {useCases.length > 1 && activeUcIndex === null && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => startUcDrag(e, i)}
+                    className="touch-none cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 -ml-1"
+                    aria-label="Drag to reorder"
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </button>
+                )}
+                <div className="flex-1 min-w-0 flex items-baseline gap-2">
                   <p className="text-sm font-semibold text-slate-900 truncate">{uc.title || <span className="text-slate-400 font-normal">Untitled use case</span>}</p>
-                  {uc.functionTag && <p className="text-xs text-slate-500 truncate">{uc.functionTag}</p>}
+                  {uc.functionTag && <p className="text-xs text-slate-500 truncate flex-shrink-0">{uc.functionTag}</p>}
                 </div>
                 {uc.isDraft && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
@@ -689,7 +761,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                     <button type="button" disabled={loading} onClick={() => saveUcAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
                       {loading ? 'Saving…' : 'Save as draft'}
                     </button>
-                    <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50">
                       {loading ? 'Saving…' : 'Publish'}
                     </button>
                   </div>
@@ -697,6 +769,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               )}
             </div>
           ))}
+          </div>
 
           {/* New use case accordion */}
           {activeUcIndex === -1 && ucDraft ? (
@@ -724,7 +797,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                   <button type="button" disabled={loading} onClick={() => saveUcAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
                     {loading ? 'Saving…' : 'Save as draft'}
                   </button>
-                  <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                  <button type="button" disabled={loading} onClick={() => saveUcAccordion(false)} className="px-4 py-2 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50">
                     {loading ? 'Saving…' : 'Publish'}
                   </button>
                 </div>
@@ -742,10 +815,21 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
       {activeTab === 'content' && (
         <div className="space-y-2">
           {error && <p className="text-sm text-red-600">{error}</p>}
+          <div ref={puListRef} className="space-y-2">
           {productUpdates.map((u, i) => (
-            <div key={i} className={cn('border rounded-xl bg-white overflow-hidden', activePuIndex === i ? 'border-slate-400' : u.isDraft ? 'border-amber-200' : 'border-slate-200')}>
+            <div key={i} className={cn('border rounded-xl bg-white overflow-hidden transition-opacity', puDragIndex === i && 'opacity-40', activePuIndex === i ? 'border-slate-400' : u.isDraft ? 'border-amber-200' : 'border-slate-200')}>
               {/* Collapsed header */}
               <div className="flex items-center gap-3 px-4 py-3">
+                {productUpdates.length > 1 && activePuIndex === null && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => startPuDrag(e, i)}
+                    className="touch-none cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0 -ml-1"
+                    aria-label="Drag to reorder"
+                  >
+                    <GripVertical className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 truncate">{u.title || <span className="text-slate-400 font-normal">Untitled release note</span>}</p>
                 </div>
@@ -779,7 +863,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                     <button type="button" disabled={loading} onClick={() => savePuAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
                       {loading ? 'Saving…' : 'Save as draft'}
                     </button>
-                    <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                    <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50">
                       {loading ? 'Saving…' : 'Publish'}
                     </button>
                   </div>
@@ -787,6 +871,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
               )}
             </div>
           ))}
+          </div>
 
           {/* New update accordion */}
           {activePuIndex === -1 && puDraft ? (
@@ -808,7 +893,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
                   <button type="button" disabled={loading} onClick={() => savePuAccordion(true)} className="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50">
                     {loading ? 'Saving…' : 'Save as draft'}
                   </button>
-                  <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50">
+                  <button type="button" disabled={loading} onClick={() => savePuAccordion(false)} className="px-4 py-2 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50">
                     {loading ? 'Saving…' : 'Publish'}
                   </button>
                 </div>
@@ -847,6 +932,7 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
           )}
         </div>
       </div>
+      </div>{/* end flex row */}
 
       {/* Unsaved changes — three-way modal (card/overview tab switches and leave-page) */}
       <ConfirmDialog
@@ -883,8 +969,6 @@ export function ProductDetailForm({ productId, productSlug, defaultValues }: Pro
         onConfirm={() => { deleteConfirm?.action(); setDeleteConfirm(null) }}
         onCancel={() => setDeleteConfirm(null)}
       />
-
-      {cropDialog}
     </form>
   )
 }

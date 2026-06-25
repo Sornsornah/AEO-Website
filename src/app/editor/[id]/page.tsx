@@ -38,15 +38,24 @@ export default async function EditUpdatePage({ params }: PageProps) {
     domains.map((d) => [d._id.toString(), { _id: d._id.toString(), name: d.name, products: [] }])
   )
 
+  // Products whose domainId is missing or points to a deleted domain still need
+  // to be selectable on updates — collect them under a catch-all "Other" group.
+  const ungrouped: { _id: string; name: string; color: string }[] = []
   for (const p of products) {
     const domainDoc = p.domainId as { _id: { toString(): string } } | null
     const domainId = domainDoc?._id?.toString()
+    const entry = { _id: p._id.toString(), name: p.name, color: p.color }
     if (domainId && groupMap.has(domainId)) {
-      groupMap.get(domainId)!.products.push({ _id: p._id.toString(), name: p.name, color: p.color })
+      groupMap.get(domainId)!.products.push(entry)
+    } else {
+      ungrouped.push(entry)
     }
   }
 
   const domainGroups = Array.from(groupMap.values())
+  if (ungrouped.length > 0) {
+    domainGroups.push({ _id: 'ungrouped', name: 'Other', products: ungrouped })
+  }
   const allDomains = domains.map((d) => ({ _id: d._id.toString(), name: d.name }))
   const allTags = tags.map((t) => ({ _id: t._id.toString(), name: t.name }))
 
@@ -93,7 +102,7 @@ export default async function EditUpdatePage({ params }: PageProps) {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Back to dashboard
+            Back to editor
           </Link>
           <h1 className="text-2xl font-bold text-slate-900">Edit Update</h1>
           <p className="text-slate-500 text-sm mt-1 line-clamp-1">{update.title}</p>

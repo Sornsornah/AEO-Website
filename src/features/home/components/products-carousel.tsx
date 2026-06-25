@@ -104,7 +104,7 @@ export function ProductsCarousel({ products }: ProductsCarouselProps) {
                   {p.name}
                 </span>
                 {p.description && (
-                  <span className="line-clamp-2 text-xs leading-snug text-stone-500">
+                  <span className="text-xs leading-snug text-stone-500">
                     {p.description}
                   </span>
                 )}
