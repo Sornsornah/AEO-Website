@@ -27,13 +27,22 @@ function getAdminEmails(): Set<string> {
   )
 }
 
+// Optional role for the dev-auth fallback, so a per-environment .env file can
+// decide what access the simulated user gets (e.g. DEV_USER_ROLE=viewer makes
+// the mgt environment log in as "Management"). Ignored unless it names a valid
+// role; the real gateway path never sets this — DB role wins there.
+function getDevRole(): UserRole | null {
+  const raw = process.env.DEV_USER_ROLE?.trim().toLowerCase()
+  return raw === 'public' || raw === 'viewer' || raw === 'admin' ? raw : null
+}
+
 function readGatewayHeaders(headers: Headers) {
   const gatewayId = headers.get('x-auth-user-id')
   const email = headers.get('x-auth-user-email')
   const name = headers.get('x-auth-user-name')
   const image = headers.get('x-auth-user-image')
   if (gatewayId && email) {
-    return { gatewayId, email: email.toLowerCase(), name: name ?? email.split('@')[0], image: image || null }
+    return { gatewayId, email: email.toLowerCase(), name: name ?? email.split('@')[0], image: image || null, role: null as UserRole | null }
   }
   // Dev fallback — honoured outside production, or on a production build that
   // explicitly opts in via ALLOW_DEV_AUTH (e.g. staging without a gateway).
@@ -47,6 +56,7 @@ function readGatewayHeaders(headers: Headers) {
       email: process.env.DEV_USER_EMAIL.toLowerCase(),
       name: process.env.DEV_USER_NAME ?? process.env.DEV_USER_EMAIL!.split('@')[0],
       image: null,
+      role: getDevRole(),
     }
   }
   return null
@@ -60,9 +70,18 @@ export async function getSession(headers: Headers): Promise<AuthSession | null> 
   // Emails in ADMIN_EMAILS are forced to `admin` on every login ("no matter
   // what"); a field can't appear in both $set and $setOnInsert, so branch.
   const isForcedAdmin = getAdminEmails().has(gw.email)
-  const update = isForcedAdmin
-    ? { $setOnInsert: { email: gw.email }, $set: { name: gw.name, role: 'admin' as UserRole } }
-    : { $setOnInsert: { email: gw.email, role: 'public' }, $set: { name: gw.name } }
+  // Precedence: ADMIN_EMAILS forces admin; otherwise a dev-auth role from the
+  // env file is authoritative per-environment (re-applied on every login so the
+  // env file is the source of truth); otherwise default new users to public and
+  // leave an existing user's role (e.g. one set on the Users page) untouched.
+  let update
+  if (isForcedAdmin) {
+    update = { $setOnInsert: { email: gw.email }, $set: { name: gw.name, role: 'admin' as UserRole } }
+  } else if (gw.role) {
+    update = { $setOnInsert: { email: gw.email }, $set: { name: gw.name, role: gw.role } }
+  } else {
+    update = { $setOnInsert: { email: gw.email, role: 'public' }, $set: { name: gw.name } }
+  }
   // Match by email — preserves all existing createdBy/authorId/saved/likes references.
   const user = await User.findOneAndUpdate(
     { email: gw.email },

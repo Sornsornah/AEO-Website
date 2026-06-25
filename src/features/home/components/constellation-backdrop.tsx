@@ -18,13 +18,13 @@ export function ConstellationCenter({ interactive = true }: { interactive?: bool
       {interactive ? (
         <Link
           href="/products"
-          className="mt-6 inline-flex items-center gap-2 rounded-md bg-[#F97316] px-5 py-2.5 text-sm font-semibold text-[#F8FAFC] shadow-sm transition-colors hover:bg-[#EA580C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] focus-visible:ring-offset-2"
+          className="mt-6 inline-flex items-center gap-2 rounded-md bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-2"
         >
           Check out products
           <ArrowRight className="h-4 w-4" />
         </Link>
       ) : (
-        <span className="mt-6 inline-flex items-center gap-2 rounded-md bg-[#F97316] px-5 py-2.5 text-sm font-semibold text-[#F8FAFC] shadow-sm">
+        <span className="mt-6 inline-flex items-center gap-2 rounded-md bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm">
           Check out products
           <ArrowRight className="h-4 w-4" />
         </span>

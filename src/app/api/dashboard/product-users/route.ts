@@ -62,12 +62,14 @@ export async function GET(req: NextRequest) {
         const u = userMap.get(String(g._id))
         return {
           _id: String(g._id),
-          name: u?.name ?? 'Unknown',
+          name: u?.name || u?.email || '',
           email: u?.email ?? '',
           count: g.count,
           lastAt: g.lastAt instanceof Date ? g.lastAt.toISOString() : String(g.lastAt),
         }
       })
+      // Drop rows whose user no longer resolves rather than show "unknown".
+      .filter((r) => r.name !== '')
       .sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1))
 
     return NextResponse.json({ users: rows, total: rows.length })

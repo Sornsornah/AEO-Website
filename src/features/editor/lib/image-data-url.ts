@@ -148,3 +148,18 @@ export function imageFileFromClipboardData(data: DataTransfer | null): File | nu
   }
   return null
 }
+
+/**
+ * True if the clipboard/drop payload carries a file that isn't an image (e.g. a
+ * PDF or document). Used to reject pasting non-image files with a clear message.
+ * Plain text/HTML paste items are `kind: 'string'`, not `'file'`, so they don't
+ * count; an unknown/empty MIME type is treated as non-image (rejected).
+ */
+export function hasNonImageFile(data: DataTransfer | null): boolean {
+  if (!data) return false
+  for (let i = 0; i < data.items.length; i++) {
+    const item = data.items[i]
+    if (item.kind === 'file' && !item.type.startsWith('image/')) return true
+  }
+  return false
+}

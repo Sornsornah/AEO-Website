@@ -21,6 +21,8 @@ interface SerializedProduct {
   _id: string
   name: string
   slug: string
+  description?: string
+  isHidden?: boolean
   logoUrl?: string
   color: string
   members: { _id: string; name: string }[]

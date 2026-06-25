@@ -148,7 +148,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
                         <button
                           onClick={() => handleSaveEdit(comment._id)}
                           disabled={!editText.trim() || savingEdit}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-700 disabled:opacity-40 transition-colors"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-medium hover:bg-orange-700 disabled:opacity-40 transition-colors"
                         >
                           <Check className="w-3 h-3" />
                           Save
@@ -211,7 +211,7 @@ export function BlogComments({ slug, postId, category, initialComments, isLogged
           <button
             type="submit"
             disabled={!text.trim() || submitting}
-            className="self-end px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+            className="self-end px-4 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
           >
             <Send className="w-3.5 h-3.5" />
             Post

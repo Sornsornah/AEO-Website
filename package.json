@@ -32,7 +32,8 @@
     "remove-scheduling": "tsx src/scripts/remove-scheduling.ts",
     "backfill-blog-createdby": "tsx src/scripts/backfill-blog-createdby.ts",
     "migrate-inline-images": "tsx src/scripts/migrate-inline-images.ts",
-    "migrate-analytics-events": "tsx src/scripts/migrate-analytics-events.ts"
+    "migrate-analytics-events": "tsx src/scripts/migrate-analytics-events.ts",
+    "migrate-blog-categories": "tsx src/scripts/migrate-blog-thought-category.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -76,6 +77,7 @@
     "prosemirror-schema-list": "^1.5.1",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
+    "react-day-picker": "^9.14.0",
     "react-dom": "^19.0.0",
     "react-easy-crop": "^6.0.2",
     "react-hook-form": "^7.54.0",

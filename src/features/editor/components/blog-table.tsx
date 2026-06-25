@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { Pencil, Trash2, Star, Heart } from 'lucide-react'
 import { getCategoryDisplay, hexToBadgeStyle, type CategoriesMap } from '@/features/blog/components/blog-utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { BlogCategory } from '@/models/BlogPost'
 
 interface BlogRow {
@@ -31,6 +34,23 @@ export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories:
   const [featuringSlug, setFeaturingSlug] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ slug: string; title: string } | null>(null)
 
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest')
+
+  const visiblePosts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return posts
+      .filter((p) => (q ? p.title.toLowerCase().includes(q) : true))
+      .filter((p) => (statusFilter === 'all' ? true : p.status === statusFilter))
+      .filter((p) => (categoryFilter === 'all' ? true : p.category === categoryFilter))
+      .sort((a, b) => {
+        const diff = new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+        return sort === 'newest' ? -diff : diff
+      })
+  }, [posts, search, statusFilter, categoryFilter, sort])
+
   async function confirmDelete(slug: string) {
     setDeleteConfirm(null)
     setDeletingSlug(slug)
@@ -53,17 +73,92 @@ export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories:
     }
   }
 
-  if (posts.length === 0) {
-    return (
-      <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl mt-6">
-        <p className="text-slate-400 text-sm font-medium mb-1">No blog posts yet</p>
-        <p className="text-slate-300 text-xs">Create your first article to get started</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="mt-6 border border-slate-200 rounded-xl overflow-hidden">
+    <div>
+      {/* Status pills + New Post */}
+      <div className="mt-6 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {([
+            { value: 'all', label: 'All' },
+            { value: 'published', label: 'Published' },
+            { value: 'draft', label: 'Draft' },
+          ] as const).map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setStatusFilter(t.value)}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                statusFilter === t.value
+                  ? 'bg-[#070E1D] text-white'
+                  : 'text-[#64748B] hover:text-[#070E1D] hover:bg-[#F4F4F6]'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <Link
+          href="/editor/blog/new"
+          className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium h-9 px-4 rounded-lg transition-colors"
+        >
+          + New Post
+        </Link>
+      </div>
+
+      {posts.length === 0 ? (
+        <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl mt-6">
+          <p className="text-slate-400 text-sm font-medium mb-1">No blog posts yet</p>
+          <p className="text-slate-300 text-xs">Create your first article to get started</p>
+        </div>
+      ) : (
+      <>
+      {/* Search / category / sort */}
+      <div className="mt-4 flex flex-wrap items-end gap-4 pb-6 border-b border-slate-100">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Search</Label>
+          <Input
+            type="text"
+            placeholder="Search by title..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-52 h-9 text-sm"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Category</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-44 h-9 text-sm">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Sort</Label>
+          <Select value={sort} onValueChange={(v) => setSort(v as 'newest' | 'oldest')}>
+            <SelectTrigger className="w-36 h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {visiblePosts.length === 0 ? (
+        <div className="text-center py-16 border border-dashed border-slate-200 rounded-xl mt-4">
+          <p className="text-slate-400 text-sm font-medium">No posts match your filters</p>
+        </div>
+      ) : (
+      <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 border-b border-slate-200">
           <tr>
@@ -78,7 +173,7 @@ export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories:
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <tr key={post._id} className="hover:bg-slate-50 transition-colors">
               <td className="px-4 py-3">
                 <Link
@@ -153,6 +248,10 @@ export function BlogTable({ posts, categories }: { posts: BlogRow[]; categories:
           ))}
         </tbody>
       </table>
+      </div>
+      )}
+      </>
+      )}
       <ConfirmDialog
         open={!!deleteConfirm}
         title="Delete post?"

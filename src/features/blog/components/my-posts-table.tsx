@@ -43,7 +43,7 @@ export function MyPostsTable({ posts, categoriesMap = {} }: MyPostsTableProps) {
               <tr key={post._id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3">
                   <Link
-                    href={`/editor/blog/${post._id}`}
+                    href={`/editor/blog/${post._id}?from=blog`}
                     className="font-medium text-slate-900 hover:text-blue-600 transition-colors line-clamp-1"
                   >
                     {post.title}
@@ -77,7 +77,7 @@ export function MyPostsTable({ posts, categoriesMap = {} }: MyPostsTableProps) {
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end">
                     <Link
-                      href={`/editor/blog/${post._id}`}
+                      href={`/editor/blog/${post._id}?from=blog`}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                       title="Edit"
                     >

@@ -192,7 +192,7 @@ export function BlogCategoryTable({ categories }: { categories: BlogCategoryRow[
                     </div>
                     {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
                     <div className="flex items-center gap-2 mt-3">
-                      <Button size="sm" className="h-8 bg-slate-900 text-white hover:bg-slate-800" onClick={() => saveEdit(cat._id)} disabled={saving}>
+                      <Button size="sm" className="h-8 bg-orange-600 text-white hover:bg-orange-700" onClick={() => saveEdit(cat._id)} disabled={saving}>
                         {saving ? 'Saving...' : <><Check size={13} className="mr-1" /> Save</>}
                       </Button>
                       <Button size="sm" variant="ghost" className="h-8" onClick={cancelEdit}>Cancel</Button>

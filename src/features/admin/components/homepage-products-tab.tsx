@@ -8,6 +8,7 @@ import {
   useEffect,
   type CSSProperties,
 } from 'react'
+import Link from 'next/link'
 import { X, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConstellationBackdrop } from '@/features/home/components/constellation-backdrop'
@@ -22,6 +23,8 @@ export interface HomeProductRow {
   _id: string
   name: string
   slug: string
+  description?: string
+  isHidden?: boolean
   logoUrl?: string
   color: string
 }
@@ -148,9 +151,15 @@ export function HomepageProductsTab({
 
   const placed = useMemo(() => new Set(slots.filter(Boolean).map((p) => p!._id)), [slots])
   const available = products.filter((p) => !placed.has(p._id))
+  // Any featured product currently marked invisible — surfaced as a note so the
+  // admin knows it won't actually render on the live homepage.
+  const hiddenFeaturedCount = slots.filter((p) => p?.isHidden).length
   const filledCount = slots.filter(Boolean).length
   const isDirty = signature(slots) !== savedRef.current
   const atCapacity = filledCount >= MAX_FEATURED
+  // The homepage section is hidden when nothing is featured, so at least one
+  // product is required before an arrangement can be saved.
+  const isEmpty = filledCount === 0
 
   // Keep the stage scaled 1:1 to its column width on mount + resize.
   useEffect(() => {
@@ -320,8 +329,12 @@ export function HomepageProductsTab({
   }
 
   async function handleSave() {
-    setSaving(true)
     const current = slotsRef.current
+    if (current.every((p) => p === null)) {
+      toast.warning('Feature at least one product before saving.')
+      return
+    }
+    setSaving(true)
     try {
       const res = await fetch('/api/admin/home-products', {
         method: 'PUT',
@@ -350,14 +363,21 @@ export function HomepageProductsTab({
           <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500">
             A 1:1 scaled preview of the live homepage &ldquo;Available Products&rdquo; section. Drag products
             from the bench into the {MAX_FEATURED} fixed slots — each stays exactly where you place it. To swap
-            a slot, remove the product in it first (the &times; button); slots won&rsquo;t overwrite. Leave
-            every slot empty to fall back to the first {MAX_FEATURED} products by catalogue order.
+            a slot, remove the product in it first (the &times; button); slots won&rsquo;t overwrite. At least
+            one product must be featured — with none, the &ldquo;Available Products&rdquo; section is hidden
+            from the homepage. <span className="text-slate-400">Dimmed products are marked invisible and
+            won&rsquo;t show on the homepage — make them visible under{' '}
+            <Link href="/editor?tab=products" className="font-medium text-[#3B82F6] underline-offset-2 hover:underline">
+              Editor&nbsp;&rsaquo;&nbsp;Products
+            </Link>{' '}
+            first.</span>
           </p>
         </div>
         <button
           onClick={handleSave}
-          disabled={!isDirty || saving}
-          className="flex-shrink-0 rounded-md bg-[#3B82F6] px-4 py-2 text-sm font-medium text-[#F8FAFC] transition-colors hover:bg-[#2563EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!isDirty || saving || isEmpty}
+          title={isEmpty ? 'Feature at least one product before saving.' : undefined}
+          className="flex-shrink-0 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>
@@ -374,6 +394,19 @@ export function HomepageProductsTab({
               {filledCount} / {MAX_FEATURED} featured
             </span>
           </div>
+
+          {hiddenFeaturedCount > 0 && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+              {hiddenFeaturedCount === 1
+                ? '1 featured product is currently invisible'
+                : `${hiddenFeaturedCount} featured products are currently invisible`}{' '}
+              (shown dimmed) and won&rsquo;t appear on the live homepage. Make them visible under{' '}
+              <Link href="/editor?tab=products" className="font-medium underline underline-offset-2 hover:text-amber-800">
+                Editor&nbsp;&rsaquo;&nbsp;Products
+              </Link>{' '}
+              to display them.
+            </div>
+          )}
 
           <div
             ref={stageWrapRef}
@@ -433,10 +466,12 @@ export function HomepageProductsTab({
                     return (
                       <div
                         key={i}
-                        className="cn-slot group cursor-grab touch-none select-none active:cursor-grabbing"
+                        className={`cn-slot group cursor-grab touch-none select-none active:cursor-grabbing ${
+                          p.isHidden ? 'opacity-40' : ''
+                        }`}
                         style={slotStyle}
                         onPointerDown={(e) => startPress(e, p, i)}
-                        aria-label={`${p.name}. Drag to an empty slot, or use the remove button.`}
+                        aria-label={`${p.name}${p.isHidden ? ' (hidden — not shown on the live homepage)' : ''}. Drag to an empty slot, or use the remove button.`}
                       >
                         <div className="cn-rot">
                           <div
@@ -463,6 +498,7 @@ export function HomepageProductsTab({
                         </div>
                         <span className="cn-cap">
                           <span className="cn-cap-name">{p.name}</span>
+                          {p.description && <span className="cn-cap-line">{p.description}</span>}
                         </span>
                       </div>
                     )
@@ -499,20 +535,27 @@ export function HomepageProductsTab({
                   key={p._id}
                   onPointerDown={(e) => startPress(e, p, null)}
                   onClick={() => featureFromBench(p)}
-                  aria-label={`Feature ${p.name}`}
+                  aria-label={`Feature ${p.name}${p.isHidden ? ' (hidden — make it visible under Editor › Products to show it on the homepage)' : ''}`}
                   title={
-                    atCapacity
-                      ? `Remove a product first (max ${MAX_FEATURED})`
-                      : `Drag into a slot, or click to feature ${p.name}`
+                    p.isHidden
+                      ? 'Hidden — won’t appear on the homepage until you make it visible under Editor › Products'
+                      : atCapacity
+                        ? `Remove a product first (max ${MAX_FEATURED})`
+                        : `Drag into a slot, or click to feature ${p.name}`
                   }
                   className={`group flex touch-none select-none items-center gap-2 rounded-lg border border-slate-200 bg-white py-1.5 pl-1.5 pr-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 ${
-                    atCapacity ? 'cursor-grab opacity-60' : 'cursor-grab active:cursor-grabbing'
-                  }`}
+                    p.isHidden ? 'opacity-50' : ''
+                  } ${atCapacity ? 'cursor-grab opacity-60' : 'cursor-grab active:cursor-grabbing'}`}
                 >
                   <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-100 bg-white p-0.5">
                     <BenchLogo p={p} />
                   </span>
                   <span className="flex-1 truncate text-xs font-medium text-slate-700">{p.name}</span>
+                  {p.isHidden && (
+                    <span className="flex-shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                      Hidden
+                    </span>
+                  )}
                   <Plus
                     size={13}
                     className="flex-shrink-0 text-slate-300 transition-colors group-hover:text-[#3B82F6]"

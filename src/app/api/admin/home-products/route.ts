@@ -33,6 +33,16 @@ export async function PUT(req: NextRequest) {
 
   // No product may occupy two slots.
   const filled = slots.filter((id): id is string => typeof id === 'string')
+
+  // At least one product must be featured — the homepage section is hidden
+  // entirely when nothing is configured, so an empty arrangement is rejected.
+  if (filled.length === 0) {
+    return NextResponse.json(
+      { error: 'At least one product must be featured on the homepage' },
+      { status: 400 }
+    )
+  }
+
   if (new Set(filled).size !== filled.length) {
     return NextResponse.json(
       { error: 'A product cannot be featured in more than one slot' },

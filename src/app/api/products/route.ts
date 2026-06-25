@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     deckUrl: deckUrl || undefined,
     logoUrl: logoUrl || undefined,
     members: Array.isArray(members) ? members : [],
+    isHidden: true,
   })
 
   const changes = computeDiff('product', null, product.toObject())

@@ -262,7 +262,8 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
         <div className="max-w-3xl">
           {product.overviewContent ? (
             <div
-              className="prose prose-sm max-w-none text-slate-600 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:leading-relaxed"
+              style={{ '--product-color': product.color } as React.CSSProperties}
+              className="prose prose-sm max-w-none text-slate-600 [&_h1]:text-[color:var(--product-color)] [&_h2]:text-[color:var(--product-color)] [&_h3]:text-[color:var(--product-color)] [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-700 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:leading-relaxed"
             >
               {product.overviewContent.trim().startsWith('<') ? (
                 <div dangerouslySetInnerHTML={{ __html: product.overviewContent }} />
@@ -330,8 +331,8 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                     key={i}
                     className={`border rounded-xl p-5 bg-card ${uc.isDraft ? 'border-amber-200' : 'border-slate-200'}`}
                   >
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div className="flex items-center gap-2">
+                    {(uc.department || uc.isDraft) && (
+                      <div className="flex items-center gap-2 mb-2">
                         {uc.department && (
                           <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: product.color }}>
                             {uc.department}
@@ -343,14 +344,19 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                           </span>
                         )}
                       </div>
+                    )}
+                    <div className="flex items-start justify-between gap-4 mb-2.5">
+                      <h3 className="text-lg font-bold text-[#1C1512] leading-snug">{uc.title}</h3>
                       {uc.functionTag && (
-                        <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                        <span className="flex-shrink-0 mt-0.5 inline-flex items-center px-2 py-0.5 rounded-md border border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
                           {uc.functionTag}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold text-[#1C1512] mb-2.5 leading-snug">{uc.title}</h3>
-                    <div className="prose prose-sm max-w-none text-slate-600 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed">
+                    <div
+                      style={{ '--product-color': product.color } as React.CSSProperties}
+                      className="prose prose-sm max-w-none text-slate-600 [&_h1]:text-[color:var(--product-color)] [&_h2]:text-[color:var(--product-color)] [&_h3]:text-[color:var(--product-color)] [&_ul]:list-disc [&_ul]:pl-4 [&_li]:leading-relaxed"
+                    >
                       {uc.content.trim().startsWith('<') ? (
                         <div dangerouslySetInnerHTML={{ __html: uc.content }} />
                       ) : (
@@ -390,7 +396,7 @@ export function ProductDetailClient({ product }: ProductDetailProps) {
                           </span>
                         )}
                       </div>
-                      <div className="prose prose-sm max-w-none text-slate-600 [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-slate-500 [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0">
+                      <div style={{ '--product-color': product.color } as React.CSSProperties} className="prose prose-sm max-w-none text-slate-600 [&_h1]:text-[color:var(--product-color)] [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:text-[color:var(--product-color)] [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-[color:var(--product-color)] [&_h3]:mt-3 [&_h3]:mb-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_p]:leading-relaxed [&_li]:leading-relaxed [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-slate-500 [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0">
                         {update.content.trim().startsWith('<') ? (
                           <div dangerouslySetInnerHTML={{ __html: update.content }} />
                         ) : (

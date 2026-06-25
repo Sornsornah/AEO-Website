@@ -47,18 +47,15 @@ export default async function Home() {
     uiScreenshot?: string
   }
 
-  let rawSlots: (RawProduct | null)[]
-  if (slotIds.some((id) => id !== null)) {
-    const ids = slotIds.filter((id): id is string => id !== null)
+  // Only the admin-configured constellation is shown — there is no catalogue
+  // fallback. An empty configuration leaves the section hidden (see below).
+  let rawSlots: (RawProduct | null)[] = []
+  const ids = slotIds.filter((id): id is string => id !== null)
+  if (ids.length > 0) {
     const found = await Product.find({ _id: { $in: ids }, isHidden: { $ne: true } }).lean()
     const byId = new Map((found as RawProduct[]).map((p) => [p._id.toString(), p]))
     // Hidden / deleted products collapse to an empty slot rather than shifting others.
     rawSlots = slotIds.map((id) => (id ? byId.get(id) ?? null : null))
-  } else {
-    rawSlots = (await Product.find({ isHidden: { $ne: true } })
-      .sort({ order: 1, name: 1 })
-      .limit(HOME_MAX_PRODUCTS)
-      .lean()) as RawProduct[]
   }
 
   const toHomeProduct = (p: RawProduct): HomeProduct => ({
@@ -74,6 +71,7 @@ export default async function Home() {
 
   // Positional list: index = constellation slot, `null` = empty slot.
   const products: (HomeProduct | null)[] = rawSlots.map((p) => (p ? toHomeProduct(p) : null))
+  const hasVisibleProducts = products.some((p) => p !== null)
 
   const posts: HomeStoryPost[] = (
     rawPosts as Array<{
@@ -110,7 +108,7 @@ export default async function Home() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <AboutSection />
-      <ProductsCarousel products={products} />
+      {hasVisibleProducts && <ProductsCarousel products={products} />}
       <StoriesSection posts={posts} categoriesMap={categoriesMap} />
     </div>
   )

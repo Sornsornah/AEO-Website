@@ -76,6 +76,17 @@ describe('PUT /api/admin/home-products', () => {
     expect(updateOne).not.toHaveBeenCalled()
   })
 
+  it('rejects an empty arrangement (no product featured)', async () => {
+    const { getSession } = await import('@/lib/auth')
+    vi.mocked(getSession).mockResolvedValue(ADMIN_SESSION as never)
+
+    const { PUT } = await import('@/app/api/admin/home-products/route')
+    const res = await PUT(put({ productIds: [null, null] }) as never)
+
+    expect(res.status).toBe(400)
+    expect(updateOne).not.toHaveBeenCalled()
+  })
+
   it('rejects a product featured in two slots', async () => {
     const { getSession } = await import('@/lib/auth')
     vi.mocked(getSession).mockResolvedValue(ADMIN_SESSION as never)
