@@ -154,7 +154,7 @@ function MultiSelect({
                       type="button"
                       onClick={submitNew}
                       disabled={addBusy || !newName.trim()}
-                      className="h-8 px-2.5 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                      className="h-8 px-2.5 bg-orange-600 hover:bg-orange-700 text-white shrink-0"
                     >
                       <Check size={14} />
                     </Button>
@@ -535,7 +535,7 @@ export function UpdateForm({ mode, domainGroups, allDomains, allTags, defaultVal
         <Button
           type="submit"
           disabled={loading || saved}
-          className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-6"
+          className="bg-orange-600 hover:bg-orange-700 text-white h-10 px-6"
         >
           {loading ? 'Saving...' : saved ? 'Saved!' : mode === 'create' ? 'Create Update' : 'Save Changes'}
         </Button>

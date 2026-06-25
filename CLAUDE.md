@@ -34,7 +34,8 @@ pnpm migrate-db          # Generic DB migration entrypoint
 `.env.local` for dev. Only one var is strictly required:
 
 - `MONGODB_URI` — Mongo connection string
-- `DEV_USER_EMAIL` (dev only) — simulates a logged-in user when the gateway isn't fronting the app. Optional: `DEV_USER_ID`, `DEV_USER_NAME`.
+- `DEV_USER_EMAIL` (dev only) — simulates a logged-in user when the gateway isn't fronting the app. Optional: `DEV_USER_ID`, `DEV_USER_NAME`, `DEV_USER_ROLE`.
+- `DEV_USER_ROLE` (optional, dev-auth only) — role for the simulated user: `public` | `viewer` | `admin` (invalid values ignored). Re-applied on every login, so the env file is the source of truth — lets one image render different access per environment (e.g. `.env.aeo`=admin, `.env.mgt`=viewer, `.env.all`=public). Ignored on the real gateway path. Note the Users-page labels differ from the role names: `public`=CPF Officer, `viewer`=Management, `admin`=AEO.
 - `EMAIL_USER` + nodemailer config (optional) — if unset, email send paths effectively no-op.
 - `ADMIN_EMAILS` (optional) — comma-separated list of email addresses always granted the `admin` role. Applied in `getSession()` on every login (re-promotes even existing/demoted users); case-insensitive.
 

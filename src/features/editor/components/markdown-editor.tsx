@@ -596,7 +596,7 @@ function LinkBubble({ editor, onRegisterOpen }: LinkBubbleProps) {
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); applyLink() }}
-            className="ml-0.5 px-2 py-1 bg-slate-900 text-white rounded hover:bg-slate-700 transition-colors text-xs"
+            className="ml-0.5 px-2 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-xs"
           >
             Apply
           </button>

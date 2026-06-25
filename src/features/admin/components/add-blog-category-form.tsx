@@ -63,7 +63,7 @@ export function AddBlogCategoryForm() {
 
   return (
     <>
-      <Button type="button" onClick={() => setOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+      <Button type="button" onClick={() => setOpen(true)} className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 text-sm">
         + Add Category
       </Button>
 
@@ -137,7 +137,7 @@ export function AddBlogCategoryForm() {
               </div>
               {error && <p className="text-xs text-red-600">{error}</p>}
               <div className="flex gap-2 pt-1">
-                <Button type="submit" disabled={loading} className="bg-slate-900 text-white hover:bg-slate-800 h-8 px-4 text-sm">
+                <Button type="submit" disabled={loading} className="bg-orange-600 text-white hover:bg-orange-700 h-8 px-4 text-sm">
                   {loading ? 'Saving...' : 'Save'}
                 </Button>
                 <Button type="button" variant="ghost" onClick={handleClose} className="h-8 px-3 text-sm text-slate-500">

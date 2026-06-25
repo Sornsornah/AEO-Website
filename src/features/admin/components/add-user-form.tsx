@@ -63,7 +63,7 @@ export function AddUserForm() {
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm"
+        className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 text-sm"
       >
         + Add User
       </Button>
@@ -120,7 +120,7 @@ export function AddUserForm() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-4 text-sm"
+                  className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-4 text-sm"
                 >
                   {isSubmitting ? 'Creating...' : 'Create User'}
                 </Button>

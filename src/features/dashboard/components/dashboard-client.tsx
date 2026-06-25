@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { CalendarDays } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Table,
@@ -17,6 +19,7 @@ import { SortHead, useSort } from './sortable'
 import { UserActivityTab } from './user-activity-tab'
 import { ExportModal } from './export-modal'
 import { ProductUsersModal, type ProductUserAction } from './product-users-modal'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import {
   isValidDateRange,
   dateInputToStartIso,
@@ -127,7 +130,12 @@ export function DashboardClient() {
 
   // Custom range is only applied once both ends are valid and correctly ordered.
   const customValid = isValidDateRange(customFrom, customTo)
-  const customInvalid = rangeMode === 'custom' && Boolean(customFrom) && Boolean(customTo) && !customValid
+  const customActive = rangeMode === 'custom'
+  const customComplete = Boolean(customFrom) && Boolean(customTo)
+  // Both dates keyed in but the pair is invalid (bad calendar date or end before start).
+  const customInvalid = customActive && customComplete && !customValid
+  // Custom selected but only one end keyed in — nothing to apply yet.
+  const customIncomplete = customActive && !customComplete
 
   const range = useMemo(() => {
     const to = new Date()
@@ -142,6 +150,12 @@ export function DashboardClient() {
 
   const todayStr = todayDateInput()
 
+  // Human-readable summary of the range actually driving the metrics below —
+  // reflects the real window shown, including the 30-day fallback for an
+  // incomplete custom range.
+  const activePreset = PRESETS.find((p) => p.value === rangeMode)
+  const rangeLabel = `${format(new Date(range.from), 'd MMM yyyy')} – ${format(new Date(range.to), 'd MMM yyyy')}`
+
   const { data, isLoading, isError } = useQuery<MetricsResponse>({
     queryKey: ['dashboard-metrics', range.from, range.to],
     queryFn: () =>
@@ -153,8 +167,16 @@ export function DashboardClient() {
 
   return (
     <div className="space-y-8">
-      {/* Download CSV — sits above the date range selector, available on every tab */}
-      <div className="flex justify-end">
+      {/* Active-range indicator (left) + Download CSV (right) — above the date range selector, on every tab */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-stone-600">
+          <CalendarDays className="h-4 w-4 flex-shrink-0 text-stone-400" />
+          <span>
+            Showing metrics for{' '}
+            <span className="font-semibold text-stone-900">{rangeLabel}</span>
+            {activePreset && <span className="text-stone-400"> · last {activePreset.label}</span>}
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setExportOpen(true)}
@@ -197,38 +219,38 @@ export function DashboardClient() {
             </button>
           ))}
           <span className="mx-1 h-5 w-px bg-stone-200" />
-          <input
-            type="date"
-            value={customFrom}
-            max={customTo || todayStr}
-            onChange={(e) => {
-              setCustomFrom(e.target.value)
-              setRangeMode('custom')
-            }}
-            className={`rounded-lg border px-2 py-1 text-sm text-stone-600 ${
-              customInvalid ? 'border-red-400' : rangeMode === 'custom' ? 'border-[#1C1512]' : 'border-stone-200'
-            }`}
-          />
-          <span className="text-stone-400">–</span>
-          <input
-            type="date"
-            value={customTo}
-            min={customFrom || undefined}
+          <DateRangePicker
+            from={customFrom}
+            to={customTo}
             max={todayStr}
-            onChange={(e) => {
-              setCustomTo(e.target.value)
+            active={rangeMode === 'custom'}
+            invalid={customInvalid}
+            onChange={(f, t) => {
+              setCustomFrom(f)
+              setCustomTo(t)
               setRangeMode('custom')
             }}
-            className={`rounded-lg border px-2 py-1 text-sm text-stone-600 ${
-              customInvalid ? 'border-red-400' : rangeMode === 'custom' ? 'border-[#1C1512]' : 'border-stone-200'
-            }`}
           />
         </div>
       </div>
 
       {customInvalid && (
-        <p className="text-sm text-red-500">
-          Select a valid date range — the start date must be on or before the end date.
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-lg border-2 border-red-500 bg-red-50 px-4 py-3 text-red-700"
+        >
+          <svg className="mt-0.5 h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
+          <div className="text-sm">
+            <p className="font-semibold">Invalid date range</p>
+            <p>The start date must be on or before the end date. Pick valid dates to continue.</p>
+          </div>
+        </div>
+      )}
+      {customIncomplete && (
+        <p className="text-sm text-stone-400">
+          Pick both a start and end date to apply a custom range — showing the last 30 days until then.
         </p>
       )}
 

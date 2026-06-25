@@ -1,95 +1,41 @@
 export const dynamic = 'force-dynamic'
 
 import { Navbar } from '@/components/layout/navbar'
-import { PageBanner } from '@/components/layout/page-banner'
-
-const GOALS = [
-  {
-    title: 'Accelerate AI adoption across CPF',
-    description:
-      'Partner with divisions to identify high-impact use cases and deliver AI-powered tools that reduce manual effort and unlock new capabilities.',
-  },
-  {
-    title: 'Build a reusable AI platform',
-    description:
-      'Develop shared infrastructure, APIs, and libraries that teams can build on, so every new product ships faster than the last.',
-  },
-  {
-    title: 'Cultivate an AI-ready workforce',
-    description:
-      'Run workshops, publish playbooks, and embed AI champions in divisions so officers can confidently leverage AI in their day-to-day work.',
-  },
-  {
-    title: 'Ensure responsible and trustworthy AI',
-    description:
-      'Establish governance frameworks, bias checks, and human-in-the-loop safeguards so every product we ship is safe, fair, and auditable.',
-  },
-  {
-    title: 'Measure and communicate impact',
-    description:
-      'Track outcomes (time saved, decisions improved, satisfaction scores) and share results openly so stakeholders can see the value we deliver.',
-  },
-]
+import { StrategyImage } from './strategy-image'
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <PageBanner banner={{ bannerEnabled: true, bannerText: 'Note: This page contains synthetic data for demonstration purposes only.', bannerStyle: 'warning' }} />
-      <main className="max-w-3xl mx-auto px-6 py-16">
+
+      <main className="max-w-5xl mx-auto px-6 py-16 sm:py-20">
 
         {/* Header */}
-        <div className="mb-16">
+        <header className="mb-20">
           <p className="text-xs font-semibold tracking-[0.2em] text-orange-700 uppercase mb-3">
-Who we are
+            Who we are
           </p>
-          <h1 className="text-5xl font-bold text-[#1C1512] mb-4 leading-tight tracking-tight">
+          <h1 className="text-5xl font-bold text-[#1C1512] mb-5 leading-[1.05] tracking-tight">
             AI Enablement Office
           </h1>
-          <p className="text-base text-stone-500 leading-relaxed max-w-xl">
-            We are a cross-functional team within CPF dedicated to bringing practical, responsible AI to every corner of the organisation.
+          <p className="text-lg text-stone-500 leading-relaxed">
+            We build the central capabilities, tools and governance that make it easy for everyone in CPFB to create value with AI, turning everyday experimentation into CPFB-wide transformation.
           </p>
-        </div>
+        </header>
 
         {/* Vision */}
-        <section className="mb-14">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-4">Vision</p>
-          <div className="bg-[#F5EFE6] border border-[#E8E0D6] rounded-2xl px-8 py-8">
-            <p className="text-2xl font-semibold text-[#1C1512] leading-snug">
-              A CPF where every officer is empowered by AI to serve members better, decide faster, and work with greater purpose.
+        <section className="mb-20">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-5">Vision</p>
+          <div className="rounded-2xl border border-[#E8E0D6] bg-[#F5EFE6] px-8 py-8">
+            <p className="text-[1.45rem] sm:text-[1.7rem] font-semibold text-[#1C1512] leading-[1.35] tracking-tight">
+              To enable the responsible adoption of AI to transform CPFB&rsquo;s technology and business so that the workforce is empowered to create more value for members.
             </p>
           </div>
         </section>
 
-        {/* Mission */}
-        <section className="mb-14">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-4">Mission</p>
-          <div className="bg-[#FDFCFB] border border-[#E8E0D6] rounded-2xl p-8 shadow-sm">
-            <p className="text-base text-stone-700 leading-relaxed">
-              We partner with CPF divisions to design, build, and scale AI products that are <strong className="text-[#1C1512]">useful</strong>, <strong className="text-[#1C1512]">trustworthy</strong>, and <strong className="text-[#1C1512]">sustainable</strong>. By combining deep domain knowledge with engineering and AI expertise, we turn ambitious ideas into working tools, and ensure those tools keep improving long after launch.
-            </p>
-          </div>
-        </section>
-
-        {/* Goals */}
+        {/* Strategy diagram */}
         <section>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-600 mb-6">Goals</p>
-          <div className="space-y-4">
-            {GOALS.map((goal, i) => (
-              <div
-                key={i}
-                className="flex gap-5 bg-[#FDFCFB] border border-[#E8E0D6] rounded-xl px-6 py-5 shadow-sm"
-              >
-                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-orange-100 text-orange-700 text-xs font-bold flex items-center justify-center mt-0.5">
-                  {i + 1}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-[#1C1512] mb-1">{goal.title}</p>
-                  <p className="text-sm text-stone-500 leading-relaxed">{goal.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <StrategyImage />
         </section>
 
       </main>

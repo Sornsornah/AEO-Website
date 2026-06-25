@@ -188,7 +188,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
         </button>
         <button
           onClick={() => { setShowAdd(true); setEditingId(null) }}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium h-9 px-4 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium h-9 px-4 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Article
@@ -232,7 +232,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
             <button
               onClick={handleAdd}
               disabled={addSaving || !addForm.title || !addForm.description || !addForm.url}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm font-medium transition-colors"
             >
               <Check className="w-3.5 h-3.5" />
               {addSaving ? 'Saving...' : 'Save'}
@@ -298,7 +298,7 @@ export function ExternalArticlesTable({ articles: initial }: { articles: Article
                     <button
                       onClick={() => handleSaveEdit(article._id)}
                       disabled={saving}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors"
                     >
                       <Check className="w-3.5 h-3.5" />
                       Save

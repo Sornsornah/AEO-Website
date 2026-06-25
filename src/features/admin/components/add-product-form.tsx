@@ -116,7 +116,7 @@ export function AddProductForm({ domains, users }: { domains: Domain[]; users: U
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm"
+        className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 text-sm"
       >
         + Add Product
       </Button>
@@ -333,7 +333,7 @@ export function AddProductForm({ domains, users }: { domains: Domain[]; users: U
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-4 text-sm"
+                  className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-4 text-sm"
                 >
                   {loading ? 'Creating...' : 'Create Product'}
                 </Button>

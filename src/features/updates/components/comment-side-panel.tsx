@@ -9,7 +9,7 @@ import { track } from '@/lib/track'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { useEditor, EditorContent, Node, mergeAttributes, Extension, type Editor } from '@tiptap/react'
+import { useEditor, useEditorState, EditorContent, Node, mergeAttributes, Extension, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
@@ -17,7 +17,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import { mentionSuggestion } from './comment-mention-suggestion'
-import { uploadImage, imageFileFromClipboardData } from '@/features/editor/lib/image-data-url'
+import { uploadImage, imageFileFromClipboardData, hasNonImageFile } from '@/features/editor/lib/image-data-url'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -59,6 +59,34 @@ async function commentRequestError(res: Response): Promise<Error> {
   return new Error(`Couldn’t save comment (error ${res.status})`)
 }
 
+// Persist an in-progress comment so it survives closing the panel or navigating
+// away — restored when the user reopens the discussion for the same update.
+// localStorage can throw (private mode / disabled storage), so guard every call.
+function loadDraft(key: string): string {
+  try {
+    return localStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+function saveDraft(key: string, html: string) {
+  try {
+    if (!html || html === '<p></p>') localStorage.removeItem(key)
+    else localStorage.setItem(key, html)
+  } catch {
+    /* storage unavailable — drafting just won't persist */
+  }
+}
+
+function clearDraft(key: string) {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 async function insertPastedImage(editor: Editor, file: File) {
   try {
     // Downscale + upload to GridFS, then insert the URL — never inline base64.
@@ -74,10 +102,79 @@ async function insertPastedImage(editor: Editor, file: File) {
 function handleImageInsert(editor: Editor | null, data: DataTransfer | null, event: Event): boolean {
   if (!editor) return false
   const file = imageFileFromClipboardData(data)
-  if (!file) return false
+  if (!file) {
+    // No image, but a non-image file (PDF, doc, etc.) was pasted/dropped — reject
+    // it with a clear message instead of letting Tiptap silently swallow it.
+    if (hasNonImageFile(data)) {
+      event.preventDefault()
+      toast.error('File type not supported for pasting — only images are allowed')
+      return true
+    }
+    return false
+  }
   event.preventDefault()
   void insertPastedImage(editor, file)
   return true
+}
+
+// Toggle a bullet/ordered list in a comment editor. Because Enter submits the
+// comment, users write multi-line comments with Shift+Enter, which inserts hard
+// breaks INSIDE one paragraph. A plain toggleList would then wrap that whole
+// multi-line paragraph in a single bullet. So when turning a list ON, we first
+// split the touched paragraph(s) at each hard break into separate paragraphs,
+// re-select them all, then wrap — yielding one bullet per line, as expected.
+function toggleCommentList(editor: Editor, kind: 'bullet' | 'ordered') {
+  const toggle = () =>
+    kind === 'bullet'
+      ? editor.chain().focus().toggleBulletList().run()
+      : editor.chain().focus().toggleOrderedList().run()
+
+  // Toggling a list OFF (already inside one) needs no line-splitting.
+  if (editor.isActive('bulletList') || editor.isActive('orderedList')) {
+    toggle()
+    return
+  }
+
+  let selFrom = 0
+  let selTo = 0
+  let didSplit = false
+
+  editor
+    .chain()
+    .focus()
+    .command(({ tr, state, dispatch }) => {
+      const { from, to } = state.selection
+      const $from = state.doc.resolve(from)
+      const $to = state.doc.resolve(to)
+      const rangeFrom = $from.before($from.depth)
+      const rangeTo = $to.after($to.depth)
+
+      const breaks: number[] = []
+      state.doc.nodesBetween(rangeFrom, rangeTo, (node, pos) => {
+        if (node.type.name === 'hardBreak') breaks.push(pos)
+      })
+
+      if (dispatch && breaks.length > 0) {
+        // Split from the end so earlier positions stay valid as the doc mutates.
+        for (let i = breaks.length - 1; i >= 0; i--) {
+          const pos = breaks[i]
+          tr.delete(pos, pos + 1)
+          tr.split(pos)
+        }
+        // Map the ORIGINAL selection through the splits so the wrap covers only
+        // the line(s) the user actually had selected — not the whole block.
+        selFrom = tr.mapping.map(from)
+        selTo = tr.mapping.map(to)
+        didSplit = true
+      }
+      return true
+    })
+    .run()
+
+  // Restore the (mapped) selection so the list wraps only the selected line(s).
+  if (didSplit) editor.chain().focus().setTextSelection({ from: selFrom, to: selTo }).run()
+
+  toggle()
 }
 
 interface UpdateData {
@@ -188,14 +285,33 @@ const VideoNode = Node.create({
   },
 })
 
+// Toolbar highlight state. Tiptap 3's `useEditor` doesn't re-render on every
+// transaction, so `editor.isActive(...)` read during render would go stale as the
+// caret moves. `useEditorState` with this selector re-renders only when one of
+// these active flags actually flips, keeping the toolbar buttons in sync.
+function toolbarStateSelector({ editor }: { editor: Editor | null }) {
+  return {
+    isBold: editor?.isActive('bold') ?? false,
+    isItalic: editor?.isActive('italic') ?? false,
+    isUnderline: editor?.isActive('underline') ?? false,
+    isStrike: editor?.isActive('strike') ?? false,
+    isBulletList: editor?.isActive('bulletList') ?? false,
+    isOrderedList: editor?.isActive('orderedList') ?? false,
+    isLink: editor?.isActive('link') ?? false,
+  }
+}
+
+// Fallback for before the editor mounts (useEditorState yields null then).
+const EMPTY_TOOLBAR_STATE = toolbarStateSelector({ editor: null })
+
 export interface CommentEditorHandle {
   getHtml(): string
   clear(): void
   focus(): void
 }
 
-const CommentTiptapEditor = forwardRef<CommentEditorHandle, { onSubmit: () => void }>(
-function CommentTiptapEditor({ onSubmit }, ref) {
+const CommentTiptapEditor = forwardRef<CommentEditorHandle, { onSubmit: () => void; draftKey: string }>(
+function CommentTiptapEditor({ onSubmit, draftKey }, ref) {
   const linkInputRef = useRef<HTMLInputElement>(null)
   const editorRef = useRef<Editor | null>(null)
   const [showLinkInput, setShowLinkInput] = useState(false)
@@ -226,8 +342,12 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     },
   }), [])
 
+  // Restore any in-progress draft for this update (read once at editor creation).
+  const initialContent = useMemo(() => loadDraft(draftKey), [draftKey])
+
   const editor = useEditor({
     immediatelyRender: false,
+    content: initialContent,
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false, blockquote: false, horizontalRule: false }),
       Placeholder.configure({ placeholder: 'Add to the discussion… (Shift+Enter for new line, Enter to post)' }),
@@ -242,14 +362,18 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
+        class: 'prose prose-sm comment-body max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
       handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
       handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
     },
+    // Persist on every change so the draft survives an unmount / page leave.
+    onUpdate: ({ editor }) => saveDraft(draftKey, editor.getHTML()),
   })
 
   useEffect(() => { editorRef.current = editor }, [editor])
+
+  const toolbar = useEditorState({ editor, selector: toolbarStateSelector }) ?? EMPTY_TOOLBAR_STATE
 
   useImperativeHandle(ref, () => ({
     getHtml() {
@@ -259,13 +383,14 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     },
     clear() {
       editor?.commands.clearContent()
+      clearDraft(draftKey)
       setShowLinkInput(false)
       setLinkUrl('')
     },
     focus() {
       editor?.commands.focus('end')
     },
-  }), [editor])
+  }), [editor, draftKey])
 
   function handleLinkToggle() {
     if (!editor) return
@@ -311,19 +436,19 @@ function CommentTiptapEditor({ onSubmit }, ref) {
     <div className="rounded-xl border border-slate-200 bg-background focus-within:ring-2 focus-within:ring-slate-300 overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b border-slate-100">
-        {tb(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
-        {tb(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
-        {tb(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
-        {tb(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
+        {tb(<span className="font-bold">B</span>, 'Bold', toolbar.isBold, () => editor.chain().focus().toggleBold().run())}
+        {tb(<span className="italic">I</span>, 'Italic', toolbar.isItalic, () => editor.chain().focus().toggleItalic().run())}
+        {tb(<span className="underline">U</span>, 'Underline', toolbar.isUnderline, () => editor.chain().focus().toggleUnderline().run())}
+        {tb(<span className="line-through">S</span>, 'Strikethrough', toolbar.isStrike, () => editor.chain().focus().toggleStrike().run())}
         <div className="w-px h-4 bg-slate-200 mx-0.5" />
-        {tb(<List className="w-3 h-3" />, 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
-        {tb(<ListOrdered className="w-3 h-3" />, 'Ordered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+        {tb(<List className="w-3 h-3" />, 'Bullet list', toolbar.isBulletList, () => toggleCommentList(editor, 'bullet'))}
+        {tb(<ListOrdered className="w-3 h-3" />, 'Ordered list', toolbar.isOrderedList, () => toggleCommentList(editor, 'ordered'))}
         <div className="w-px h-4 bg-slate-200 mx-0.5" />
         <button
           type="button"
           title="Link"
           onMouseDown={(e) => { e.preventDefault(); handleLinkToggle() }}
-          className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${editor.isActive('link') || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
+          className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${toolbar.isLink || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
         >
           <Link2 className="w-3 h-3" />
         </button>
@@ -348,11 +473,11 @@ function CommentTiptapEditor({ onSubmit }, ref) {
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); applyLink() }}
-            className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs hover:bg-slate-700 transition-colors"
+            className="px-2.5 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors"
           >
             Apply
           </button>
-          {editor.isActive('link') && (
+          {toolbar.isLink && (
             <button
               type="button"
               title="Remove link"
@@ -487,7 +612,7 @@ function EditCommentTiptapEditor({
     ],
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
+        class: 'prose prose-sm comment-body max-w-none focus:outline-none px-3 py-2.5 text-sm text-slate-800 min-h-[72px] max-h-[40vh] overflow-y-auto [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-0 [&_li]:my-0 [&_a]:text-blue-600 [&_a]:underline [&_img]:max-h-48 [&_img]:rounded-lg',
       },
       handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
       handleDrop: (_view, event) => handleImageInsert(editorRef.current, (event as DragEvent).dataTransfer, event),
@@ -496,6 +621,8 @@ function EditCommentTiptapEditor({
   })
 
   useEffect(() => { editorRef.current = editor }, [editor])
+
+  const toolbar = useEditorState({ editor, selector: toolbarStateSelector }) ?? EMPTY_TOOLBAR_STATE
 
   function handleLinkToggle() {
     if (!editor) return
@@ -532,16 +659,16 @@ function EditCommentTiptapEditor({
     <div className="mt-1 space-y-1.5">
       <div className="rounded-xl border border-slate-200 bg-background focus-within:ring-2 focus-within:ring-slate-300 overflow-hidden">
         <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b border-slate-100">
-          {tb(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
-          {tb(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
-          {tb(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
-          {tb(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
+          {tb(<span className="font-bold">B</span>, 'Bold', toolbar.isBold, () => editor.chain().focus().toggleBold().run())}
+          {tb(<span className="italic">I</span>, 'Italic', toolbar.isItalic, () => editor.chain().focus().toggleItalic().run())}
+          {tb(<span className="underline">U</span>, 'Underline', toolbar.isUnderline, () => editor.chain().focus().toggleUnderline().run())}
+          {tb(<span className="line-through">S</span>, 'Strikethrough', toolbar.isStrike, () => editor.chain().focus().toggleStrike().run())}
           <div className="w-px h-4 bg-slate-200 mx-0.5" />
-          {tb(<List className="w-3 h-3" />, 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
-          {tb(<ListOrdered className="w-3 h-3" />, 'Ordered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+          {tb(<List className="w-3 h-3" />, 'Bullet list', toolbar.isBulletList, () => toggleCommentList(editor, 'bullet'))}
+          {tb(<ListOrdered className="w-3 h-3" />, 'Ordered list', toolbar.isOrderedList, () => toggleCommentList(editor, 'ordered'))}
           <div className="w-px h-4 bg-slate-200 mx-0.5" />
           <button type="button" title="Link" onMouseDown={(e) => { e.preventDefault(); handleLinkToggle() }}
-            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${editor.isActive('link') || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${toolbar.isLink || showLinkInput ? 'bg-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}>
             <Link2 className="w-3 h-3" />
           </button>
         </div>
@@ -556,8 +683,8 @@ function EditCommentTiptapEditor({
               placeholder="https://…"
               className="flex-1 text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-300 bg-white" />
             <button type="button" onMouseDown={(e) => { e.preventDefault(); applyLink() }}
-              className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs hover:bg-slate-700 transition-colors">Apply</button>
-            {editor.isActive('link') && (
+              className="px-2.5 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors">Apply</button>
+            {toolbar.isLink && (
               <button type="button" title="Remove link"
                 onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().extendMarkRange('link').unsetLink().run(); setShowLinkInput(false) }}
                 className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-slate-100 transition-colors">
@@ -575,7 +702,7 @@ function EditCommentTiptapEditor({
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => { const h = editor.getHTML(); if (h && h !== '<p></p>') onSave(h) }}
           disabled={isEmpty || saving}
-          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-slate-800 text-white rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors">
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-orange-600 text-white rounded-lg disabled:opacity-40 hover:bg-orange-700 transition-colors">
           <Check className="w-3 h-3" />
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -914,13 +1041,14 @@ export function CommentSidePanel({ updateId, update, onClose, onCountChange }: C
               <CommentTiptapEditor
                 ref={commentEditorRef}
                 onSubmit={submit}
+                draftKey={`comment-draft:${updateId}`}
               />
               <div className="flex items-center justify-end mt-2">
                 <button
                   type="button"
                   onClick={submit}
                   disabled={submitMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 text-white rounded-lg disabled:opacity-40 hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-orange-600 text-white rounded-lg disabled:opacity-40 hover:bg-orange-700 transition-colors"
                 >
                   {submitMutation.isPending ? 'Posting…' : 'Post'}
                 </button>

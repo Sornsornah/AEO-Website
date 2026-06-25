@@ -2,7 +2,8 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback, useState, useEffect } from 'react'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { compareDomainsByOrder } from '@/features/updates/lib/domain-order'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -96,6 +97,14 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
 
   const hasFilters = currentProduct || currentDomain || currentYear || currentMonth || currentSearch || (showStatus && currentStatus)
 
+  // Flat, ungrouped product list (deduped by id, alphabetical)
+  const allProductsFlat = Array.from(
+    new Map(domains.flatMap((d) => d.products).map((p) => [p._id, p])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name))
+
+  // Section order mirrors the public updates page (DOMAIN_ORDER, then alphabetical)
+  const sortedDomains = [...allDomains].sort(compareDomainsByOrder)
+
   return (
     <div className="flex flex-wrap items-end gap-4 pb-6 border-b border-slate-100">
       {/* Search */}
@@ -128,7 +137,7 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All sections</SelectItem>
-            {allDomains.map((d) => (
+            {sortedDomains.map((d) => (
               <SelectItem key={d._id} value={d.slug}>{d.name}</SelectItem>
             ))}
           </SelectContent>
@@ -147,23 +156,16 @@ export function FilterBar({ domains, allDomains, availableYears, currentSearch =
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All products</SelectItem>
-            {domains.map((domain) => (
-              <SelectGroup key={domain._id}>
-                <SelectLabel className="text-xs text-slate-400 font-medium py-1 pl-3 pr-2">
-                  {domain.name}
-                </SelectLabel>
-                {domain.products.map((p) => (
-                  <SelectItem key={p._id} value={p.slug}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: p.color }}
-                      />
-                      {p.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectGroup>
+            {allProductsFlat.map((p) => (
+              <SelectItem key={p._id} value={p.slug}>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: p.color }}
+                  />
+                  {p.name}
+                </span>
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
