@@ -75,7 +75,6 @@ export default async function EditProductPage({ params }: Props) {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="px-6 py-10">
-        <h1 className="text-2xl font-bold text-slate-900 mb-8">Edit product page</h1>
         <ProductDetailForm productId={p._id.toString()} productSlug={p.slug} defaultValues={defaultValues} />
       </main>
     </div>

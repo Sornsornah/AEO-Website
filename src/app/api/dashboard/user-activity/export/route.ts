@@ -27,13 +27,19 @@ function sgtParts(iso: string): { date: string; hour: string; dow: string } {
   }
 }
 
+/** Full SGT (UTC+8) wall-clock timestamp, e.g. "2026-06-23 14:30:45 +08:00". */
+function sgtTimestamp(iso: string): string {
+  const sgt = new Date(new Date(iso).getTime() + SGT_OFFSET_MS)
+  return sgt.toISOString().slice(0, 19).replace('T', ' ') + ' +08:00'
+}
+
 /** Per-column cell resolvers, keyed by the column's CSV header. */
 const CELL: Record<string, (r: ActivityRow, user: { name: string; email: string } | undefined) => string> = {
-  timestamp_utc: (r) => r.createdAt,
+  timestamp_sgt: (r) => sgtTimestamp(r.createdAt),
   date: (r) => sgtParts(r.createdAt).date,
   hour: (r) => sgtParts(r.createdAt).hour,
   day_of_week: (r) => sgtParts(r.createdAt).dow,
-  user_name: (_r, u) => u?.name ?? '(unknown)',
+  user_name: (_r, u) => u?.name || u?.email || '',
   user_email: (_r, u) => u?.email ?? '',
   event_label: (r) => activityLabel(r.type),
   entity_type: (r) => r.entityType ?? '',
@@ -106,6 +112,8 @@ export async function GET(req: NextRequest) {
     const lines = [csvRow(columns)]
     for (const r of rows) {
       const u = r.userId ? userMap.get(r.userId) : undefined
+      // Skip rows whose user no longer resolves rather than export "unknown".
+      if (!u || !(u.name || u.email)) continue
       lines.push(csvRow(columns.map((k) => CELL[k](r, u))))
     }
 

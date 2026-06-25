@@ -248,7 +248,7 @@ export function UserMembershipModal({ user, domains, products, onClose }: UserMe
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-4 text-sm"
+            className="bg-orange-600 hover:bg-orange-700 text-white h-8 px-4 text-sm"
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEditor, EditorContent, Editor, Node, mergeAttributes } from '@tiptap/react'
+import { useEditor, useEditorState, EditorContent, Editor, Node, mergeAttributes } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
@@ -55,9 +55,11 @@ interface TiptapEditorProps {
   placeholder?: string
   minHeight?: string
   limitedToolbar?: boolean
+  /** Extra class(es) added to the editable content area (e.g. `blog-prose`). */
+  contentClassName?: string
 }
 
-export function TiptapEditor({ value, onChange, placeholder = 'Start writing...', minHeight = '120px', limitedToolbar = false }: TiptapEditorProps) {
+export function TiptapEditor({ value, onChange, placeholder = 'Start writing...', minHeight = '120px', limitedToolbar = false, contentClassName = '' }: TiptapEditorProps) {
   const lastHtml = useRef(value)
   const editorRef = useRef<Editor | null>(null)
 
@@ -80,7 +82,7 @@ export function TiptapEditor({ value, onChange, placeholder = 'Start writing...'
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through [&_pre]:bg-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_blockquote]:italic [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:[line-height:1.25] [&_li]:[line-height:1.25] [&_h1]:[line-height:1.25] [&_h2]:[line-height:1.25] [&_h3]:[line-height:1.25]',
+        class: `prose prose-sm max-w-none focus:outline-none px-3 py-2 text-sm text-slate-800 [&_u]:underline [&_s]:line-through [&_pre]:bg-slate-100 [&_pre]:rounded [&_pre]:p-3 [&_pre]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-slate-300 [&_blockquote]:pl-4 [&_blockquote]:text-slate-600 [&_blockquote]:italic [&_blockquote]:bg-transparent [&_blockquote]:border-r-0 [&_blockquote]:border-t-0 [&_blockquote]:border-b-0 [&_p]:[line-height:1.25] [&_li]:[line-height:1.25] [&_h1]:[line-height:1.25] [&_h2]:[line-height:1.25] [&_h3]:[line-height:1.25]${contentClassName ? ` ${contentClassName}` : ''}`,
         style: `min-height: ${minHeight}`,
       },
       handlePaste: (_view, event) => handleImageInsert(editorRef.current, event.clipboardData, event),
@@ -112,7 +114,30 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
   const [linkUrl, setLinkUrl] = useState('')
   const linkInputRef = useRef<HTMLInputElement>(null)
 
-  if (!editor) return null
+  // Tiptap React v3's useEditor doesn't re-render on selection/transaction
+  // changes, so reading editor.isActive(...) directly in render goes stale (the
+  // highlights never track the cursor). useEditorState subscribes to those
+  // values and re-renders the toolbar when they change.
+  const active = useEditorState({
+    editor,
+    selector: ({ editor }) =>
+      editor && {
+        bold: editor.isActive('bold'),
+        italic: editor.isActive('italic'),
+        underline: editor.isActive('underline'),
+        strike: editor.isActive('strike'),
+        h1: editor.isActive('heading', { level: 1 }),
+        h2: editor.isActive('heading', { level: 2 }),
+        h3: editor.isActive('heading', { level: 3 }),
+        bulletList: editor.isActive('bulletList'),
+        orderedList: editor.isActive('orderedList'),
+        codeBlock: editor.isActive('codeBlock'),
+        blockquote: editor.isActive('blockquote'),
+        link: editor.isActive('link'),
+      },
+  })
+
+  if (!editor || !active) return null
 
   function handleLinkClick() {
     if (editor!.isActive('link')) {
@@ -160,22 +185,22 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
   return (
     <div>
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5">
-        {btn(<span className="font-bold">B</span>, 'Bold', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run())}
-        {btn(<span className="italic">I</span>, 'Italic', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run())}
-        {btn(<span className="underline">U</span>, 'Underline', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run())}
-        {btn(<span className="line-through">S</span>, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run())}
+        {btn(<span className="font-bold">B</span>, 'Bold', active.bold, () => editor.chain().focus().toggleBold().run())}
+        {btn(<span className="italic">I</span>, 'Italic', active.italic, () => editor.chain().focus().toggleItalic().run())}
+        {btn(<span className="underline">U</span>, 'Underline', active.underline, () => editor.chain().focus().toggleUnderline().run())}
+        {btn(<span className="line-through">S</span>, 'Strikethrough', active.strike, () => editor.chain().focus().toggleStrike().run())}
         {!limited && (
           <>
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {btn('H1', 'Heading 1', editor.isActive('heading', { level: 1 }), () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-            {btn('H2', 'Heading 2', editor.isActive('heading', { level: 2 }), () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-            {btn('H3', 'Heading 3', editor.isActive('heading', { level: 3 }), () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+            {btn('H1', 'Heading 1', active.h1, () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+            {btn('H2', 'Heading 2', active.h2, () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+            {btn('H3', 'Heading 3', active.h3, () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {btn('• List', 'Bullet list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
-            {btn('1. List', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+            {btn('• List', 'Bullet list', active.bulletList, () => editor.chain().focus().toggleBulletList().run())}
+            {btn('1. List', 'Numbered list', active.orderedList, () => editor.chain().focus().toggleOrderedList().run())}
             <div className="w-px h-4 bg-slate-200 mx-1" />
-            {btn(<Code size={12} />, 'Code block', editor.isActive('codeBlock'), () => editor.chain().focus().toggleCodeBlock().run())}
-            {btn(<Quote size={12} />, 'Blockquote', editor.isActive('blockquote'), () => editor.chain().focus().toggleBlockquote().run())}
+            {btn(<Code size={12} />, 'Code block', active.codeBlock, () => editor.chain().focus().toggleCodeBlock().run())}
+            {btn(<Quote size={12} />, 'Blockquote', active.blockquote, () => editor.chain().focus().toggleBlockquote().run())}
           </>
         )}
         <div className="w-px h-4 bg-slate-200 mx-1" />
@@ -184,7 +209,7 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
           title="Link"
           onMouseDown={(e) => { e.preventDefault(); handleLinkClick() }}
           className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
-            editor.isActive('link') || showLinkInput
+            active.link || showLinkInput
               ? 'bg-slate-200 text-slate-900'
               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
           }`}
@@ -212,11 +237,11 @@ function Toolbar({ editor, limited = false }: { editor: Editor | null; limited?:
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); applyLink() }}
-            className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs hover:bg-slate-700 transition-colors"
+            className="px-2.5 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700 transition-colors"
           >
             Apply
           </button>
-          {editor.isActive('link') && (
+          {active.link && (
             <button
               type="button"
               title="Remove link"

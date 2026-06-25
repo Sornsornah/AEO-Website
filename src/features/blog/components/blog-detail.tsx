@@ -193,11 +193,11 @@ export function BlogDetail({ post, related, isLoggedIn, initialComments, current
       {/* Content */}
       {post.content.trim().startsWith('<') ? (
         <div
-          className="prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline"
+          className="blog-prose prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
       ) : (
-        <div className="prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline">
+        <div className="blog-prose prose prose-stone prose-base max-w-none mb-10 prose-headings:font-bold prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline">
           <ReactMarkdown>{post.content}</ReactMarkdown>
         </div>
       )}

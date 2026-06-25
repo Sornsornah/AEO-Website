@@ -15,6 +15,7 @@ import { UpdateTable } from '@/features/editor/components/update-table'
 import { UpdateReorderView } from '@/features/editor/components/update-reorder-view'
 import { FilterBar } from '@/features/updates/components/filter-bar'
 import { EditorProductsList } from '@/features/editor/components/editor-products-list'
+import { ProductReorderView } from '@/features/editor/components/product-reorder-view'
 import { BlogTable } from '@/features/editor/components/blog-table'
 import { Button } from '@/components/ui/button'
 import { BlogPost } from '@/models/BlogPost'
@@ -91,15 +92,6 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
             <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Internal Updates</Link>
           </div>
 
-          {/* New Post button */}
-          <div className="flex items-center justify-end mb-6">
-            <Link href="/editor/blog/new">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
-                + New Post
-              </Button>
-            </Link>
-          </div>
-
           <BlogTable posts={serializedPosts} categories={serializedCategories} />
         </main>
       </div>
@@ -142,8 +134,27 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
             <Link href="/editor?tab=blog" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Blog</Link>
             <Link href="/editor" className="px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">Internal Updates</Link>
           </div>
-          {/* Products list */}
-          <EditorProductsList initialProducts={serializedProducts} />
+          {searchParams.reorder === '1' ? (
+            <>
+              {/* Reorder mode header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-700">
+                    Formatting
+                  </span>
+                  <span className="text-xs text-slate-400">Drag to reorder and toggle visibility</span>
+                </div>
+                <Link href="/editor?tab=products">
+                  <Button variant="outline" className="h-9 px-4 text-sm">
+                    ← Back to list
+                  </Button>
+                </Link>
+              </div>
+              <ProductReorderView products={serializedProducts} />
+            </>
+          ) : (
+            <EditorProductsList initialProducts={serializedProducts} />
+          )}
         </main>
       </div>
     )
@@ -394,7 +405,7 @@ export default async function EditorPage({ searchParams: searchParamsPromise }: 
                       </Button>
                     </Link>
                     <Link href="/editor/new">
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 text-sm">
+                      <Button className="bg-orange-600 hover:bg-orange-700 text-white h-9 px-4 text-sm">
                         + New Update
                       </Button>
                     </Link>

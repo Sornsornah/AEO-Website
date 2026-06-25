@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
       ? await User.find({ _id: { $in: authorIds } }).select('_id name email').lean()
       : []
     const authorName = new Map<string, string>()
-    for (const u of authorUsers) authorName.set(String(u._id), u.name || u.email || 'Unknown')
+    for (const u of authorUsers) authorName.set(String(u._id), u.name || u.email || '')
     const postAuthorId = new Map<string, string>()
     for (const b of blogPosts) {
       if (b.createdBy) postAuthorId.set(String(b._id), String(b.createdBy))
@@ -218,7 +218,7 @@ export async function GET(req: NextRequest) {
       return {
         postId: bid,
         title: meta.title,
-        author: authorId ? authorName.get(authorId) ?? 'Unknown' : 'Unknown',
+        author: authorId ? authorName.get(authorId) ?? '' : '',
         category: categoryName.get(meta.category) ?? meta.category,
         views: v?.views ?? 0,
         uniqueViewers: v?.uniqueViewers ?? 0,
@@ -227,7 +227,10 @@ export async function GET(req: NextRequest) {
         shares: s?.shares ?? 0,
         uniqueShares: s?.uniqueShares ?? 0,
       }
-    }).sort((a, b) => b.views - a.views)
+    })
+      // Drop posts whose author no longer resolves rather than show "unknown".
+      .filter((p) => p.author !== '')
+      .sort((a, b) => b.views - a.views)
 
     // ---- Activation: top contributors (per author across their posts) ----
     type Contributor = { authorId: string; author: string; posts: number; views: number; likes: number; comments: number; shares: number }
@@ -235,8 +238,12 @@ export async function GET(req: NextRequest) {
     for (const b of blogPosts) {
       if (!b.createdBy) continue
       const aid = String(b.createdBy)
+      // Drop contributors whose author user no longer resolves — the row and its
+      // aggregated stats are excluded entirely rather than shown as "unknown".
+      const resolvedAuthor = authorName.get(aid)
+      if (!resolvedAuthor) continue
       if (!contribMap.has(aid)) {
-        contribMap.set(aid, { authorId: aid, author: authorName.get(aid) ?? 'Unknown', posts: 0, views: 0, likes: 0, comments: 0, shares: 0 })
+        contribMap.set(aid, { authorId: aid, author: resolvedAuthor, posts: 0, views: 0, likes: 0, comments: 0, shares: 0 })
       }
       const c = contribMap.get(aid)!
       const pid = String(b._id)
